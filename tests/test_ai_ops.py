@@ -56,3 +56,36 @@ def test_ga4_unconfigured_is_explicit(monkeypatch, tmp_path):
     s = connectors.ga4_status()
     assert not s.configured
     assert s.state == "not_configured"
+
+
+def test_admin_copilot_is_grounded_without_external_provider(monkeypatch, tmp_path):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr(ai_ops, "AI_EVENTS_PATH", tmp_path / "events.jsonl")
+    ops = {
+        "ai": {"fallback_rate": 0.12, "p95_latency_ms": 420, "cost_usd": 0.0, "grounded_rate": 0.99,
+               "requests": 10, "avg_latency_ms": 200, "models": {"zarbin-rules": 10}, "intents": {}},
+        "sources": [{"label": "Google Analytics 4", "configured": False}],
+        "platform": {"merchants": 3, "sessions": 100},
+        "slo": {"target_ai_fallback_rate": 0.05},
+    }
+    r = ai_ops.admin_answer("fallback چقدر است؟", ops)
+    assert r["intent"] == "ai_fallback"
+    assert r["ai"]["grounded"] is True
+    assert r["ai"]["mode"] == "deterministic"
+    assert (tmp_path / "events.jsonl").exists()
+
+
+def test_ga4_snapshot_becomes_insight_not_just_display(monkeypatch, tmp_path):
+    p = tmp_path / "ga4.json"
+    rows = []
+    for i in range(7):
+        rows.append({"date": f"202608{1+i:02d}", "sessions": 100, "users": 80, "events": 300, "purchase_revenue": 10})
+    for i in range(7):
+        rows.append({"date": f"202608{8+i:02d}", "sessions": 140, "users": 100, "events": 360, "purchase_revenue": 12})
+    p.write_text(json.dumps({"rows": rows, "totals": {}, "period": {"from": "2026-08-01", "to": "2026-08-14"}}), encoding="utf-8")
+    monkeypatch.setattr(connectors, "GA4_SNAPSHOT", p)
+    cards = connectors.ga4_insights()
+    traffic = next(c for c in cards if c["metric"] == "sessions")
+    assert traffic["change"] == 0.4
+    assert traffic["sample_days"] == 14
+    assert "علت" in traffic["caveat_fa"]
