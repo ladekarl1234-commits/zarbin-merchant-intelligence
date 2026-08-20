@@ -9,6 +9,7 @@ from __future__ import annotations
 from . import obs
 from .ai import telemetry as ai_telemetry
 from .db import q, q1
+from .fa import fa_num, fa_pct
 from .sources import registry
 
 
@@ -78,18 +79,18 @@ def _platform_insights(k: dict, conc: dict) -> list[dict]:
     if k["paid_unverified_amount"]:
         out.append({"severity": "high",
                     "title_fa": "پول تسویه‌شده اما تاییدنشده در کل پلتفرم",
-                    "body_fa": f"{k['paid_unverified']} پرداخت در بانک تسویه شده اما پذیرنده تایید نکرده است.",
+                    "body_fa": f"{fa_num(k['paid_unverified'])} پرداخت در بانک تسویه شده اما پذیرنده تایید نکرده است.",
                     "action_fa": "پذیرندگان دارای بیشترین مبلغ تاییدنشده را برای فعال‌سازی وریفای خودکار در اولویت بگذارید."})
     top5 = conc.get("top5") or 0
     if top5 >= 0.5:
         out.append({"severity": "medium",
                     "title_fa": "تمرکز درآمد پلتفرم",
-                    "body_fa": f"۵ پذیرنده برتر {round(top5*100)}٪ از فروش موفق را می‌سازند.",
+                    "body_fa": f"۵ پذیرنده برتر {fa_pct(top5, 0)} از فروش موفق را می‌سازند.",
                     "action_fa": "ریسک تمرکز؛ سلامت و نگه‌داشت این پذیرندگان کلیدی را جدا پایش کنید."})
     if k["no_attempt_rate"] and k["no_attempt_rate"] >= 0.2:
         out.append({"severity": "medium",
                     "title_fa": "انصراف پیش از پرداخت در سطح پلتفرم",
-                    "body_fa": f"{round(k['no_attempt_rate']*100)}٪ جلسه‌ها اصلاً به درگاه نرسیدند (NoAttempt).",
+                    "body_fa": f"{fa_pct(k['no_attempt_rate'], 0)} جلسه‌ها اصلاً به درگاه نرسیدند (NoAttempt).",
                     "action_fa": "تجربه پیش از درگاه (ریدایرکت/بارگذاری صفحه پرداخت) را بررسی کنید."})
     return out
 

@@ -353,6 +353,100 @@ a { color: inherit; }
 .linklike { background: none; border: 0; color: var(--info); font: inherit; padding: 0; cursor: pointer; }
 .linklike:hover { text-decoration: underline; }
 
+/* ======================================================================== */
+/* Control Center — same family, different job: a cooler, denser, operational */
+/* register. Merchant surface stays warm (brand-ink + yellow); ops goes cool  */
+/* slate + a calm operational blue accent. Structure is shared.               */
+/* ======================================================================== */
+:root {
+  --ops-band: #0e1626;      /* cool deep slate, vs merchant warm near-black */
+  --ops-accent: #4aa8ff;    /* operational blue — active states on ops only */
+  --ops-bg: #f5f7fa;        /* subtly cool content bg */
+}
+.shell[data-workspace="ops"] { background: var(--ops-bg); }
+[data-workspace="ops"] .topband, [data-workspace="ops"] .tabs { background: var(--ops-band); }
+[data-workspace="ops"] .tab[aria-current="page"] { border-bottom-color: var(--ops-accent); }
+[data-workspace="ops"] .bn-item[aria-current="page"] { color: var(--ops-band); }
+[data-workspace="ops"] .bn-item[aria-current="page"] svg { color: var(--ops-accent); }
+
+/* workspace switch (segmented, in the top band) */
+.ws-switch {
+  display: flex; gap: 2px; background: #ffffff14; border: 1px solid #ffffff2e;
+  border-radius: 999px; padding: 3px;
+}
+.ws-btn {
+  background: none; border: 0; color: #ffffffb0; font-size: var(--fs-xs); font-weight: 600;
+  padding: 5px 13px; border-radius: 999px; white-space: nowrap; transition: color var(--dur) var(--ease);
+}
+.ws-btn:hover { color: #fff; }
+.ws-btn.on { background: #fff; color: var(--brand-ink); }
+[data-workspace="ops"] .ws-btn.on { background: var(--ops-accent); color: #04121f; }
+@media (max-width: 620px) { .ws-btn { padding: 5px 10px; } }
+
+/* ops content primitives */
+.ops-panel {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l);
+  padding: 14px 16px; box-shadow: var(--shadow-1);
+}
+.ops-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m);
+  padding: 14px 16px; box-shadow: var(--shadow-1);
+  display: flex; flex-direction: column; gap: 7px;
+}
+.ops-card-head { display: flex; align-items: center; gap: 8px; }
+.ops-card-head b { font-size: var(--fs-b); }
+.src-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.src-truth { border-color: #0d8a5f66; }
+.chips-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* distribution / metric bars (categories, AI quality, eval) */
+.dist-row { display: grid; grid-template-columns: 132px 1fr auto; gap: 12px; align-items: center; padding-block: 5px; }
+.dist-label { font-size: var(--fs-s); color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dist-track { height: 20px; background: var(--surface-2); border-radius: 6px; overflow: hidden; }
+.dist-fill { display: block; height: 100%; background: var(--brand-ink); border-radius: 6px; transition: width 500ms var(--ease); }
+[data-workspace="ops"] .dist-fill { background: var(--ops-accent); }
+.dist-val { font-size: var(--fs-s); color: var(--ink); font-weight: 700; white-space: nowrap; }
+@media (max-width: 500px) { .dist-row { grid-template-columns: 96px 1fr auto; } }
+
+/* progressive-disclosure tooltip (hover + keyboard focus + tap) */
+.term { display: inline-flex; align-items: center; gap: 3px; }
+.tip { position: relative; display: inline-flex; }
+.tip-btn {
+  width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line-strong);
+  background: var(--surface); color: var(--ink-3); font-size: 11px; line-height: 1;
+  display: grid; place-items: center; padding: 0;
+}
+.tip-btn:hover { color: var(--info); border-color: var(--info); }
+.tip-bubble {
+  position: absolute; bottom: calc(100% + 6px); inset-inline-end: 0; width: max-content; max-width: 240px;
+  background: var(--brand-ink); color: #f2f2f4; font-size: var(--fs-xs); font-weight: 400; line-height: 1.6;
+  padding: 8px 11px; border-radius: 8px; box-shadow: var(--shadow-2);
+  opacity: 0; visibility: hidden; transform: translateY(4px);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+  z-index: var(--z-toast); pointer-events: none; text-align: start;
+}
+.tip:hover .tip-bubble, .tip:focus-within .tip-bubble, .tip[data-open] .tip-bubble {
+  opacity: 1; visibility: visible; transform: translateY(0);
+}
+
+/* copilot: source/confidence badges, feedback, voice */
+.ans-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.ans-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.vote { display: inline-flex; gap: 4px; }
+.vote-btn { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 3px 9px; font-size: 13px; line-height: 1.3; }
+.vote-btn:hover { border-color: var(--line-strong); }
+.vote-btn.on { border-color: var(--brand-ink); background: var(--surface-2); }
+.mic {
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2);
+  border-radius: var(--r-m); width: 44px; display: grid; place-items: center; flex-shrink: 0;
+}
+.mic:hover { background: var(--surface-2); }
+.mic svg { width: 18px; height: 18px; }
+.mic.on { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); animation: micpulse 1.2s infinite; }
+@keyframes micpulse { 0%, 100% { box-shadow: 0 0 0 0 #c4321e40; } 50% { box-shadow: 0 0 0 5px #c4321e00; } }
+.btn-ops { background: var(--ops-accent); border-color: var(--ops-accent); color: #04121f; }
+.btn-ops:hover { background: #2f97f0; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

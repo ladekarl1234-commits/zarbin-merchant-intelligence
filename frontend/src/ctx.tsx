@@ -73,6 +73,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }
 
+/** Control-Center fetching. `usePeriod` sends the selected window (platform/sources);
+ *  global telemetry endpoints (performance/ai-ops/eval) omit it. */
+export function useAdmin<T>(path: string, opts?: { usePeriod?: boolean }) {
+  const { period } = useApp();
+  const [state, setState] = useState<{ data: T | null; loading: boolean; error: string | null }>({
+    data: null, loading: true, error: null,
+  });
+  const usePeriod = opts?.usePeriod ?? false;
+  const key = JSON.stringify([path, usePeriod ? [period.f, period.t] : null]);
+  useEffect(() => {
+    let alive = true;
+    setState((s) => ({ ...s, loading: true, error: null }));
+    get<T>(path, usePeriod ? { f: period.f, t: period.t } : {})
+      .then((d) => alive && setState({ data: d, loading: false, error: null }))
+      .catch((e) => alive && setState({ data: null, loading: false, error: String(e) }));
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return state;
+}
+
 /** data fetching bound to merchant+period */
 export function useData<T>(path: string, extra?: Record<string, string | undefined>) {
   const { merchant, period } = useApp();

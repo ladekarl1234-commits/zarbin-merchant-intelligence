@@ -18,6 +18,11 @@ export const IconClose = I("M18 6L6 18M6 6l12 12");
 export const IconDelta = I("M3 20h18L12 4 3 20z");
 export const IconChat = I("M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z");
 export const IconShield = I("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z");
+export const IconMic = I("M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM5 10v1a7 7 0 0 0 14 0v-1M12 18v4");
+export const IconGauge = I("M12 14l4-4M4 20a8 8 0 1 1 16 0M12 14a2 2 0 1 0 0-.01");
+export const IconServer = I("M4 5h16v5H4zM4 14h16v5H4zM8 7.5h.01M8 16.5h.01");
+export const IconSpark = I("M12 3v6m0 6v6M3 12h6m6 0h6M6 6l3 3m6 6l3 3M18 6l-3 3M9 15l-3 3");
+export const IconPlug = I("M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0zM12 16v6");
 
 export function Section(p: { title: string; sub?: string; children: React.ReactNode }) {
   return (

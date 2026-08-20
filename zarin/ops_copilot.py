@@ -12,9 +12,13 @@ from datetime import UTC, datetime
 
 from . import control
 from .ai import gateway
+from .fa import fa_digits, fa_num
 from .fa import fa_money as _rial
-from .fa import fa_num
 from .fa import fa_pct as _pct
+
+
+def _usd(v: float | None) -> str:
+    return fa_digits(f"{v or 0:g}")
 
 
 def _ev(name: str, definition: str, method: str) -> dict:
@@ -43,8 +47,8 @@ def _plan(question: str, f: str, t: str) -> tuple[str, str, list[dict], str]:
         if not a.get("has_data"):
             return ("هنوز هزینه‌ای ثبت نشده است؛ در حالت آفلاین یا با مدل‌های رایگان هزینه صفر است.", "ai_cost", [], "medium")
         refs = [_ev("هزینه هوش مصنوعی", "جمع هزینهٔ ارائه‌دهنده", "sum(cost_usd)")]
-        text = (f"هزینهٔ کل هوش مصنوعی {a['cost_usd_total']} دلار برای {fa_num(a['llm_requests'])} درخواست مدل "
-                f"({a['cost_per_request']} دلار به‌ازای هر درخواست). سیاست فقط-رایگان فعال است، پس انتظار هزینهٔ صفر می‌رود.")
+        text = (f"هزینهٔ کل هوش مصنوعی {_usd(a['cost_usd_total'])} دلار برای {fa_num(a['llm_requests'])} درخواست مدل "
+                f"({_usd(a['cost_per_request'])} دلار به‌ازای هر درخواست). سیاست فقط-رایگان فعال است، پس انتظار هزینهٔ صفر می‌رود.")
         return (text, "ai_cost", refs, "high")
 
     if re.search(r"(کدام|چه).*(مدل|model)", ql, re.IGNORECASE):
@@ -71,7 +75,7 @@ def _plan(question: str, f: str, t: str) -> tuple[str, str, list[dict], str]:
             return ("هنوز فعالیت هوش مصنوعی ثبت نشده است. با استفاده از دستیارِ پذیرنده، این بخش زنده پر می‌شود.", "ai_health", [], "low")
         refs = [_ev("سلامت هوش مصنوعی", "خلاصهٔ کیفیت پاسخ‌ها", "aggregate over ai_events")]
         text = (f"از {fa_num(a['total'])} درخواست: {_pct(a['grounded_rate'])} مستند، نرخ fallback {_pct(a['fallback_rate'])}، "
-                f"تأخیر p95 برابر {fa_num((a['latency_ms'] or {}).get('p95'))} میلی‌ثانیه، هزینه {a['cost_usd_total']} دلار. "
+                f"تأخیر p95 برابر {fa_num((a['latency_ms'] or {}).get('p95'))} میلی‌ثانیه، هزینه {_usd(a['cost_usd_total'])} دلار. "
                 f"رخداد پرریسک: {fa_num(a['hallucination_risk'])}.")
         return (text, "ai_health", refs, "high")
 

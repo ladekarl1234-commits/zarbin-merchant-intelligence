@@ -9,6 +9,7 @@ import time
 from collections import defaultdict
 
 from .config import TELEMETRY_DIR
+from .fa import fa_num, fa_pct
 from .store import EventLog
 
 _reqs = EventLog(TELEMETRY_DIR / "requests.jsonl", maxlen=8000, durable=False)
@@ -66,10 +67,10 @@ def summary() -> dict:
     for ep in endpoints:
         if ep["error_rate"] > 0:
             attention.append({"severity": "high", "path": ep["path"],
-                              "fa": f"endpoint {ep['path']} نرخ خطای سرور {round(ep['error_rate']*100,1)}٪ دارد"})
+                              "fa": f"مسیر {ep['path']} نرخ خطای سرور {fa_pct(ep['error_rate'])} دارد"})
         elif (ep["p95"] or 0) > 1500:
             attention.append({"severity": "medium", "path": ep["path"],
-                              "fa": f"endpoint {ep['path']} کند است (p95 برابر {ep['p95']} میلی‌ثانیه)"})
+                              "fa": f"مسیر {ep['path']} کند است (p95 برابر {fa_num(ep['p95'])} میلی‌ثانیه)"})
 
     return {
         "total": total, "has_data": True,
