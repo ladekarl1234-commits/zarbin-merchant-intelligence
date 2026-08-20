@@ -128,9 +128,7 @@ def ask(m: str, q_: str = Query(alias="q", min_length=1, max_length=1200),
     return ai_ops.answer(m, q_, f, t)
 
 
-@app.get("/api/admin/ops")
-def admin_ops():
-    """Control-plane snapshot for business/technical operators."""
+def _admin_snapshot() -> dict:
     lo, hi = _range()
     totals = q1("""
         SELECT count(*) AS sessions,
@@ -152,6 +150,7 @@ def admin_ops():
         "ai": ai_ops.stats(),
         "sources": connectors.source_statuses(),
         "ga4": connectors.ga4_snapshot(),
+        "source_insights": connectors.ga4_insights(),
         "slo": {
             "target_api_p95_ms": 1000,
             "target_ai_grounded_rate": 0.98,
@@ -159,6 +158,18 @@ def admin_ops():
             "target_success_rate": 0.99,
         },
     }
+
+
+@app.get("/api/admin/ops")
+def admin_ops():
+    """Control-plane snapshot for business/technical operators."""
+    return _admin_snapshot()
+
+
+@app.get("/api/admin/copilot")
+def admin_ask(q_: str = Query(alias="q", min_length=1, max_length=1200)):
+    """Grounded operations copilot. It can only reason over current control-plane telemetry."""
+    return ai_ops.admin_answer(q_, _admin_snapshot())
 
 
 @app.post("/api/admin/ga4/sync")
