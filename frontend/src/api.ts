@@ -79,10 +79,16 @@ export type Changes = {
   evidence: Evidence;
 };
 
-export type CopilotAnswer = {
-  answer_fa: string; intent: string; evidence: Evidence[]; note_fa: string;
-  ai?: { mode: string; model: string; fallback: boolean; grounded: boolean; latency_ms: number; cost_usd: number; error?: string | null };
+export type AIProvenance = {
+  mode: string; model: string; fallback: boolean; grounded: boolean;
+  latency_ms: number; cost_usd: number; error?: string | null;
 };
+
+export type CopilotAnswer = {
+  answer_fa: string; intent: string; evidence: Evidence[]; note_fa: string; ai?: AIProvenance;
+};
+
+export type AdminCopilotAnswer = { answer_fa: string; intent: string; ai: AIProvenance };
 
 export type Quality = {
   outcomes: { outcome: string; n: number; amount: number | null }[];
@@ -93,6 +99,11 @@ export type Quality = {
 
 export type SourceStatus = {
   id: string; label: string; configured: boolean; state: string; detail: string; last_sync?: string | null;
+};
+
+export type SourceInsight = {
+  id: string; source: string; title_fa: string; observation_fa: string; action_fa: string;
+  metric: string; current: number; previous: number | null; change: number | null; sample_days: number; caveat_fa: string;
 };
 
 export type AdminOps = {
@@ -106,6 +117,7 @@ export type AdminOps = {
     recent: { ts: string; merchant: string; intent: string; mode: string; model: string; latency_ms: number; success: boolean; fallback: boolean; grounded: boolean; evidence_count: number; cost_usd: number }[];
   };
   sources: SourceStatus[];
+  source_insights: SourceInsight[];
   ga4: null | { period: { from: string; to: string }; synced_at: string; totals: { sessions: number; users: number; events: number; purchase_revenue: number } };
   slo: { target_api_p95_ms: number; target_ai_grounded_rate: number; target_ai_fallback_rate: number; target_success_rate: number };
 };
