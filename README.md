@@ -14,27 +14,41 @@
 
 ---
 
-## ▶ اجرا و مشاهده
+## ▶ اجرا و مشاهده — نسخه‌ای که همین سورس را نشان می‌دهد
 
-پیش‌نیاز اصلی: [uv](https://docs.astral.sh/uv/). برای مسیر اصلی Node لازم نیست؛ build فرانت داخل پروژه سرو می‌شود.
+این branch فرانت جدید را از سورس build می‌کند تا مطمئن باشیم چیزی که در مرورگر می‌بینید همان کد فعلی است، نه build قدیمی.
 
 ```bash
 git clone https://github.com/ladekarl1234-commits/zarbin-merchant-intelligence.git
 cd zarbin-merchant-intelligence
 git switch feature/dual-surface-ai-ops
-
-# دیتاست چالش:
-# data/other_challenge_data.csv.gz
-# یا: ZARIN_DATA_PATH=/path/to/file.csv.gz
-
-uv run zarin
 ```
+
+دیتاست را در `data/other_challenge_data.csv.gz` بگذارید، سپس:
+
+### Windows / VS Code
+
+```powershell
+.\scripts\run.ps1
+```
+
+یا در VS Code:
+
+**Terminal → Run Task → Run Zarbin Dashboard**
+
+### macOS / Linux
+
+```bash
+./scripts/run.sh
+```
+
+هر دو launcher ابتدا `npm ci` و production build را اجرا می‌کنند و بعد API را بالا می‌آورند.
 
 ### 🔗 http://localhost:8630
 
-در VS Code نیز می‌توانید از **Terminal → Run Task → Run Zarbin Dashboard** استفاده کنید.
+اگر فقط backend/static build موجود را می‌خواهید اجرا کنید، `uv run zarin` همچنان معتبر است؛ اما برای دیدن تغییرات همین feature branch از launcher بالا استفاده کنید.
 
-برای تست و build:
+تست‌ها:
 
 ```bash
 uv run pytest -q
@@ -75,7 +89,7 @@ npm --prefix frontend run build
 - سلامت منبع داده؛
 - Google Analytics connection/snapshot؛
 - insightهای مشتق‌شده از منبع جدید؛
-- **Voice Mode مدیریتی** برای پرسیدن درباره سرعت، fallback، هزینه و source health.
+- **Voice Mode مدیریتی واقعی** برای پرسیدن درباره سرعت، fallback، هزینه و source health.
 
 اصطلاحات فنی که برای همه واضح نیستند با hover/focus tooltip توضیح داده می‌شوند تا UI شلوغ نشود.
 
@@ -96,7 +110,6 @@ openrouter/free
 ```bash
 export OPENROUTER_API_KEY=...
 export OPENROUTER_MODEL=openrouter/free
-uv run zarin
 ```
 
 معماری Copilot عمداً LLM-first نیست:
@@ -128,7 +141,7 @@ Answer + provenance + telemetry
 - cost؛
 - error/fallback state.
 
-این یعنی سؤال فقط «AI داریم؟» نیست؛ سؤال «AI واقعاً خوب کار می‌کند؟» هم بخشی از محصول است.
+یعنی سؤال فقط «AI داریم؟» نیست؛ سؤال «AI واقعاً خوب کار می‌کند؟» هم بخشی از محصول است.
 
 ---
 
@@ -136,15 +149,13 @@ Answer + provenance + telemetry
 
 هسته به CSV چالش قفل نشده است. `zarin/connectors.py` مرز اتصال منابع بیرونی است.
 
-برای GA4:
-
 ```bash
 uv sync --group connectors
 export GA4_PROPERTY_ID=123456789
 export GOOGLE_APPLICATION_CREDENTIALS=/secure/path/service-account.json
 ```
 
-سپس endpoint همگام‌سازی می‌تواند snapshot bounded بسازد. منبع جدید **فقط نمایش داده نمی‌شود**: بعد از sync، قواعد deterministic تغییرات معنادار را به insight تبدیل می‌کنند؛ در مرحله بعد AI فقط همان insight و evidence را توضیح می‌دهد.
+منبع جدید **فقط نمایش داده نمی‌شود**: snapshot پس از sync ابتدا با قواعد deterministic تحلیل می‌شود؛ تغییرات معنادار هفتگی به insight با Observation + Action + Caveat تبدیل می‌شوند و AI فقط اجازه دارد همان insight/evidence را توضیح دهد.
 
 GA4 سیگنال مکمل traffic/acquisition/behavior است و جایگزین payment truth نیست. قبل از join کردن داده‌های چند منبع، identity، timezone و attribution semantics باید صریح تعریف و تست شوند.
 
@@ -161,9 +172,9 @@ GA4 سیگنال مکمل traffic/acquisition/behavior است و جایگزین 
 | AI | provider adapter + OpenRouter free route | قابل تعویض، fallback-safe، cost-aware |
 | External data | connector adapters | GA4 و منابع بعدی بدون شکستن metric core |
 
-**نکته مهم:** این stack بهترین fit برای challenge و single-node production-shaped deployment است، نه ادعای «بی‌نهایت horizontally scalable». مسیر scale صریحاً در ADR نوشته شده است.
+**نکته مهم:** این stack بهترین fit برای challenge و single-node production-shaped deployment است، نه ادعای «بی‌نهایت horizontally scalable».
 
-برای جزئیات و trade-offها: [`docs/ADR/0001-platform-stack-and-scale.md`](docs/ADR/0001-platform-stack-and-scale.md)
+Trade-off کامل: [`docs/ADR/0001-platform-stack-and-scale.md`](docs/ADR/0001-platform-stack-and-scale.md)
 
 ---
 
@@ -252,8 +263,6 @@ GA4 سیگنال مکمل traffic/acquisition/behavior است و جایگزین 
 
 ## برای توسعه‌دهنده بعدی
 
-مسیرها عمداً واضح هستند:
-
 ```text
 Metric meaning       → zarin/registry.py
 Deterministic logic  → zarin/analytics.py
@@ -299,28 +308,9 @@ Voice                → frontend/src/components/VoiceInput.tsx
 
 ---
 
-## وضعیت deployment
-
-### Local / judge
-
-```bash
-uv run zarin
-# http://localhost:8630
-```
-
-### Connected demo
-
-OpenRouter و GA4 اختیاری‌اند؛ نبود آن‌ها Merchant Analytics را از کار نمی‌اندازد.
-
-### Production
-
-Spec و migration path موجود است، اما evaluator build را با SaaS multi-tenant production اشتباه نمی‌گیریم. این صداقت معماری عمدی است.
-
----
-
 ## Hackathon philosophy
 
-Rubric به‌صورت مستقیم روی طراحی محصول اثر گذاشته است:
+Rubric مستقیماً روی طراحی محصول اثر گذاشته است:
 
 - **Actionability:** هر insight باید observation → diagnosis → impact → action داشته باشد.
 - **Correctness:** metric registry + evidence + source drill-through.
