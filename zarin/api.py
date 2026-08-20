@@ -1,4 +1,4 @@
-"""FastAPI app: /api/* JSON endpoints + static frontend."""
+"""FastAPI app: merchant analytics + operations/control-plane APIs + static frontend."""
 from __future__ import annotations
 
 import os
@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import analytics, copilot, insights, peers
+from . import ai_ops, analytics, connectors, insights, peers
 from .config import CURRENCY_NOTE, CUSTOMER_SCOPE_CAVEAT, FEE_CAVEAT, STATIC_DIR
 from .db import q, q1
 
@@ -29,8 +29,6 @@ def _check_merchant(m: str) -> None:
 
 def _valid_date(s: str, field: str) -> str:
     try:
-        # normalize to canonical YYYY-MM-DD: date.fromisoformat also accepts basic/week
-        # forms (e.g. "20260101", "2026-W01-1") that DuckDB's date cast then rejects → 500.
         return date.fromisoformat(s).isoformat()
     except ValueError:
         raise HTTPException(400, f"invalid date for {field}: {s!r} (expected YYYY-MM-DD)") from None
@@ -48,9 +46,6 @@ def meta():
     merchants = q("""
         SELECT merchant_key, category_title, sessions, verified, gmv, active_months
         FROM merchant_stats ORDER BY gmv DESC NULLS LAST""")
-    # demo presets are selected programmatically, not hardcoded conclusions. Each preset
-    # takes the top merchant that isn't already used by an earlier preset, so a collision
-    # (e.g. the top-GMV merchant is also the paid-unverified leader) never drops a preset.
     ranks = q("""
         WITH s AS (SELECT merchant_key,
             gmv, paid_unverified_amount AS pua, repeat_txns,
@@ -83,7 +78,7 @@ def overview(m: str, f: str | None = None, t: str | None = None,
              cf: str | None = None, ct: str | None = None):
     _check_merchant(m)
     f, t = _dates(m, f, t)
-    cf = _valid_date(cf, "cf") if cf else None   # comparison window is the same trust boundary
+    cf = _valid_date(cf, "cf") if cf else None
     ct = _valid_date(ct, "ct") if ct else None
     return analytics.overview(m, f, t, cf, ct)
 
@@ -119,18 +114,59 @@ def get_peers(m: str, f: str | None = None, t: str | None = None):
 @app.get("/api/changes")
 def changes(m: str, f1: str, t1: str, f2: str, t2: str):
     _check_merchant(m)
-    # reassign the NORMALIZED dates (not just validate) so basic-form ISO like 20260101
-    # reaches DuckDB as canonical YYYY-MM-DD instead of raising a 500 — mirrors _dates().
     f1, t1 = _valid_date(f1, "f1"), _valid_date(t1, "t1")
     f2, t2 = _valid_date(f2, "f2"), _valid_date(t2, "t2")
     return analytics.changes(m, f1, t1, f2, t2)
 
 
 @app.get("/api/copilot")
-def ask(m: str, q_: str = Query(alias="q"), f: str | None = None, t: str | None = None):
+def ask(m: str, q_: str = Query(alias="q", min_length=1, max_length=1200),
+        f: str | None = None, t: str | None = None):
+    """Merchant copilot. Analytics are deterministic; OpenRouter is an optional explanation layer."""
     _check_merchant(m)
     f, t = _dates(m, f, t)
-    return copilot.answer(m, q_, f, t)
+    return ai_ops.answer(m, q_, f, t)
+
+
+@app.get("/api/admin/ops")
+def admin_ops():
+    """Control-plane snapshot for business/technical operators."""
+    lo, hi = _range()
+    totals = q1("""
+        SELECT count(*) AS sessions,
+               sum((outcome='verified')::int) AS verified,
+               sum(amount) FILTER (WHERE outcome='verified') AS gmv,
+               count(DISTINCT merchant_key) AS merchants,
+               avg(n_tries) AS avg_tries
+        FROM sessions""")
+    data_quality = q1("""
+        SELECT
+          sum((outcome='paid_unverified')::int) AS paid_unverified,
+          sum((outcome='no_attempt')::int) AS no_attempt,
+          sum((outcome='reversed')::int) AS reversed
+        FROM sessions""")
+    return {
+        "period": {"from": lo, "to": hi},
+        "platform": totals,
+        "data_quality": data_quality,
+        "ai": ai_ops.stats(),
+        "sources": connectors.source_statuses(),
+        "ga4": connectors.ga4_snapshot(),
+        "slo": {
+            "target_api_p95_ms": 1000,
+            "target_ai_grounded_rate": 0.98,
+            "target_ai_fallback_rate": 0.05,
+            "target_success_rate": 0.99,
+        },
+    }
+
+
+@app.post("/api/admin/ga4/sync")
+def admin_ga4_sync(days: int = Query(28, ge=1, le=365)):
+    try:
+        return connectors.sync_ga4(days)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
 
 
 _VALID_OUTCOMES = {"verified", "paid_unverified", "no_attempt", "abandoned_inbank", "failed_bank", "reversed"}
@@ -139,7 +175,6 @@ _VALID_OUTCOMES = {"verified", "paid_unverified", "no_attempt", "abandoned_inban
 @app.get("/api/evidence/sessions")
 def evidence_sessions(m: str, outcome: str | None = None, f: str | None = None,
                       t: str | None = None, limit: int = Query(12, ge=1, le=50)):
-    """Drill-through: sample source sessions behind a metric."""
     _check_merchant(m)
     f, t = _dates(m, f, t)
     if outcome is not None and outcome not in _VALID_OUTCOMES:
@@ -171,11 +206,11 @@ def quality():
         "outcomes": outcomes, "concentration": conc, "anomalies": anomalies,
         "rules_fa": [
             "هر ردیف دیتاست یک «تلاش پرداخت» است؛ همه متریک‌ها روی سطح «جلسه» محاسبه می‌شوند تا تلاش‌های تکراری چیزی را چند بار نشمارند.",
-            "NoAttempt (try_seq=0) یعنی پرداخت‌کننده هرگز به درگاه نرسید؛ این حالت از خطای بانکی جداست.",
-            "موفقیت = جلسه Verified. جلسه‌های Paid تسویه شده‌اند اما تایید پذیرنده ندارند و جدا گزارش می‌شوند.",
+            "NoAttempt یعنی پرداخت‌کننده هرگز به درگاه نرسید؛ این حالت از خطای بانکی جداست.",
+            "موفقیت = جلسه تایید نهایی‌شده. جلسه‌های Paid تسویه شده‌اند اما تایید پذیرنده ندارند و جدا گزارش می‌شوند.",
             "شناسه کارت فقط در تلاش‌های به سرانجام رسیده ثبت شده و بین پذیرنده‌ها مشترک نیست؛ تحلیل مشتری فقط پرداخت‌کنندگان موفق همان پذیرنده است.",
             FEE_CAVEAT,
-            "اختلاف چندثانیه‌ای ساعت بین created_at و try_created_at (جیتر ساعت سرور) دست‌نخورده باقی مانده است.",
+            "اختلاف چندثانیه‌ای ساعت بین created_at و try_created_at دست‌نخورده باقی مانده است.",
             "۲۸ جلسه Verified بدون تلاش Verified و ۱ جلسه Reversed در داده وجود دارد؛ اصلاح نشده‌اند و مستند شده‌اند.",
             CURRENCY_NOTE,
         ],
@@ -184,15 +219,10 @@ def quality():
 
 if STATIC_DIR.exists():
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
-
     _STATIC_BASE = STATIC_DIR.resolve()
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str):
-        # Containment must be decided LEXICALLY, before any filesystem/network call.
-        # Path.resolve() would open a handle first — and on Windows a "///host/share"
-        # path becomes a UNC path that triggers an SMB connect (NTLM leak + threadpool
-        # stall) at resolve() time, too late for is_relative_to. normpath is pure string.
         f = Path(os.path.normpath(_STATIC_BASE / path))
         if path and f.is_relative_to(_STATIC_BASE) and f.is_file():
             return FileResponse(f)
