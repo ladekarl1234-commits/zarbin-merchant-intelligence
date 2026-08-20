@@ -86,6 +86,6 @@ def test_ga4_snapshot_becomes_insight_not_just_display(monkeypatch, tmp_path):
     monkeypatch.setattr(connectors, "GA4_SNAPSHOT", p)
     cards = connectors.ga4_insights()
     traffic = next(c for c in cards if c["metric"] == "sessions")
-    assert traffic["change"] == 0.4
+    assert abs(traffic["change"] - 0.4) < 1e-12
     assert traffic["sample_days"] == 14
     assert "علت" in traffic["caveat_fa"]
