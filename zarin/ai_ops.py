@@ -30,7 +30,6 @@ def _now() -> str:
 
 
 def _append_event(event: dict[str, Any]) -> None:
-    """Best-effort local telemetry. Never makes the user request fail."""
     try:
         AI_EVENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
         with _LOCK, AI_EVENTS_PATH.open("a", encoding="utf-8") as f:
@@ -40,7 +39,6 @@ def _append_event(event: dict[str, Any]) -> None:
 
 
 def _safe_evidence(base: dict[str, Any]) -> list[dict[str, Any]]:
-    """Strip raw/session-level fields before any external model call."""
     safe: list[dict[str, Any]] = []
     for e in base.get("evidence", []):
         safe.append({
@@ -56,29 +54,15 @@ def _safe_evidence(base: dict[str, Any]) -> list[dict[str, Any]]:
     return safe
 
 
-def _openrouter_explain(question: str, base: dict[str, Any], merchant: str, period: tuple[str, str]) -> tuple[str, str]:
+def _call_openrouter(system: str, question: str, context: dict[str, Any]) -> tuple[str, str]:
     key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     if not key:
         raise RuntimeError("OPENROUTER_API_KEY is not configured")
-
-    safe_context = {
-        "merchant": merchant,
-        "period": {"from": period[0], "to": period[1]},
-        "deterministic_answer_fa": base.get("answer_fa", ""),
-        "evidence": _safe_evidence(base),
-    }
-    system = (
-        "You are the Persian explanation layer for a merchant analytics product. "
-        "The JSON context is the only source of truth. Never invent a number, causal claim, metric, benchmark, "
-        "customer fact, or recommendation not grounded in the context. Do not expose SQL or technical jargon unless asked. "
-        "Answer in clear natural Persian, concise, actionable, and suitable for a non-technical Iranian merchant. "
-        "If the evidence is insufficient, say so plainly."
-    )
     payload = json.dumps({
         "model": OPENROUTER_MODEL,
         "messages": [
             {"role": "system", "content": system},
-            {"role": "user", "content": f"Question: {question}\nContext JSON:\n{json.dumps(safe_context, ensure_ascii=False)}"},
+            {"role": "user", "content": f"Question: {question}\nContext JSON:\n{json.dumps(context, ensure_ascii=False)}"},
         ],
         "temperature": 0.15,
     }, ensure_ascii=False).encode("utf-8")
@@ -100,62 +84,49 @@ def _openrouter_explain(question: str, base: dict[str, Any], merchant: str, peri
         raise RuntimeError(f"OpenRouter HTTP {exc.code}") from exc
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"OpenRouter unavailable: {exc}") from exc
-
     text = body.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
     if not text:
         raise RuntimeError("OpenRouter returned an empty answer")
-    model = body.get("model") or OPENROUTER_MODEL
-    return text, model
+    return text, body.get("model") or OPENROUTER_MODEL
+
+
+def _openrouter_explain(question: str, base: dict[str, Any], merchant: str, period: tuple[str, str]) -> tuple[str, str]:
+    context = {
+        "merchant": merchant,
+        "period": {"from": period[0], "to": period[1]},
+        "deterministic_answer_fa": base.get("answer_fa", ""),
+        "evidence": _safe_evidence(base),
+    }
+    system = (
+        "You are the Persian explanation layer for a merchant analytics product. The JSON context is the only source of truth. "
+        "Never invent a number, causal claim, metric, benchmark, customer fact, or recommendation not grounded in the context. "
+        "Do not expose SQL or technical jargon unless asked. Answer in clear natural Persian for a non-technical Iranian merchant. "
+        "If evidence is insufficient, say so plainly."
+    )
+    return _call_openrouter(system, question, context)
 
 
 def answer(merchant: str, question: str, f: str, t: str) -> dict[str, Any]:
-    """Hybrid copilot: deterministic answer first, optional free-model explanation second."""
     started = time.perf_counter()
     base = copilot.answer(merchant, question, f, t)
-    mode = "deterministic"
-    model = "zarbin-rules"
-    fallback = False
-    error = None
+    mode, model, fallback, error = "deterministic", "zarbin-rules", False, None
     answer_fa = base["answer_fa"]
-
     if os.environ.get("OPENROUTER_API_KEY"):
         try:
             answer_fa, model = _openrouter_explain(question, base, merchant, (f, t))
             mode = "openrouter"
         except RuntimeError as exc:
-            fallback = True
-            error = str(exc)
-
+            fallback, error = True, str(exc)
     latency_ms = round((time.perf_counter() - started) * 1000, 1)
     grounded = bool(base.get("evidence"))
     event = {
-        "ts": _now(),
-        "merchant": merchant,
-        "intent": base.get("intent", "unknown"),
-        "mode": mode,
-        "model": model,
-        "latency_ms": latency_ms,
-        "success": True,
-        "fallback": fallback,
-        "grounded": grounded,
-        "evidence_count": len(base.get("evidence", [])),
-        "cost_usd": 0.0 if mode == "openrouter" else 0.0,
-        "error": error,
+        "ts": _now(), "merchant": merchant, "intent": base.get("intent", "unknown"), "mode": mode,
+        "model": model, "latency_ms": latency_ms, "success": True, "fallback": fallback,
+        "grounded": grounded, "evidence_count": len(base.get("evidence", [])), "cost_usd": 0.0, "error": error,
     }
     _append_event(event)
-    return {
-        **base,
-        "answer_fa": answer_fa,
-        "ai": {
-            "mode": mode,
-            "model": model,
-            "fallback": fallback,
-            "grounded": grounded,
-            "latency_ms": latency_ms,
-            "cost_usd": event["cost_usd"],
-            "error": error,
-        },
-    }
+    return {**base, "answer_fa": answer_fa, "ai": {"mode": mode, "model": model, "fallback": fallback,
+            "grounded": grounded, "latency_ms": latency_ms, "cost_usd": 0.0, "error": error}}
 
 
 def _read_events(limit: int = 500) -> list[dict[str, Any]]:
@@ -177,20 +148,10 @@ def _read_events(limit: int = 500) -> list[dict[str, Any]]:
 def stats() -> dict[str, Any]:
     events = _read_events()
     if not events:
-        return {
-            "requests": 0,
-            "success_rate": None,
-            "grounded_rate": None,
-            "fallback_rate": None,
-            "avg_latency_ms": None,
-            "p95_latency_ms": None,
-            "cost_usd": 0.0,
-            "models": {},
-            "intents": {},
-            "recent": [],
-            "openrouter_configured": bool(os.environ.get("OPENROUTER_API_KEY")),
-            "default_model": OPENROUTER_MODEL,
-        }
+        return {"requests": 0, "success_rate": None, "grounded_rate": None, "fallback_rate": None,
+                "avg_latency_ms": None, "p95_latency_ms": None, "cost_usd": 0.0, "models": {}, "intents": {},
+                "recent": [], "openrouter_configured": bool(os.environ.get("OPENROUTER_API_KEY")),
+                "default_model": OPENROUTER_MODEL}
     latencies = sorted(float(e.get("latency_ms", 0)) for e in events)
     p95 = latencies[min(len(latencies) - 1, int(0.95 * (len(latencies) - 1)))]
     n = len(events)
@@ -208,3 +169,59 @@ def stats() -> dict[str, Any]:
         "openrouter_configured": bool(os.environ.get("OPENROUTER_API_KEY")),
         "default_model": OPENROUTER_MODEL,
     }
+
+
+def admin_answer(question: str, ops: dict[str, Any]) -> dict[str, Any]:
+    """Grounded operations copilot over already-computed control-plane telemetry."""
+    started = time.perf_counter()
+    ai = ops["ai"]
+    sources = ops["sources"]
+    q = question.lower()
+    if "fallback" in q or "فالبک" in q or "جایگزین" in q:
+        rate = ai.get("fallback_rate")
+        answer_fa = "هنوز درخواست AI ثبت نشده است." if rate is None else f"نرخ fallback فعلی {rate * 100:.1f}٪ است. اگر از هدف ۵٪ بالاتر رفته، ابتدا دسترسی OpenRouter و خطاهای درخواست‌های اخیر را بررسی کنید."
+        intent = "ai_fallback"
+    elif "کند" in q or "سرعت" in q or "تاخیر" in q or "latency" in q:
+        p95 = ai.get("p95_latency_ms")
+        answer_fa = "هنوز داده‌ای برای زمان پاسخ نداریم." if p95 is None else f"P95 زمان پاسخ AI حدود {p95:.0f} میلی‌ثانیه است. هدف اولیه زیر ۱۰۰۰ میلی‌ثانیه تعریف شده است."
+        intent = "ai_latency"
+    elif "هزینه" in q or "cost" in q:
+        answer_fa = f"هزینه ثبت‌شده مدل در این نسخه ${ai.get('cost_usd', 0):.4f} است. مسیر پیش‌فرض openrouter/free است؛ هزینه زیرساخت جدا از هزینه مدل است."
+        intent = "ai_cost"
+    elif "منبع" in q or "گوگل" in q or "analytics" in q:
+        missing = [s["label"] for s in sources if not s["configured"]]
+        answer_fa = "همه منابع تعریف‌شده آماده‌اند." if not missing else "این منابع هنوز نیازمند تنظیم‌اند: " + "، ".join(missing)
+        intent = "source_health"
+    else:
+        grounded = ai.get("grounded_rate")
+        answer_fa = (
+            f"مرکز کنترل {ops['platform']['merchants']} پذیرنده و {ops['platform']['sessions']:,} جلسه را پوشش می‌دهد. "
+            + ("هنوز نمونه کافی برای سنجش کیفیت AI نداریم." if grounded is None else f"{grounded * 100:.1f}٪ پاسخ‌های ثبت‌شده حداقل یک شاهد قابل ردیابی داشته‌اند.")
+        )
+        intent = "ops_summary"
+
+    mode, model, fallback, error = "deterministic", "zarbin-ops-rules", False, None
+    if os.environ.get("OPENROUTER_API_KEY"):
+        safe_context = {
+            "deterministic_answer_fa": answer_fa,
+            "ai": {k: ai.get(k) for k in ("requests", "grounded_rate", "fallback_rate", "avg_latency_ms", "p95_latency_ms", "cost_usd", "models", "intents")},
+            "sources": sources,
+            "slo": ops.get("slo", {}),
+            "platform": ops.get("platform", {}),
+        }
+        system = (
+            "You are the Persian operations copilot for an analytics platform. Use only the supplied telemetry. "
+            "Never invent incidents, costs, causes, or numbers. Distinguish observation from recommendation. "
+            "Answer briefly and clearly for a product/engineering manager."
+        )
+        try:
+            answer_fa, model = _call_openrouter(system, question, safe_context)
+            mode = "openrouter"
+        except RuntimeError as exc:
+            fallback, error = True, str(exc)
+    latency_ms = round((time.perf_counter() - started) * 1000, 1)
+    _append_event({"ts": _now(), "merchant": "__admin__", "intent": intent, "mode": mode, "model": model,
+                   "latency_ms": latency_ms, "success": True, "fallback": fallback, "grounded": True,
+                   "evidence_count": 1, "cost_usd": 0.0, "error": error})
+    return {"answer_fa": answer_fa, "intent": intent, "ai": {"mode": mode, "model": model,
+            "fallback": fallback, "grounded": True, "latency_ms": latency_ms, "cost_usd": 0.0, "error": error}}
