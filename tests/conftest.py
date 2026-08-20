@@ -9,6 +9,12 @@ from pathlib import Path
 _TMP = Path(tempfile.mkdtemp(prefix="zarin_test_"))
 os.environ["ZARIN_MARTS_DIR"] = str(_TMP / "marts")
 os.environ["ZARIN_DATA_PATH"] = str(_TMP / "fixture.csv")
+os.environ["ZARIN_TELEMETRY_DIR"] = str(_TMP / "telemetry")
+# Hermetic AI: tests must be deterministic and offline. Drop any real provider/GA4
+# config from the environment so the copilot runs purely on the deterministic engine;
+# the key-present and transport paths are covered via explicit injection.
+for _k in ("OPENROUTER_API_KEY", "GA4_PROPERTY_ID", "GOOGLE_APPLICATION_CREDENTIALS"):
+    os.environ.pop(_k, None)
 
 HEADER = ("session_key,try_seq,terminal_key,merchant_key,category_id,category_title,"
           "amount,adjusted_fee,session_status,try_status,switch_response_code,psp_code,"

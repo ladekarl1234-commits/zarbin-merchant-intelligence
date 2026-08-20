@@ -10,11 +10,14 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import analytics, copilot, insights, peers
+from . import analytics, control, copilot, insights, obs, peers
+from .ai import telemetry as ai_telemetry
+from .ai.eval import run_eval
 from .config import CURRENCY_NOTE, CUSTOMER_SCOPE_CAVEAT, FEE_CAVEAT, STATIC_DIR
 from .db import q, q1
 
 app = FastAPI(title="Zarbin — زرین‌بین", docs_url="/api/docs", openapi_url="/api/openapi.json")
+app.middleware("http")(obs.middleware)  # request telemetry → Control Center Product Performance
 
 
 def _range() -> tuple[str, str]:
@@ -127,10 +130,49 @@ def changes(m: str, f1: str, t1: str, f2: str, t2: str):
 
 
 @app.get("/api/copilot")
-def ask(m: str, q_: str = Query(alias="q"), f: str | None = None, t: str | None = None):
+def ask(m: str, q_: str = Query(alias="q"), f: str | None = None, t: str | None = None,
+        surface: str = "merchant"):
     _check_merchant(m)
     f, t = _dates(m, f, t)
-    return copilot.answer(m, q_, f, t)
+    return copilot.answer(m, q_, f, t, surface=surface)
+
+
+@app.post("/api/copilot/feedback")
+def copilot_feedback(m: str, intent: str, useful: bool, surface: str = "merchant"):
+    """Lightweight 👍/👎 loop feeding AI quality monitoring."""
+    _check_merchant(m)
+    ai_telemetry.record_feedback(merchant_scope=m, intent=intent, useful=useful, surface=surface)
+    return {"ok": True}
+
+
+# --- Control Center (operator surface) ----------------------------------------
+# Single-tenant hackathon build; production auth/RBAC path documented in docs/DEPLOYMENT_SPEC.md.
+@app.get("/api/admin/platform")
+def admin_platform(f: str | None = None, t: str | None = None):
+    f, t = _dates("", f, t)
+    return control.platform(f, t)
+
+
+@app.get("/api/admin/performance")
+def admin_performance():
+    return control.performance()
+
+
+@app.get("/api/admin/ai-ops")
+def admin_ai_ops():
+    return control.ai_ops()
+
+
+@app.get("/api/admin/sources")
+def admin_sources(f: str | None = None, t: str | None = None):
+    f, t = _dates("", f, t)
+    return control.sources(f, t)
+
+
+@app.get("/api/admin/ai-eval")
+@lru_cache(maxsize=1)
+def admin_ai_eval():
+    return run_eval()
 
 
 _VALID_OUTCOMES = {"verified", "paid_unverified", "no_attempt", "abandoned_inbank", "failed_bank", "reversed"}

@@ -1,0 +1,112 @@
+"""Control Center aggregations — platform / performance / AI-ops / sources.
+
+Platform figures come from the same marts and the same session-grain discipline as
+the merchant surface (one shared semantic layer). Performance and AI-Ops read live
+telemetry; nothing here is fabricated — an empty telemetry ring yields has_data=False.
+"""
+from __future__ import annotations
+
+from . import obs
+from .ai import telemetry as ai_telemetry
+from .db import q, q1
+from .sources import registry
+
+
+def platform(f: str, t: str) -> dict:
+    total_merchants = q1("SELECT count(*) AS n FROM merchant_stats")["n"]
+    agg = q1("""
+        SELECT count(DISTINCT merchant_key) AS active_merchants,
+               count(*) AS sessions,
+               count(*) FILTER (WHERE outcome='verified') AS verified,
+               sum(amount) FILTER (WHERE outcome='verified') AS gmv,
+               count(*) FILTER (WHERE outcome='paid_unverified') AS paid_unverified,
+               sum(amount) FILTER (WHERE outcome='paid_unverified') AS paid_unverified_amount,
+               count(*) FILTER (WHERE outcome='no_attempt') AS no_attempt,
+               count(*) FILTER (WHERE recovered) AS recovered,
+               sum(amount) FILTER (WHERE recovered) AS recovered_gmv
+        FROM sessions WHERE d BETWEEN $f AND $t""", {"f": f, "t": t})
+    sessions = agg.get("sessions") or 0
+    verified = agg.get("verified") or 0
+    no_attempt = agg.get("no_attempt") or 0
+
+    categories = q("""
+        SELECT ms.category_title AS category,
+               count(DISTINCT s.merchant_key) AS merchants,
+               count(*) AS sessions,
+               sum(s.amount) FILTER (WHERE s.outcome='verified') AS gmv
+        FROM sessions s JOIN merchant_stats ms USING(merchant_key)
+        WHERE s.d BETWEEN $f AND $t
+        GROUP BY 1 ORDER BY gmv DESC NULLS LAST LIMIT 10""", {"f": f, "t": t})
+
+    conc = q1("""
+        WITH g AS (SELECT merchant_key, sum(amount) FILTER (WHERE outcome='verified') AS gmv
+                   FROM sessions WHERE d BETWEEN $f AND $t GROUP BY 1),
+             r AS (SELECT gmv, row_number() OVER (ORDER BY gmv DESC NULLS LAST) AS rk FROM g)
+        SELECT sum(gmv) FILTER (WHERE rk<=5)/nullif(sum(gmv),0) AS top5, count(*) AS n FROM r""",
+        {"f": f, "t": t})
+
+    kpis = {
+        "total_merchants": total_merchants,
+        "active_merchants": agg.get("active_merchants") or 0,
+        "sessions": sessions, "verified": verified,
+        "gmv": agg.get("gmv") or 0,
+        "conv": (verified / sessions) if sessions else None,
+        "no_attempt_rate": (no_attempt / sessions) if sessions else None,
+        "paid_unverified": agg.get("paid_unverified") or 0,
+        "paid_unverified_amount": agg.get("paid_unverified_amount") or 0,
+        "recovered": agg.get("recovered") or 0,
+        "recovered_gmv": agg.get("recovered_gmv") or 0,
+    }
+
+    anomalies = q1("""SELECT
+        (SELECT count(*) FROM sessions WHERE outcome='reversed') AS reversed_sessions,
+        (SELECT count(*) FROM sessions WHERE session_status='Verified' AND outcome='verified'
+           AND session_key IN (SELECT session_key FROM attempts GROUP BY 1 HAVING sum(ok::int)=0)) AS verified_wo_ok_try""")
+
+    return {
+        "period": {"from": f, "to": t},
+        "kpis": kpis,
+        "categories": categories,
+        "concentration": {"top5_share": conc.get("top5"), "n_merchants": conc.get("n")},
+        "anomalies": anomalies,
+        "insights": _platform_insights(kpis, conc),
+    }
+
+
+def _platform_insights(k: dict, conc: dict) -> list[dict]:
+    out = []
+    if k["paid_unverified_amount"]:
+        out.append({"severity": "high",
+                    "title_fa": "پول تسویه‌شده اما تاییدنشده در کل پلتفرم",
+                    "body_fa": f"{k['paid_unverified']} پرداخت در بانک تسویه شده اما پذیرنده تایید نکرده است.",
+                    "action_fa": "پذیرندگان دارای بیشترین مبلغ تاییدنشده را برای فعال‌سازی وریفای خودکار در اولویت بگذارید."})
+    top5 = conc.get("top5") or 0
+    if top5 >= 0.5:
+        out.append({"severity": "medium",
+                    "title_fa": "تمرکز درآمد پلتفرم",
+                    "body_fa": f"۵ پذیرنده برتر {round(top5*100)}٪ از فروش موفق را می‌سازند.",
+                    "action_fa": "ریسک تمرکز؛ سلامت و نگه‌داشت این پذیرندگان کلیدی را جدا پایش کنید."})
+    if k["no_attempt_rate"] and k["no_attempt_rate"] >= 0.2:
+        out.append({"severity": "medium",
+                    "title_fa": "انصراف پیش از پرداخت در سطح پلتفرم",
+                    "body_fa": f"{round(k['no_attempt_rate']*100)}٪ جلسه‌ها اصلاً به درگاه نرسیدند (NoAttempt).",
+                    "action_fa": "تجربه پیش از درگاه (ریدایرکت/بارگذاری صفحه پرداخت) را بررسی کنید."})
+    return out
+
+
+def performance() -> dict:
+    return obs.summary()
+
+
+def ai_ops() -> dict:
+    return ai_telemetry.summary()
+
+
+def sources(f: str, t: str) -> dict:
+    statuses = [a.status().to_dict() for a in registry()]
+    # Cross-source (traffic→payment) insights require a connected web-analytics source
+    # AND two aligned time windows (see zarin.sources.insights.cross_source). Until GA4 is
+    # connected, we report an honest empty set rather than a fabricated relationship.
+    web_connected = any(s["connected"] and s["kind"] == "web_analytics" for s in statuses)
+    note = None if web_connected else "برای بینش‌های میان‌منبعی (ترافیک→پرداخت) ابتدا یک منبع تحلیل وب مانند GA4 را متصل کنید."
+    return {"sources": statuses, "cross_source_insights": [], "cross_source_note_fa": note}

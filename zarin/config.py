@@ -12,6 +12,24 @@ STATIC_DIR = ROOT / "zarin" / "static"
 PORT = int(os.environ.get("ZARIN_PORT", "8630"))
 HOST = os.environ.get("ZARIN_HOST", "127.0.0.1")  # containers set 0.0.0.0
 
+TELEMETRY_DIR = Path(os.environ.get("ZARIN_TELEMETRY_DIR", ROOT / "data" / "telemetry"))
+
+# --- AI copilot (OpenRouter) ---------------------------------------------------
+# The AI layer is OPTIONAL. With no key the product runs fully offline on the
+# deterministic engine; the LLM only ever rephrases numbers the engine computed.
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
+OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+# Free-model policy: a model is allowed iff its id ends with ':free' (OpenRouter's
+# zero-price convention) OR is in FREE_ALLOWLIST. `openrouter/auto` is REJECTED —
+# OpenRouter bills auto-routing at the selected model's standard rate.
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324:free").strip()
+OPENROUTER_TIMEOUT = float(os.environ.get("OPENROUTER_TIMEOUT", "20"))
+AI_MAX_TOKENS = int(os.environ.get("ZARIN_AI_MAX_TOKENS", "600"))
+
+# --- Google Analytics 4 (optional external source) -----------------------------
+GA4_PROPERTY_ID = os.environ.get("GA4_PROPERTY_ID", "").strip()
+GOOGLE_APPLICATION_CREDENTIALS = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+
 # --- Analytical thresholds (documented in docs/ANALYTICS.md) ---
 MIN_PEERS = 5              # below this: suppress percentile benchmarks entirely
 PREFERRED_PEERS = 8        # below this: fall back from scale-band to whole category

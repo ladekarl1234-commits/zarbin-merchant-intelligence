@@ -1,0 +1,60 @@
+"""Run the Copilot eval cases and produce per-dimension quality indicators."""
+from __future__ import annotations
+
+from ... import copilot
+from ...db import q1
+from .cases import CASES, Case
+
+
+def _default_merchant_and_range() -> tuple[str, str, str]:
+    m = q1("SELECT merchant_key FROM merchant_stats ORDER BY gmv DESC NULLS LAST LIMIT 1")["merchant_key"]
+    r = q1("SELECT min(d) AS f, max(d) AS t FROM sessions")
+    return m, str(r["f"]), str(r["t"])
+
+
+def _run_case(c: Case, merchant: str, f: str, t: str) -> dict:
+    pf, pt = c.period or (f, t)
+    # deterministic-only: eval must be reproducible with zero keys / zero network
+    resp = copilot.answer(merchant, c.question, pf, pt, use_llm=False)
+    checks = {
+        "intent_ok": resp["intent"] == c.expect_intent,
+        "grounding_ok": len(resp.get("evidence") or []) >= c.min_evidence,
+        "no_forbidden": all(s not in resp["answer_fa"] for s in c.forbid_substrings),
+        "confidence_ok": (c.expect_confidence is None) or (resp.get("confidence") == c.expect_confidence),
+    }
+    return {"id": c.id, "dimension": c.dimension, "intent": resp["intent"],
+            "expected_intent": c.expect_intent, "confidence": resp.get("confidence"),
+            "evidence_count": len(resp.get("evidence") or []), "checks": checks,
+            "passed": all(checks.values())}
+
+
+def run_eval(merchant: str | None = None) -> dict:
+    if merchant:
+        r = q1("SELECT min(d) AS f, max(d) AS t FROM sessions")
+        f, t = str(r["f"]), str(r["t"])
+    else:
+        merchant, f, t = _default_merchant_and_range()
+
+    results = [_run_case(c, merchant, f, t) for c in CASES]
+    n = len(results)
+    refusal = [r for c, r in zip(CASES, results) if c.is_refusal]
+
+    def rate(pred) -> float:
+        return round(sum(1 for r in results if pred(r)) / n, 4) if n else 0.0
+
+    indicators = {
+        # kept as SEPARATE dimensions on purpose — never one meaningless score
+        "deterministic_correctness": rate(lambda r: r["checks"]["intent_ok"]),
+        "grounding_quality": rate(lambda r: r["checks"]["grounding_ok"]),
+        "refusal_safety": round(
+            sum(1 for r in refusal if r["checks"]["no_forbidden"] and r["checks"]["confidence_ok"]) / len(refusal), 4
+        ) if refusal else None,
+        "language_quality": None,      # requires human / LLM-judge — not auto-scored (honest)
+        "business_usefulness": None,   # requires human — not auto-scored (honest)
+    }
+    return {
+        "merchant": merchant, "period": {"from": f, "to": t},
+        "total": n, "passed": sum(1 for r in results if r["passed"]),
+        "indicators": indicators, "cases": results,
+        "note_fa": "ارزیابی قطعی و آفلاین است. کیفیت زبانی و سودمندی کسب‌وکاری با قضاوت انسانی سنجیده می‌شوند و اینجا نمره خودکار نمی‌گیرند.",
+    }
