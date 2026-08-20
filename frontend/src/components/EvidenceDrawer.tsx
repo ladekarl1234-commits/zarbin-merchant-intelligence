@@ -16,6 +16,13 @@ export default function EvidenceDrawer() {
   const [sampleErr, setSampleErr] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // close the drawer if the merchant or period changes underneath it, so its
+  // evidence can never describe a selection the user has since navigated away from
+  useEffect(() => {
+    if (drawer) closeEvidence();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [merchant, period.f, period.t]);
+
   useEffect(() => {
     setSamples(null);
     setSampleErr(false);
@@ -24,13 +31,18 @@ export default function EvidenceDrawer() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeEvidence();
       if (e.key === "Tab" && ref.current) {
-        // contain focus within the drawer
         const items = ref.current.querySelectorAll<HTMLElement>(
           'button, [href], input, [tabindex]:not([tabindex="-1"])');
         if (!items.length) return;
         const first = items[0], last = items[items.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        const active = document.activeElement as Node | null;
+        // if focus is outside the drawer (e.g. on the tabIndex=-1 container after open),
+        // pull it back in rather than letting Tab escape to the page behind the backdrop
+        if (!active || !ref.current.contains(active)) {
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
+        } else if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
       }
     };
     document.addEventListener("keydown", onKey);

@@ -25,11 +25,20 @@ def test_bad_date_is_400_not_500():
     assert r.status_code == 400
 
 
-def test_limit_is_clamped_not_500():
+def test_limit_out_of_range_is_422_not_500():
+    # limit is bounded by Query(ge=1, le=50) → FastAPI 422, never a raw LIMIT -5 → 500
     assert client.get("/api/evidence/sessions", params={"m": "M1", "limit": -5}).status_code == 422
     assert client.get("/api/evidence/sessions", params={"m": "M1", "limit": 999}).status_code == 422
     ok = client.get("/api/evidence/sessions", params={"m": "M1", "limit": 50})
     assert ok.status_code == 200 and len(ok.json()["rows"]) <= 50
+
+
+def test_basic_iso_is_normalized_and_bad_compare_dates_are_400_not_500():
+    # basic-form date is normalized to canonical YYYY-MM-DD and served (never a raw 500)
+    assert client.get("/api/overview", params={"m": "M1", "f": "20260101"}).status_code == 200
+    # genuinely invalid dates → 400, including the comparison window (same trust boundary)
+    assert client.get("/api/overview", params={"m": "M1", "f": "totally-bad"}).status_code == 400
+    assert client.get("/api/overview", params={"m": "M1", "cf": "oops"}).status_code == 400
 
 
 def test_unknown_outcome_is_400():
@@ -68,9 +77,13 @@ def test_path_traversal_serves_index_not_arbitrary_file():
     from zarin.config import STATIC_DIR
     if not (STATIC_DIR / "index.html").exists():
         return
-    for raw in ("/../../pyproject.toml", "/..%2f..%2fpyproject.toml", "/../../data/marts/customers.parquet"):
+    probes = ("/../../pyproject.toml", "/..%2f..%2fpyproject.toml",
+              "/../../data/marts/customers.parquet",
+              "///10.255.255.1/share/x")  # UNC: must be rejected LEXICALLY, not by opening it
+    for raw in probes:
         code, content = _raw_asgi_get(raw)
         assert code == 200
         assert b"[project]" not in content        # must not be pyproject.toml
+        assert b"PAR1" not in content[:64]         # must not be a parquet file
         assert b"<div id=\"root\">" in content or b"<!doctype" in content.lower() \
             or content == b""  # served index.html (or empty when built html differs) — never the file

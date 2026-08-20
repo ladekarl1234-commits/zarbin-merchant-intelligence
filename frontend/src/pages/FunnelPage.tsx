@@ -10,6 +10,7 @@ const OUTCOME_META: [string, string, string, string][] = [
   ["no_attempt", "بدون اقدام به پرداخت", "chip-mute", "no_attempt"],
   ["abandoned_inbank", "رهاشده در بانک", "chip-bad", "abandoned_inbank"],
   ["failed_bank", "خطای صریح بانکی", "chip-bad", "failed_bank"],
+  ["reversed", "برگشت‌خورده", "chip-mute", "reversed"],
 ];
 
 export default function FunnelPage() {
@@ -25,11 +26,12 @@ export default function FunnelPage() {
         <div className="card" style={{ padding: 20 }}>
           <FunnelViz stages={d.stages} />
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, alignItems: "center" }}>
-            {OUTCOME_META.map(([key, label, cls]) => (
-              <span className={`chip ${cls} num`} key={key}>
-                {label}: {faNum(d.outcomes[key] ?? 0)} ({pct((d.outcomes[key] ?? 0) / total)})
-              </span>
-            ))}
+            {OUTCOME_META.filter(([key]) => key !== "reversed" || (d.outcomes[key] ?? 0) > 0)
+              .map(([key, label, cls]) => (
+                <span className={`chip ${cls} num`} key={key}>
+                  {label}: {faNum(d.outcomes[key] ?? 0)} ({pct((d.outcomes[key] ?? 0) / total)})
+                </span>
+              ))}
             <span style={{ marginInlineStart: "auto" }}>
               <EvBtn title="قیف پرداخت" items={[d.evidence.funnel]} label="نحوه محاسبه" />
             </span>

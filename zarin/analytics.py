@@ -133,8 +133,9 @@ def funnel(m: str, f: str, t: str) -> dict:
             {"id": "settled", "label_fa": "پول به بانک رسید", "n": settled},
             {"id": "verified", "label_fa": "تایید نهایی (Verified)", "n": agg["verified"]},
         ],
+        # all six outcomes so the breakdown sums exactly to sessions (reversed is ~0 but real)
         "outcomes": {k: agg[k] for k in
-                     ("verified", "paid_unverified", "no_attempt", "abandoned_inbank", "failed_bank")},
+                     ("verified", "paid_unverified", "no_attempt", "abandoned_inbank", "failed_bank", "reversed")},
         "rates": {k: agg[k] for k in
                   ("conv", "first_try_conv", "no_attempt_rate", "inbank_abandon_rate", "failed_bank_rate")},
         "recovery": {"first_fail_pool": first_fail_pool, "recovered": agg["recovered"],
@@ -208,9 +209,8 @@ def customers(m: str, f: str, t: str) -> dict:
 
     return {
         "period": {"from": f, "to": t},
-        # interval + cohorts are computed over the FULL data window on purpose (retention
-        # needs the whole history), so the UI labels them «کل بازه داده», not the selected period.
-        "whole_range_blocks": ["interval", "cohorts"],
+        # NOTE: interval + cohorts are computed over the FULL data window on purpose
+        # (retention needs the whole history); the UI labels them «کل بازه داده».
         "summary": b, "concentration": conc, "interval": interval,
         "cohorts": cohorts, "dormant": dormant,
         "evidence": {

@@ -15,6 +15,12 @@ _lock = threading.RLock()  # reentrant: q() calls connect() while holding it
 _con: duckdb.DuckDBPyConnection | None = None
 
 
+# columns that must exist in the marts for this code version — detects stale parquet
+# built by an older pipeline (e.g. before the `reversed` column) and fails with a clear
+# instruction instead of a bare DuckDB Binder Error 500 on every endpoint.
+_SCHEMA_GUARD = {"merchant_daily": "reversed", "sessions": "recovered"}
+
+
 def connect() -> duckdb.DuckDBPyConnection:
     global _con
     with _lock:
@@ -23,6 +29,14 @@ def connect() -> duckdb.DuckDBPyConnection:
             for m in _MARTS:
                 p = (MARTS_DIR / f"{m}.parquet").as_posix()
                 con.execute(f"CREATE VIEW {m} AS SELECT * FROM read_parquet('{p}')")
+            for mart, col in _SCHEMA_GUARD.items():
+                try:
+                    con.execute(f"SELECT {col} FROM {mart} LIMIT 0")
+                except duckdb.Error as e:
+                    raise RuntimeError(
+                        f"marts are stale (missing {mart}.{col}). "
+                        "Rebuild them: `uv run python -m zarin.pipeline`"
+                    ) from e
             _con = con
         return _con
 

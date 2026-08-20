@@ -1,8 +1,10 @@
 """FastAPI app: /api/* JSON endpoints + static frontend."""
 from __future__ import annotations
 
+import os
 from datetime import date
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -27,10 +29,11 @@ def _check_merchant(m: str) -> None:
 
 def _valid_date(s: str, field: str) -> str:
     try:
-        date.fromisoformat(s)
+        # normalize to canonical YYYY-MM-DD: date.fromisoformat also accepts basic/week
+        # forms (e.g. "20260101", "2026-W01-1") that DuckDB's date cast then rejects → 500.
+        return date.fromisoformat(s).isoformat()
     except ValueError:
         raise HTTPException(400, f"invalid date for {field}: {s!r} (expected YYYY-MM-DD)") from None
-    return s
 
 
 def _dates(m: str, f: str | None, t: str | None) -> tuple[str, str]:
@@ -77,6 +80,8 @@ def overview(m: str, f: str | None = None, t: str | None = None,
              cf: str | None = None, ct: str | None = None):
     _check_merchant(m)
     f, t = _dates(m, f, t)
+    cf = _valid_date(cf, "cf") if cf else None   # comparison window is the same trust boundary
+    ct = _valid_date(ct, "ct") if ct else None
     return analytics.overview(m, f, t, cf, ct)
 
 
@@ -175,10 +180,15 @@ def quality():
 if STATIC_DIR.exists():
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
 
+    _STATIC_BASE = STATIC_DIR.resolve()
+
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str):
-        base = STATIC_DIR.resolve()
-        f = (STATIC_DIR / path).resolve()
-        if path and f.is_file() and f.is_relative_to(base):
+        # Containment must be decided LEXICALLY, before any filesystem/network call.
+        # Path.resolve() would open a handle first — and on Windows a "///host/share"
+        # path becomes a UNC path that triggers an SMB connect (NTLM leak + threadpool
+        # stall) at resolve() time, too late for is_relative_to. normpath is pure string.
+        f = Path(os.path.normpath(_STATIC_BASE / path))
+        if path and f.is_relative_to(_STATIC_BASE) and f.is_file():
             return FileResponse(f)
         return FileResponse(STATIC_DIR / "index.html")

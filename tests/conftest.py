@@ -56,6 +56,12 @@ ROWS = [
     # S11: a Reversed session on M1 (Feb) — exercises the sixth outcome and the reversed
     # term of the conversion-driver identity, which must stay exact.
     row(11, 1, "M1", 120000, "Reversed", "Reversed", created="2026-02-15 13:00:00"),
+    # S12: a Paid-AFTER-RETRY session on M2 (try1 fails, try2 settles but is never verified).
+    # Under the correct rule recovered=Verified-only it is NOT recovered; under the old
+    # Paid-inclusive rule it WOULD be. This makes test_recovered_is_verified_only able to fail.
+    row(12, 1, "M2", 90000, "Paid", "Failed", created="2026-01-16 10:00:00", code="PSP-1:51"),
+    row(12, 2, "M2", 90000, "Paid", "Paid", card="D2", bank="B1",
+        created="2026-01-16 10:00:00", settled="2026-01-16 10:02:00"),
 ]
 
 

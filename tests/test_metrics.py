@@ -80,8 +80,14 @@ def test_conv_drivers_sum_to_conv_change():
 
 
 def test_recovered_is_verified_only():
-    """A Paid-after-retry session must NOT be counted as 'recovered' (success = Verified)."""
+    """A Paid-after-retry session must NOT be counted as 'recovered' (success = Verified).
+
+    Fixture S12 (M2) is exactly that case: try1 Failed, try2 Paid, session_status Paid.
+    This test FAILS if pipeline reverts recovered to the Paid-inclusive rule.
+    """
     from zarin.db import q1
-    # fixture has no Paid-after-retry, so assert the mart rule directly:
-    bad = q1("SELECT count(*) AS n FROM sessions WHERE recovered AND session_status != 'Verified'")
-    assert bad["n"] == 0
+    s12 = q1("SELECT recovered, session_status, n_tries FROM sessions WHERE session_key=12")
+    assert s12["session_status"] == "Paid" and s12["n_tries"] == 2
+    assert s12["recovered"] is False   # the discriminating assertion
+    # and the global invariant: recovered ⊆ Verified
+    assert q1("SELECT count(*) AS n FROM sessions WHERE recovered AND session_status!='Verified'")["n"] == 0
