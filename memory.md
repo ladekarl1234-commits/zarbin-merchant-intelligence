@@ -73,10 +73,14 @@ transport, no vendor SDK coupling). **GA4 = web/product signals, NOT financial t
 never row-level joined with payments — only aggregate, time-aligned relationships, no causality.
 
 ## Known issue queue (from the expert audit)
-Commit `75de6bb` was audited by a 15-lens expert panel; every critical/high finding was independently
-verified. **Before starting new work, read `docs/EXPERT_REVIEW.md` §6 (priority queue) and pick from
-`docs/EXPERT_REVIEW_ISSUES.md`** — issues have stable IDs (`ZB-001`…`ZB-119`). Highest-value themes:
-the realized-GMV cap covers only one of four opportunity generators (ZB-006); the evidence drawer's
+Commit `75de6bb` was audited by a 15-lens expert panel; 43 of the 44 critical/high findings were
+independently verified (ZB-044 was missed by the per-lens cap). **Before starting new work, read
+`docs/EXPERT_REVIEW.md` §6 (priority queue) and pick from `docs/EXPERT_REVIEW_ISSUES.md`** — issues
+have stable IDs (`ZB-001`…`ZB-119`, plus `ZB-120` in §9). Fix **ZB-120 first**: `ntile(5) OVER (ORDER
+BY amount)` in `insights.py:209` has no tiebreaker, so `high_value_friction` returns a *different*
+impact figure on identical calls — it breaks the determinism claim on the surface built to prove it.
+Other high-value themes:
+the realized-GMV cap lives only in `_gap_card`, leaving three generators uncapped (ZB-006); the evidence drawer's
 opportunity formula contradicts the code (ZB-007/014/017); the grounding guard is digit-only so
 invented causality passes (ZB-004/020/038/039); the AI eval's "refusal safety" cannot fail (ZB-040);
 peer-percentile happy path and 6/9 card generators are untested (ZB-005/042); accessibility contrast

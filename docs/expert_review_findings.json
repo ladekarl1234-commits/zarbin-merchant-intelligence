@@ -26,91 +26,206 @@
    "lens": "rubric-official",
    "dimension": "Competition Rubric Total",
    "score": 78.7,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "Zarbin is clearly above typical hackathon work: 9 independent insight generators that each end in a rial figure plus a concrete action, an exact LMDI decomposition, explainable matched peers with real suppression, and a metric registry that makes almost every number drillable to source session_keys (verified live). I ran the suite (56 pass, 1.3s), ruff (clean), the AI eval (12/12), and probed /api/insights across 60 merchants: 56 get at least one card, kinds are well distributed, and the paid-but-unverified card surfaces genuinely bankable money. The gaps are real though: the realized-GMV sanity cap is applied to only one of four opportunity generators (M21 shows an \"opportunity\" 108% of its entire six-month sales), the registry's opportunity formula contradicts the computation printed beside it in the same evidence drawer, and the chat-first landing surface falls back to a canned KPI summary for common questions the engine can already answer.",
+   "scoring_rationale": "236/300 = 78.7. Not 88: three verifiable defects sit on the product's own headline claim of traceability — an opportunity figure exceeding the merchant's entire realized GMV with no cap chip, a drawer printing two irreconcilable formulas for the number it is explaining, and the honesty page contradicting itself (1 vs 28). Depth also stops short of what the data offers: issuer bank, init latency and day-of-week are in the marts and unused, and no card carries statistical uncertainty. Not 68: I verified live that the engine is real and broad — 56 of 60 sampled merchants receive evidence-backed cards spanning nine generators, the LMDI and Δconv decompositions are exact and tested, peers are genuinely suppressed when thin, drill-through reaches actual session rows, and the whole product runs from one command with 56 fast tests and a clean linter. That is materially above MVP work in every criterion, with correctness defects that are small diffs rather than architectural.",
+   "strengths": [
+    "Paid-but-unverified as a first-class insight: verified live for M156 (912 sessions, 61.8B IRR, outcome='paid_unverified' with settled_at) — real settled money, labeled «برآورد نیست», with drill-through to actual session_keys via /api/evidence/sessions"
+   ]
   },
   {
    "lens": "architecture",
    "dimension": "Architecture, layering, seams, and code quality",
    "score": 80,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "The declared layering is real, not decorative: I mapped every internal import and the graph is strictly acyclic (config/db/registry ← analytics/peers/insights ← copilot/control ← api), with zero upward imports and the AI package depending on nothing in the analytics layer. The metric registry genuinely is the single source of truth for the merchant surface — every analytics/peers/insights return path calls `registry.evidence()`, and `EvidenceDrawer.tsx` renders it with no per-metric branching, which is the strongest idea here and it pays off. Three runtime deps, stdlib urllib for the LLM, honest ADRs that match the code, 56 passing tests over a real fixture run through the real pipeline, ruff clean. The gaps are specific: the FE/BE contract is hand-mirrored with no response models (OpenAPI schemas are literally `{}`), the DataSourceAdapter is about half nominal, the ops surface bypasses the registry, and `/api/quality` ships a hardcoded number that visibly contradicts the computed one on the same page.",
+   "scoring_rationale": "Above 75 because the seams are mostly real and verified, not asserted: acyclic import graph, a registry that genuinely drives a generic UI drawer, an AI gateway that the analytics layer knows nothing about, pipeline invariants asserted on every build, and ADRs that state their tradeoffs and match the code. Held to 80 rather than 85+ by four concrete defects a serious fintech team would fix before shipping: the largest seam (HTTP) carries no typed contract at all (verified empty OpenAPI schemas), the DataSourceAdapter's ingestion half has zero production consumers so the extensibility claim is unproven, the ops surface bypasses the very registry the architecture is built around, and the honesty-focused Data Quality page displays a hardcoded 28 next to a computed 1. Not below 75 because none of those are structural — each is a bounded fix inside an architecture whose direction of dependency is already correct, and the 413-line insights module is the only real cohesion problem in 2,909 backend lines.",
+   "strengths": [
+    "Layering is enforced in fact, not just documented: verified acyclic import graph across all 28 backend modules; zarin/ai/* has no dependency on the analytics layer, so gateway.explain() takes only text + evidence dicts (zarin/ai/gateway.py:63)",
+    "Semantic layer is load-bearing, not nominal — registry.evidence() (zarin/registry.py:82) is the sole producer of drawer payloads, and frontend/src/components/EvidenceDrawer.tsx:78-112 renders any metric generically with zero per-card special-casing; sql_kind=\"query\"|\"method\" keeps the 'executed SQL' claim honest",
+    "Deterministic-first AI seam is real: AIProvider Protocol + injection (zarin/ai/provider.py:36), provider=None is the intended offline path, and the grounding guard handles the dangerous edge cases deliberately — thousands separators stripped but the Persian decimal mark preserved so \"۲٫۳\" can never trace to \"23\" (zarin/ai/gateway.py:34-53)",
+    "Pipeline asserts its own grain contract before and after the build (zarin/pipeline.py:46-58, 191-203), and db.py carries a stale-mart schema guard that fails with a rebuild instruction instead of a Binder Error 500 on every endpoint (zarin/db.py:21-39)",
+    "Minimal dependency surface with no speculative infrastructure: 3 runtime deps (duckdb/fastapi/uvicorn), no Redis/queue/ORM; ADR-0001 argues each rejection against measured numbers rather than taste"
+   ]
   },
   {
    "lens": "code-quality",
    "dimension": "Code Quality & Maintainability",
    "score": 82,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "I read essentially all of the backend (3,716 Py LOC) line by line and the main frontend modules (2,777 TS/CSS LOC), ran `uv run pytest -q` (56 passed, 1.38s), `uv run ruff check .` (**All checks passed!** — verified), an expanded ruff pass, and probed the live API on :8630. This is genuinely tidy code: modern typing throughout (`from __future__ import annotations`, `X | None`, dataclasses, `Protocol`), TS `strict` with `any` confined to a SpeechRecognition shim, only 4 runtime Python deps, and comments that explain *why* rather than restate *what* (e.g. `api.py:270-273` on lexical containment vs `resolve()` UNC, `insights.py:78` on scenario band vs confidence interval). The real gaps are concentrated in three places: `insights.generate()` is a 181-line, C901=20 function whose structure contradicts CONTRIBUTING's documented extension pattern; the metric registry — billed as the single source of truth — has drifted out of sync with the code it describes, visibly to users; and the frontend has no lint or test gate at all.",
+   "scoring_rationale": "Not 90+: three material gaps a serious fintech team would fix before production — the registry/implementation drift is exactly the class of defect this architecture exists to prevent and it reaches the user's evidence drawer; `insights.generate()` at complexity 20 is the file most likely to be extended and its documented extension pattern describes only 4 of 9 cards; and 2,777 lines of frontend ship with no linter and no tests while the backend has 56. Threshold constants duplicated across config/insights/UI copy and the concentration query written four times (one without `nullif`) show the «one semantic layer» claim isn't enforced by structure. Not 72 or below: `uv run ruff check .` genuinely passes, and even under an expanded `I,B,UP,SIM,C90,ARG,RET` selection only 21 issues appear — isort, pyupgrade, simplify and return-style are all clean, which is rare. Typing is modern and consistent, `any` is confined to one unavoidable browser shim, the test suite is hermetic with mutation-aware fixture rows (conftest.py:65-70 documents a row that exists specifically so a test *can* fail), and the comment quality is well above average — these are the traits that make a codebase cheap to extend, and they are present.",
+   "strengths": [
+    "Module docstrings state contracts and invariants, not summaries — `insights.py:1-9`, `gateway.py:1-7`, `safe_context.py:1-8`, `db.py:18-21` each tell a new engineer the rule they must not break, and inline comments justify non-obvious choices (`api.py:270`, `insights.py:78-82`, `analytics.py:161-164`, `peers.py:115-117`)."
+   ]
   },
   {
    "lens": "data-correctness",
    "dimension": "Data & Analytics Correctness (grain, outcome taxonomy, denominators, metric-to-label fidelity)",
    "score": 82,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "The analytical core is genuinely strong: I could not find a single double-count, wrong denominator, silent NULL arithmetic, or window-vs-lifetime error in the SQL. Grain is enforced by build-time assertions and verified live (2,062,839 sessions = 2,062,839 distinct session_keys; attempts 1,949,353 + 263,936 NoAttempt rows = 2,213,289 raw rows); the six outcomes partition sessions exactly at both merchant and platform level; success is Verified-only and `recovered` has zero violations globally with a discriminating regression test; LMDI is exact to 2.7e-15 relative error on a 488B IRR delta. The defects are all in the layer that *describes* those correct numbers — and on a payments product that layer is the correctness claim. Most seriously, the copilot prints the PSP card's transaction-count impact as rial (\"۱۷۸ ریال تا ۳۵۶ ریال\"), the evidence drawer states an opportunity formula the code does not compute, and the insight ranking sorts counts against rial in the same key.",
+   "scoring_rationale": "Not 90+: three live, reproducible label/unit defects sit on the exact surfaces the product stakes its credibility on (the copilot answer and the «این عدد از کجا آمد؟» drawer), plus a self-contradicting anomaly count on the Data Quality page (1 vs 28) and a confidence override that bypasses the documented small-peer-pool guard. A fintech would not ship a recommendation that reads \"178 rial opportunity\". Not 75 or lower: the engine itself is production-grade — pipeline integrity assertions that fail the build, an exhaustive outcome taxonomy that sums exactly, Verified-only success with a Paid-after-retry trap test, per-merchant customer scoping verified at 0 cross-merchant cards, in-period (not lifetime) repeat with a regression test, exact LMDI and conv-driver identities, benchmark suppression instead of fabrication, and adjusted_fee that is computed but deliberately never rendered. 56 tests pass, ruff clean, AI eval 12/12.",
+   "strengths": [
+    "Grain discipline is enforced, not asserted in prose: zarin/pipeline.py:46-58 fails the build on duplicate (session_key,try_seq), inconsistent session attributes, or mixed NoAttempt; :191-203 re-checks session count and attempt-row conservation post-build. Verified live against the parquet: 2,062,839 sessions = 2,062,839 distinct session_keys, and attempts+try_seq=0 rows reconcile to the audited 2,213,289 raw rows."
+   ]
   },
   {
    "lens": "statistics",
    "dimension": "Statistical Methodology Rigor (estimators, matched comparison, decomposition identities, suppression, causal claims)",
    "score": 72,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "The two hardest math claims verify exactly on live data: LMDI contributions sum to ΔGMV to float precision (relative residual ~1e-15 across M156/M31/M215/M250) and the conversion-driver identity closes to ~1e-17 including the `reversed` term. The opportunity engine is a genuine counterfactual (gap × sessions × recovery-fraction × median ticket of the *same lost outcome*), refuses to sum failed amounts, caps at realized GMV, and is labelled verbatim as «سناریو ... نه بازه اطمینان آماری» — honesty rarely seen at this tier. But several live-verified defects undercut it: the PSP card ships a confounded recommendation (PSP-08 on M250 averages 6.05 tries/attempt vs 1.03 on the \"good\" rail, i.e. it is the retry rail, yet the card claims 5,366–10,732 recoverable transactions and asserts the weakness \"pattern is persistent\"), the evidence drawer publishes a formula and caveat that contradict the code that produced the number, and \"first half vs second half\" compares unequal windows with no normalization and no minimum-window guard on the copilot path.",
+   "scoring_rationale": "Not lower than ~70 because the substantive claims verify: I reproduced LMDI exactness and the conversion identity numerically on real merchants, suppression thresholds are centralized, documented and test-enforced (percentile keys genuinely absent under 5 peers), the estimator is a real counterfactual rather than a sum of failed amounts, and the product explicitly denies that its band is a confidence interval — most work at this tier claims the opposite. Not 75+ because four defects were confirmed live rather than inferred: the PSP card ships a merchant-facing recommendation confounded by attempt-order (6.05 vs 1.03 tries) that its own selection-bias guard misses by 0.5pp; the evidence drawer — the product's auditability mechanism — publishes a formula the code does not use; the \"halves\" comparison is unequal-length and unguarded on the copilot path at high confidence; and the capped case renders the merchant's entire GMV as an unhedged point estimate ranked first. Not 60-65 because none of these are core-math errors and each has a small, localized fix; the methodology is defensible and mostly well-reasoned, with a handful of gaps a serious fintech team would close before merchant release.",
+   "strengths": [
+    "LMDI decomposition is mathematically exact and verified live, not merely asserted: Σcontrib − ΔGMV relative residual ≈ 1e-15 on four real merchants (zarin/analytics.py:237-262), correct log-mean L(a,b) with a degeneracy guard; the conversion-driver identity closes to ~1e-17 including the easily-forgotten `reversed` term (analytics.py:264-274), and both are locked by tests (56 pass)",
+    "Opportunity band is explicitly labelled a scenario, not a CI (insights.py:97), and the p25↔p50 band was deliberately abandoned as «spuriously narrow» with the reasoning left in-code (insights.py:56-58); the recoverable sessions are priced at the median ticket of the *same lost outcome*, not of successful sales",
+    "Real suppression, enforced and tested: MIN_PEERS=5 removes percentile keys entirely (peers.py:96-108; test asserts `\"percentile\" not in r`), MIN_SESSIONS_INSIGHT=100 gates friction cards, 2pp gap floor, and peers under 100 in-period sessions are dropped (peers.py:73)",
+    "Percentile is exact rank over the peer list with no distributional assumption (peers.py:109-110), ties correctly handled in both directions, quoted in the UI as «بهتر از X٪ از N همتا» with a «گروه کوچک — با احتیاط» chip under 8 peers (PeersPage.tsx:59-63)",
+    "Mix-confounding is actively avoided where it matters: amount-band and PSP comparisons are within-merchant by construction and say so (insights.py:226, analytics.py:152), and the UI never sums card impacts into an additive portfolio headline (InsightCard.tsx renders each card's own interval only)"
+   ]
   },
   {
    "lens": "security",
    "dimension": "Security & Privacy",
    "score": 66,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "The deliberate defenses are genuinely good and test-backed: every DuckDB query is parameterized (verified `m=M156' OR 1=1--` → 404), the SPA route decides containment lexically with `os.path.normpath` before any filesystem call and has a raw-ASGI traversal test that bypasses httpx normalization, `safe_context` is allowlist-by-construction plus a recursive banned-key scan, and secrets are env-only with GA4 output key-allowlisted (a test proves `secret_token` is dropped). What is missing is the layer underneath: there is no authentication or authorization anywhere on the payments data, tenant scoping is a client-supplied `?m=` parameter, and `/api/admin/*` is fully open by default (verified live: HTTP 200 with no header). The grounding guard also only constrains numbers, so arbitrary non-numeric model text passes as \"grounded\". Strong hygiene, absent access control.",
+   "scoring_rationale": "Not lower than 66 because the defenses that exist are deliberate, correct and tested rather than incidental: parameterization is uniform across every query builder I read, the traversal fix reasons explicitly about lexical containment and the Windows UNC/SMB failure mode and is proven by a raw-ASGI test that defeats client-side normalization, safe_context enforces its allowlist twice with a depth-recursive scan, GA4 output is key-allowlisted with a test asserting a planted `secret_token` is dropped, secrets never enter telemetry or responses (verified: /api/admin/ai-ops carries no error text or credentials), and validation of dates/enums/limits/length is present and returns the right codes live (422 on limit=9999, 400 on bad date, 404 on injected merchant key). That is clearly above typical hackathon work. Not higher than 66 because the two largest controls a fintech is judged on are absent: no authentication or authorization on any financial endpoint, with tenant scoping delegated to a client-supplied parameter and a login that is frontend-only, plus an operator surface that is open unless an env var is remembered. Both would block production outright, and the README's \\\"queries already scoped\\\" phrasing softens the first. The grounding guard's numeric-only scope and the unvalidated free-text reaching the operator dashboard keep it out of the 70s.",
+   "strengths": [
+    "Uniform SQL parameterization: every f-string in zarin/analytics.py, peers.py, control.py, api.py interpolates only module constants or whitelisted enums; user values always go through DuckDB `$name` binds. Live probe `?m=M156' OR 1=1--` returns 404, not a 500 or a leak."
+   ]
   },
   {
    "lens": "reliability",
    "dimension": "Reliability & Observability",
    "score": 70,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "Failure handling inside the analytical and AI paths is genuinely strong: the LLM path falls back to deterministic text on any provider error (tested), thin/absent data is handled explicitly at every branch (peer suppression, low_n, decomposable, MIN_* thresholds), and the Control Center telemetry is honest — I verified live that with no LLM traffic it reports llm_requests=0, latency null, models=[] rather than inventing numbers. The hole is the other half of the lens: I proved by probe that an unhandled 500 is never recorded by obs.middleware, so the \"نرخ خطای سرور\" KPI and the \"نیازمند بررسی\" alert on the Performance page are structurally incapable of firing during a real server-error incident, and the ops copilot then answers \"نرخ خطا ۰٫۰٪\". There is also no logging of any kind in the backend (no `logging` import anywhere in zarin/), and the frontend's bootstrap `/api/meta` fetch has no `.catch`, so the most likely startup failure produces an infinite skeleton with no error text.",
+   "scoring_rationale": "Not higher than 75 because the observability surface — the product's own differentiator — is blind to server errors (proved by probe), has no logging or correlation ids to fall back on, and reports build-time as data freshness; plus the frontend's bootstrap path has a genuine silent failure that leaves an authenticated user staring at an infinite skeleton. Not lower than 65 because everything downstream of those gaps is above typical MVP: the AI failure path is layered and tested, thin-data restraint is systematic rather than ad hoc, telemetry refuses to fabricate (verified live), every page has real loading/error/empty branches with race guards, and the 56-test suite deliberately targets failure modes (400-not-500, 404, 422, traversal, provider error, hallucination). 70 = adequate-to-strong with real gaps a serious team would fix before production.",
+   "strengths": [
+    "AI path degrades correctly: 20s HTTP timeout, all transport errors converted to RuntimeError (zarin/ai/provider.py:79), gateway catches everything and returns deterministic text with quality_flags=['provider_error'] (zarin/ai/gateway.py:92) — covered by tests test_gateway_provider_error_falls_back / _offline_returns_deterministic.",
+    "Thin/absent data handled explicitly everywhere rather than crashing or fabricating: peers suppressed below MIN_PEERS with low_n flags (zarin/peers.py:96-117), changes gated on `decomposable` (zarin/analytics.py:254), and every copilot branch has a 'not enough data' Persian answer (zarin/copilot.py:49,64,95,105,118).",
+    "Telemetry is honest, not decorative: has_data=False with an explanatory note when the ring is empty (zarin/obs.py:43, zarin/ai/telemetry.py:50), fa_num(None) renders '—' not 0 (zarin/fa.py:12), and the live /api/admin/ai-ops confirms nulls instead of invented latency.",
+    "Uniform frontend loading/error/empty states — every page and every ops view has a `loading` and an `error || !data` branch (Overview.tsx:25-26, OpsPerformance.tsx:11-12, ChangesPage.tsx:44-45, …), and useData/useAdmin guard stale responses with an `alive` flag (ctx.tsx:106-112).",
+    "Failure modes are tested rather than asserted: 56 passing tests including bad-date→400-not-500, unknown merchant→404, limit→422, path traversal, admin-token guard, hallucination rejection and small-pool suppression; `ruff check .` clean."
+   ]
   },
   {
    "lens": "scalability",
    "dimension": "Scalability & Performance (hot-path cost, caching, concurrency, memory, bundle)",
    "score": 66,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "The mart layer is genuinely well designed for the KPI path — `merchant_daily` (17,481 rows / 386 KB) makes `period_agg` a ~1 ms lookup regardless of merchant size, and I verified ADR-0001's own claim: warm `/api/overview` for M250 (1,055,912 sessions) is ~105 ms and no merchant endpoint exceeds 0.7 s. Memory is well-behaved (server RSS 204 MB steady over 103 MB of marts; every query is aggregate- or LIMIT-bounded). But three measured facts cap the score: a process-wide RLock in `db.q` serializes every query (8 concurrent `/api/customers?m=M156` → 1.54 s wall, 1.38 s p100 vs 0.16 s solo — near-perfect serialization), the marts have zero merchant clustering so every session-grain query is a full scan of all 2.06 M rows, and `/api/insights` issues 23–25 uncached sequential queries per request. Nothing is compressed on the wire (618 KB JS served raw; gzip would be 177 KB) and there is no code splitting or load test anywhere.",
+   "scoring_rationale": "Not lower than 66 because the fundamentals a serious analytics product needs are actually present and verified, not claimed: a genuine pre-aggregated daily mart that makes the KPI path O(days) instead of O(sessions), bounded memory (204 MB RSS over 103 MB of marts), bounded telemetry rings, caching applied precisely to the two static-and-expensive endpoints, and sub-700 ms warm latency on the 1.05 M-session merchant that matches ADR-0001's own measured claim. Not higher than 66 because the concurrency story fails a trivial load test — 8 parallel requests serialize perfectly behind one global RLock — the marts have zero merchant clustering so every session query pays a full-scan floor (6.2 ms even for a 1-session merchant), the hottest endpoint runs 23–25 uncached queries with visible redundancy, an unauthenticated `/api/quality` recomputes a 108 ms full-attempts aggregate that is a constant, and there is no compression, no code splitting, and no load or latency-budget test in the 56-test suite. The system is fine at 10x merchants and breaks at 100x on scan cost plus the lock — and ADR-0001 names the wrong first bottleneck. That is squarely \\\"works and is defensible, but has real gaps a serious team would fix\\\", with several of those gaps being one-line fixes.",
+   "strengths": [
+    "Correct pre-aggregation where it counts: `merchant_daily` (17,481 rows) backs `period_agg`, `peers.peer_period_rates` and `changes` — measured 1.0 ms vs 11.6 ms for the equivalent sessions scan; peer matching runs entirely off `merchant_stats`, never `sessions`.",
+    "Measured latency at current scale is honest and matches the docs: M250 (1.05 M sessions) overview ~105 ms, funnel ~150 ms, insights ~277 ms, customers ~375 ms (curl `time_starttransfer` minus the 206 ms Windows loopback connect floor) — ADR-0001's \"warm API < 0.7 s on a 1.05M-session merchant\" verified true, not marketing.",
+    "Memory behaviour is genuinely bounded: server RSS 204 MB / private 217 MB after hundreds of queries over 103 MB of Parquet; DuckDB streams the marts, and every endpoint returns aggregates or a `LIMIT`-capped sample (`/api/evidence/sessions` caps at `le=50`), so no per-request materialization risk.",
+    "Telemetry memory is bounded by construction — `EventLog` uses `deque(maxlen=…)` (obs 8000, AI 5000), and `obs.summary()` over a full 8000-event ring measured ~3 ms.",
+    "Caching is applied to exactly the two things that are static and expensive (`@lru_cache` on `/api/meta`, which is 51 KB and two window-function queries, and on `/api/admin/ai-eval`) rather than sprinkled everywhere — a deliberate, defensible choice."
+   ]
   },
   {
    "lens": "product",
    "dimension": "Product Quality (merchant problem-solving, insight/action coherence, IA, two-surface fit)",
    "score": 78,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "The analytical core is genuinely excellent product work: nine card generators that stay silent when evidence is thin (verified — M97 returns zero cards), counterfactual impact instead of naive loss sums, an honest scenario band explicitly labelled \"not a statistical confidence interval\", a broken-funnel reframe that caps a 94%-no-attempt merchant's \"opportunity\" at realized GMV, and actions specific enough to execute (\"ask ZarinPal support to shift traffic off PSP-03\" with the named gateway and its top three error codes). The evidence drawer — definition, formula, params, the actual SQL, caveats, and drill-through to source session_keys — is the best traceability affordance I have seen at this scale. What is not finished is the loop around that core: cards are terminal (no link to the page their own text names, no dismiss/done/track, no \"did it work?\"), Overview silently drops cards past the fourth, the Control Center recommends prioritizing specific merchants while offering no merchant list or search, and there is no export, share, or digest anywhere in a product whose own PRODUCT.md defines it as \"the thing a merchant opens every week.\"",
+   "scoring_rationale": "Not 88+: the insight-first thesis is only half-executed as a product. Cards cannot be navigated from, dismissed, or tracked across weeks; the feed is silently capped at four; the Control Center cannot drill to the merchants its own recommendations name; there is no export or digest; and the time model has no week even though the product defines itself as weekly. Those are precisely the gaps a serious team fixes before production. Not 70 or below: the card content itself is materially better than typical BI — counterfactual impact with an explicitly non-CI scenario band, a broken-funnel cap-and-reframe, degenerate-PSP exclusion to avoid a phantom opportunity, genuine restraint verified live (M97 → zero cards), and a traceability drawer that takes every headline number down to source session_keys. The two surfaces have clearly distinct jobs and almost no bloat — nine backend modules and five ops pages with three orphans total. Strong work with a visibly unfinished action loop lands at the low-to-mid end of the 75-89 band.",
+   "strengths": [
+    "Insight cards are real product output, not metric dumps: Observation → Diagnosis → quantified interval → specific Action → confidence + effort chips + sample n + evidence link, ranked by impact × confidence ÷ effort with alerts forced below opportunities (zarin/insights.py:301-314). Verified live on M156/M18/M250/M31/M215/M33/M275.",
+    "Restraint is engineered, not accidental: _gap_card returns None below a 2pp peer gap or under 5 peers; M97 (healthy, 77% conv) legitimately yields zero cards and Overview.tsx:78 frames that as good news rather than an error.",
+    "Impact honesty is unusually disciplined — paid_unverified is labelled \"real amount, not an estimate\"; peer gaps carry \"conservative-to-optimistic scenario, not a statistical CI\"; a >50%-loss stage is relabelled \"fix the infrastructure first\" and capped at realized GMV (insights.py:86-102).",
+    "The evidence drawer (components/EvidenceDrawer.tsx) exposes metric definition, formula, computation params, the executed SQL or method, caveats, and on-demand source session rows keyed to the raw dataset — every headline number on the merchant surface is one click from its derivation.",
+    "Two surfaces have genuinely distinct jobs and distinct navigation, chosen pre-login (pages/Login.tsx:10-22, App.tsx:48-51); the Control Center is about the product's own health and says so in its subtitle, and its AI page separates grounding, evidence coverage, and fallback rather than collapsing them into one vanity score."
+   ]
   },
   {
    "lens": "business",
    "dimension": "Business Viability & Value Proposition",
    "score": 73,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "The core thesis is real and unusually disciplined: Paid-but-Unverified surfaces 116.55B IRR of genuinely settled, non-estimated money across 343 merchants (verified live at /api/admin/platform), and the opportunity engine refuses the \"lost revenue = Σ failed amounts\" fraud that normally destroys merchant trust — it uses a peer-median counterfactual, caps at realized GMV, labels its band \"not a statistical CI\", and suppresses cards under a 2pp gap. Evidence lineage down to the running SQL is a real trust asset and the peer benchmark is a genuine ZarinPal-only moat no merchant could self-serve. But viability breaks on coverage and last-mile: I generated cards for all 343 merchants and 126 (37%) get a completely empty dashboard while 193 (56%) get no opportunity at all; the flagship card's recommended action (\"enable auto-verify\") is wrong for 8,705 of the 8,706 sessions it fires on, which are already verify_type='Automated'; and the product cannot hand a merchant the 912 session keys it tells them to go resolve. Deployable as a pilot to the top ~80 merchants after those fixes; not deployable to the tail or to real merchants at all without tenancy.",
+   "scoring_rationale": "Not 83+: three of the four things an investor buys are compromised — coverage (37% of merchants get a blank page), actionability of the flagship card (its instruction is a no-op for 8,705 of 8,706 affected sessions), and the insight→action last mile (50-row cap, no export, no push). Merchant-side tenancy is absent entirely, which blocks any real-merchant pilot regardless of hosting. Not 63 or below: the value proposition is genuinely differentiated and defensible rather than a repackaged analytics dashboard — Paid-but-Unverified is a real 116.55B IRR platform finding no generic BI tool produces, the counterfactual opportunity math and its suppression rules are the honest version of a claim most products fake, and evidence-to-SQL lineage plus explainable peer matching are exactly what makes a fintech CFO believe a number. A PSP could credibly pilot this on its top ~80 merchants after the verify_type fix and an auth layer, which is the definition of \"works and is defensible with real gaps a serious team would fix.\"",
+   "strengths": [
+    "Paid-but-Unverified is a defensible, differentiated finding a generic dashboard structurally cannot produce — it is a state-machine leak, not a conversion metric. Live: 912 sessions / 61.8B IRR for M156 (3.2% of its GMV), 116.55B IRR platform-wide across 77 merchants with ≥5 occurrences.",
+    "Opportunity math is honest enough to survive a merchant's CFO: insights.py:50-132 values recoverable sessions at the median ticket of the SAME loss outcome, spans an explicit 0.5–1.0 recovery-fraction scenario band, caps at realized GMV, and reframes >50% loss as \"fix your infrastructure first\" instead of selling it as revenue.",
+    "Restraint is enforced in code, not prose: confidence is hard-capped to \"low\" below 8 peers (insights.py:96), peer benchmarks are suppressed rather than fabricated (peers.py:9), and the copilot answers \"not enough data to decompose\" rather than guessing (copilot.py:49).",
+    "Explainable peer matching (category + ¼–4× daily GMV band + ⅓–3× ticket band, ≥500-session pool, rule shown verbatim in the UI) is the strongest commercial moat here — it requires cross-merchant data only the PSP holds.",
+    "Ranking is commercially correct: impact × confidence ÷ effort, with alerts forced below opportunities so a zero-impact \"sales grew 64%\" note can never outrank 61.8B IRR of stuck money (insights.py:301-314)."
+   ]
   },
   {
    "lens": "ux",
    "dimension": "Merchant UX & Usability",
    "score": 76,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "The merchant surface is genuinely insight-first: the default landing is a chat page with six concrete business questions, and the Overview leads with ranked opportunity cards written as مشاهده / تشخیص / اقدام, so a shop owner can plausibly decide what to do inside 60 seconds (card #1 for M156 literally says \"turn on auto-verify / fix the callback / settle these from the ZarinPal panel\"). Persian localisation is excellent — fa-IR digits, Jalali dates, compact rial, correct RTL funnel fill origin, reduced-motion and 44px touch targets. The weakness is that the plain-language layer is only half-installed: the 28-entry TIPS dictionary is imported by exactly three files and by no merchant analytics page, so the pages that actually carry the jargon (میانه، کوهورت، پنجک، چارک، واحد درصد، PSP، جلسه) explain nothing, and the chat will silently answer a different question when it doesn't understand yours. Error states leak raw English exception strings into a Persian UI.",
+   "scoring_rationale": "Not 85+: the flagship plain-language layer is unreachable on every merchant analytics page (only 5 of 28 tips wired), the chat can silently answer a question the merchant did not ask with a confidence badge attached, and six data pages dead-end on «Error: overview: 500» with no retry — these are gaps a serious fintech team would fix before shipping to non-technical users. Not 65 or below: the core promise actually lands — chat-first entry, ranked cards with an explicit اقدام line, honest suppression below sample thresholds, strong Persian/RTL/Jalali formatting, real accessibility work (focus trap + restore, reduced motion, coarse-pointer targets), and a merchant genuinely can pick an action off the Overview in under a minute. That combination sits in the upper half of \"strong, minor-to-real gaps\".",
+   "strengths": [
+    "Ranked action cards are written for a shop owner, not an analyst: observation/diagnosis/action + effort chip (اقدام سریع/متوسط/پروژه بلندمدت) + confidence chip + sample size, all in one card (InsightCard.tsx:42-53)",
+    "Chat-first landing with six business-language prompts and fa-IR voice input via Web Speech API with graceful fallback when unsupported (CopilotPage.tsx:7-14, Copilot.tsx:7-33)",
+    "Honest empty states that refuse rather than fake: peers comparison is suppressed below 5 peers with an explanation (PeersPage.tsx:36-38), amount bands need 30 sessions, concentration needs 20 customers (FunnelPage.tsx:82, CustomersPage.tsx:84)",
+    "Tooltip content quality where it is wired is outstanding — a consistent یعنی چه؟ / چرا مهم است؟ / چطور تفسیر کنم؟ triad, e.g. the median tip explains why median beats average in one sentence (Tooltip.tsx:8-28)",
+    "Accessibility basics are real, not decorative: evidence drawer has focus trap, scroll lock and focus restore to the opener (EvidenceDrawer.tsx:30-56); aria-current on nav, aria-live on answers, prefers-reduced-motion honoured (theme.css:434)"
+   ]
   },
   {
    "lens": "design",
    "dimension": "Visual design, data visualization quality, and Persian/RTL typographic craft",
    "score": 76,
-   "confidence": "medium"
+   "confidence": "medium",
+   "summary": "This is a genuinely Persian-first interface, not a translated LTR dashboard: one coherent 436-line token system, CSS logical properties used consistently (border-inline-end, inset-inline-end, text-align:start), deliberate LTR islands for SQL/formulas/phone/OTP/time-axes, Jalali dates via Intl, Persian numerals with ٫/٪, and compact rial using Persian scale words (هزار میلیارد). Brand expression is disciplined — ZarinPal yellow reserved for primary action, active nav and rank badges; blue for links and data bars; ink for the funnel. But the lens's two core criteria both have verified defects: the rich tooltip computes a physical distance-from-right and applies it to a logical inset-inline-end, which mirrors it across the viewport in RTL; the cohort heat map uses an absolute 0–100% ramp so real retention (3–11%) collapses into one indistinguishable pale green; and the waterfall's zero-axis references an undefined token. Merchant and Operations surfaces are also near-identical — the data-workspace hook that was meant to differentiate them is dead code.",
+   "scoring_rationale": "Above 60 clearly: the token layer, logical-property discipline, LTR islands, Jalali/rial/Persian-numeral formatting and the restrained brand use are real craft that most teams skip entirely, and nothing reads template-like — the insight card, evidence drawer and chat-first landing are composed, not bootstrapped. Held below 85 because the defects land precisely in the two things this lens grades hardest: RTL correctness (tooltip mirrored by a logical/physical axis mix; Latin digits leaking into hour and cohort labels; two different thousands separators shipping on the same page) and data-viz quality (a heat map that encodes no signal, an invisible waterfall axis). Not lower than 75 because none of these break the primary reading path — the funnel, distribution bars, percentile marker, trend chart and KPI strips are all correct and correctly mirrored. Docked further for the merchant/ops surfaces being visually indistinguishable despite that being an explicit product intent.",
+   "strengths": [
+    "Real RTL discipline, not find-and-replace: theme.css uses border-inline-end, inset-inline-end, margin-inline-start, text-align:start throughout; the funnel fill is transform-origin:right so bars grow from the RTL start; the evidence drawer enters from inset-inline-end with a matching translateX.",
+    "Correct mixed-content handling — deliberate `direction:ltr` islands for the SQL box (.sqlbox), formula box, phone/OTP fields, API path column, cohort grid and 24h heat strip, while the surrounding page stays RTL. The ops latency table renders /api/admin/ai-eval cleanly inside an RTL row.",
+    "Persian numeric craft: fmt.ts uses Intl fa-IR throughout — Persian digits, ٫ decimal (۶۱٫۸), ٪, Jalali long dates (۱۱ دی ۱۴۰۴), and a compact rial ladder using Persian scale words (هزار میلیارد / میلیارد / میلیون) rather than K/M/B.",
+    "Restrained, correct brand expression: --brand #ffd500 appears only on primary buttons, the active nav pill (--brand-soft with a 3px inset bar), the rank badge and the trend-chart gradient; --blue-2 carries logo/data bars. The custom ZMark (skewed bar + dot) scales cleanly from 26px to 56px.",
+    "Considered details most submissions miss: prefers-reduced-motion and pointer:coarse blocks (theme.css:433-436), an explicit cohort contrast comment keeping ≥4.5:1 (charts.tsx:169), tabular-nums .num class, skeleton shimmer loading, and a genuinely well-composed evidence drawer (متریک / فرمول / مشخصات / کوئری / caveats)."
+   ]
   },
   {
    "lens": "accessibility",
    "dimension": "Accessibility & Inclusive Design (WCAG 2.1 AA, RTL/Persian assistive-tech experience)",
    "score": 61,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "There is real, deliberate accessibility work here — a correct focus trap with focus restore and scroll lock in the evidence drawer, correct `aria-current`/`aria-pressed`, `lang=\"fa\" dir=\"rtl\"`, a global `prefers-reduced-motion` kill-switch, real `<table>/<thead>/<th>` markup, and a coarse-pointer 44px rule — which puts it well above typical hackathon output on intent. But conformance itself does not hold: I computed the theme.css token values and `--ink-3` (4.03:1 on white, 3.73:1 on `--bg`) and `--ink-4` (2.54:1) are applied to 9.5–12px text across the KPI strips, page subtitles and the entire mobile bottom navigation, the chat composer input has its focus outline explicitly removed in the shipped CSS, and seven zero-size focusable buttons sit in the Overview/Customers tab order. There is no skip link, no `h1` on five of seven merchant pages, and no a11y linting or test of any kind in the build. The result works for mouse users with good vision and degrades sharply for low-vision, keyboard-only and screen-reader users.",
+   "scoring_rationale": "Not 75+: I confirmed multiple unambiguous WCAG 2.1 AA failures on the product's most important surfaces — the mobile bottom nav at 2.35:1 and 9.5px, muted text at 3.7–4.0:1 everywhere, the chat composer's focus outline deleted in the shipped CSS, seven zero-size focusable buttons in the Overview tab order, no skip link, and charts whose text alternatives carry no data. There is also zero automated enforcement: `frontend/package.json` has no ESLint at all (let alone `eslint-plugin-jsx-a11y`) and `tests/` contains no a11y assertion, so nothing prevents regression. Not below 55: this is clearly not accidental accessibility — the drawer's focus trap with restore and scroll lock, correct `aria-current`/`aria-pressed`/`aria-modal`, `lang=\"fa\" dir=\"rtl\"`, logical-property RTL layout throughout, a global reduced-motion rule, a coarse-pointer 44px rule, real `<thead>/<th>` tables, and per-control `aria-label`s on icon buttons and selects are all deliberate and correct. The gap is between good instincts and verified conformance, which lands squarely in \"adequate, with real gaps a serious team would fix.\"",
+   "strengths": [
+    "EvidenceDrawer.tsx:26-56 — genuinely correct modal handling: `role=\"dialog\" aria-modal=\"true\"` with an accessible name, Escape close, a Tab cycle that also recovers focus when it has escaped the container, `body` scroll lock, and focus restored to the opener on unmount. Better than most production dashboards."
+   ]
   },
   {
    "lens": "ai-grounding",
    "dimension": "AI Grounding, Copilot Quality & AI Operations",
    "score": 70,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "The deterministic-first architecture is real and verified: 130 live telemetry events on the running server are 100% source=deterministic, every number in every copilot answer comes from copilot._plan(), and the product is fully correct with zero keys and zero network. But the central claim \"the LLM may only rephrase\" is only half-enforced: is_grounded() inspects digit runs only, so I demonstrated with a fake provider that invented causality, an empty string and English text all pass and are shown labelled «با کمک هوش مصنوعی» under the note «این پاسخ بر پایه اعداد قطعیِ موتور تحلیلی است». The guard is also unit-blind (ریال→تومان keeps the digits) and its abbreviation rule accepts arbitrary downscale (is_grounded(\"۱۰\",\"۱۰۰\") → True). The eval harness runs with use_llm=False so it never exercises the guard at all, yet the Ops UI reports «ایمنی در نبود داده: ۱۰۰٪». Telemetry itself is honest and the free-model policy is genuine defence-in-depth.",
+   "scoring_rationale": "Not higher than 75: the headline safety claim is only partially delivered — three independently demonstrated guard bypasses (prose hallucination, unit swap, arbitrary downscale) plus empty/English acceptance, and the self-reported eval scores 100% on checks that cannot fail, which a fintech reviewer treats as material in exactly this dimension. Not lower than 65: the deterministic-first pipeline is airtight where it matters most (no key = no model = engine text verbatim, verified across 130 live events), the free-model and safe-context controls are real defence-in-depth with tests, telemetry refuses to fabricate (null percentiles, explicit human-judge dimensions), and the fallback UX honestly labels source, fallback and confidence — clearly above typical MVP work.",
+   "strengths": [
+    "Deterministic-first is not a slogan: copilot._plan() (zarin/copilot.py:39-131) writes every number and gateway.explain() never raises for provider problems — offline, provider-error and guard-rejection all return engine text verbatim; verified live (130 events, llm_requests=0, cost 0) plus 56 passing tests and clean `ruff check`.",
+    "Free-model cost policy (zarin/ai/models.py) is correct and non-obvious: ':free' suffix as the only proof, empty allowlist by default, openrouter/auto explicitly banned as billed-at-selected-rate, enforce_free applied at construction AND per request (provider.py:55,58).",
+    "Evidence-safe context (zarin/ai/safe_context.py) is allowlist-by-construction plus a recursive assert_safe banned-key scan; tests/test_ai.py:51-67 prove card keys, SQL and params cannot reach the model at any nesting depth.",
+    "Decimal handling in the guard is genuinely careful: 2.3 never traces to 23, and substring 80 does not trace to 61800000000 (gateway.py:43-53, tests/test_ai.py:123-135) — a class of bug most implementations get wrong.",
+    "Telemetry/eval honesty: latency percentiles return null rather than 0 with no LLM traffic, language_quality and business_usefulness are explicitly None (\"human judge\"), and the fallback UX exposes source/fallback/confidence chips, an evidence drawer and 👍/👎 feeding telemetry (frontend/src/components/Copilot.tsx:112-128)."
+   ]
   },
   {
    "lens": "testing-qa",
    "dimension": "Testing & QA",
    "score": 70,
-   "confidence": "high"
+   "confidence": "high",
+   "summary": "`uv run pytest -q` → 56 passed, 1 warning, 1.31s; `uv run ruff check .` clean; `uv run python -m zarin.ai.eval` → 12/12 cases pass. Measured statement coverage (coverage.py, file written outside the repo): 81% over `zarin/` (1274 stmts, 238 missed). The fixture in tests/conftest.py is genuinely adversarial — S12 exists only so `recovered=Verified-only` can fail, S11 forces the Reversed term, the Jan/Feb split forces in-period vs lifetime repeat — and the grounding-guard and raw-ASGI traversal tests are above-MVP quality. But the suite pins the *pipeline* invariants far better than the *presentation* ones: peer percentile math, LMDI attribution, and 45% of the insights engine are unverified, and there are zero frontend tests over 2,341 LOC.",
+   "scoring_rationale": "Above 60 because the suite targets the genuinely dangerous invariants with discriminating, mutation-hostile assertions rather than smoke tests, runs fast and hermetically, and is backed by a clean linter and a real AI eval harness — that is clearly above typical hackathon work. Held below 75 because a refactor *can* break production behaviour while staying green in at least three demonstrated places: swapping two LMDI factors, flipping `higher_better` on a peer metric, or breaking the PSP selection-bias guard. Not lower, because the untested paths are mostly presentation/ranking rather than the money-grain core, which is well pinned.",
+   "strengths": [
+    "Fixture is discriminating, not decorative: tests/conftest.py:65-70 adds a Paid-after-retry session on M2 whose sole purpose is to make test_recovered_is_verified_only falsifiable; tests/conftest.py:64 adds a Reversed session so the conversion-driver identity's sixth term cannot be silently dropped. Hermetic too — env vars set and OPENROUTER_API_KEY/GA4 popped before any zarin import (conftest.py:10-17), so the suite is offline and deterministic.",
+    "Grounding guard is the best-tested code in the repo: tests/test_ai.py:123-135 pins both real holes with negative assertions — digit-substring (\"۸۰\" ⊄ 61800000000) and decimal rescale (2.3% ≠ 23%, 61.8B ≠ 618B) — using the product's own fa.py formatters so the Persian separators under test are the real ones.",
+    "tests/test_api.py:49-89 drives the ASGI app directly with an un-normalized raw path because TestClient/httpx normalize `..` away, and includes the Windows UNC probe (`///10.255.255.1/share/x`) that must be rejected lexically before any filesystem call — a genuinely sophisticated security test.",
+    "Metric-grain invariants are pinned with exact numbers that a wrong implementation would miss: attempts 10 vs sessions 9 (test_metrics.py:11-12), conv = 3/7 not 4/7 so Paid is excluded (test_metrics.py:33), funnel stages exactly {7,6,4,3} (test_metrics.py:57), and the in-period-vs-lifetime repeat regression (test_metrics.py:66-73).",
+    "A separate, dataset-independent AI eval harness (zarin/ai/eval/cases.py, 12 cases incl. 4 refusal/safety) runs both standalone and through /api/admin/ai-eval, and honestly reports language quality and business usefulness as null rather than auto-scoring them (test_control.py:61)."
+   ]
   }
  ],
  "rubric": {
@@ -754,7 +869,7 @@
    "impact": "An operator asking about grounding rate or infrastructure cost gets an unrelated AI-spend answer with 'high' confidence and mismatched evidence. Adding or broadening any ops regex can silently capture a sibling intent.",
    "recommendation": "Parametrize a routing table test over all eight ops intents (one representative question each, plus two compound questions asserting the more specific intent wins) mirroring test_ai.py:138, and anchor the cost regex so it requires an AI/model qualifier.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -768,7 +883,7 @@
    "impact": "On the page whose entire purpose is analytical honesty, two different numbers for a similarly-worded anomaly appear inches apart, one of them a literal string that will drift from the data on any dataset change.",
    "recommendation": "Compute both counts in the anomalies query with distinct labels («بدون هیچ تلاش موفق» vs «بدون تلاش Verified») and delete the hardcoded 28 from rules_fa.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -782,7 +897,7 @@
    "impact": "Costs the depth criterion directly. Issuer-bank × PSP failure segmentation (\"cards from bank X fail 3× more on your worst gateway\") and init-latency → abandonment are the two most actionable relationships this schema supports, and both are absent — while the copilot fallback proves merchants will ask the day-of-week question.",
    "recommendation": "Add one segmentation card following the _psp_card pattern: per issuer_bank_code within-merchant ok_rate with the same degenerate-rail guard, naming the worst bank and its top switch_response_codes. It reuses existing SQL shape and adds a genuinely new lever.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -796,7 +911,7 @@
    "impact": "The rubric asks for \"uncertainty where relevant\". The product is honest that the band is a scenario, not a CI — but that means no card carries statistical uncertainty at all, and a thin-peer gap and a 22-peer gap produce visually identical claims apart from a chip.",
    "recommendation": "Gate the card on the gap exceeding peer IQR or a bootstrap CI of the peer median rather than a flat 2pp, and widen the recovery-fraction band as n_peers falls so the interval visibly reflects evidence strength.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -810,7 +925,7 @@
    "impact": "Weakens the \"concrete thing the merchant can do\" half of the top criterion. The strongest evidence the engine produced is available but not wired into the recommendation the merchant actually reads.",
    "recommendation": "When _psp_card fires, interpolate the named worst gateway into the inbank_gap action (\"ask ZarinPal to shift traffic away from PSP-03\"); similarly reference the amount band or hour bucket when those generators fire alongside.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -824,7 +939,7 @@
    "impact": "ADR-0004 claims \"Adding Shopify = one adapter file; the engine and UI generalize\", but today the interface only feeds a status panel. A second real source would have to invent the wiring from `metrics()` into the semantic layer from scratch, so the abstraction is not yet proof that the seam works — it is a shape without a consumer.",
    "recommendation": "Either wire it end-to-end for one window (call `.metrics(f,t)` on connected adapters in `control.sources()` and feed the pair into `cross_source()`, so the path is exercised), or drop `metrics()` and `sources/insights.py` and keep the honest status registry. Half-wired is the worst of both.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -838,7 +953,7 @@
    "impact": "Setting the token makes every Control Center page 401 and the surface unusable; leaving it unset leaves /api/admin/* fully open. The dual-surface separation is therefore purely client-side (a sessionStorage flag in App.tsx:161 plus a data-workspace attribute) with no server-side notion of surface — the security seam is one-sided, so in practice it is always in the open configuration.",
    "recommendation": "Have Login capture the operator token for the ops path, keep it in the AppProvider, and add an optional headers argument to `get()` that `useAdmin` populates. ~15 lines and the existing guard becomes usable.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -852,7 +967,7 @@
    "impact": "Adding the tenth insight means copying ~25 lines and remembering an undocumented key set; the frontend (api.ts:29-36) already carries five optional fields to absorb the variance. This is where feature growth will actually land, and it is the least structured part of the backend.",
    "recommendation": "Introduce a frozen `Card` dataclass with the full field set and a `to_dict()`, so each generator returns a typed object and the ranking reads declared fields. Promote `_quantile` to a shared helper (it is used by two modules), and hoist the deferred `from .db import q`.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -866,7 +981,7 @@
    "impact": "The single-source-of-truth guarantee holds for the merchant surface but not the operations surface. Ops metric definitions (fallback rate, grounded rate, cost per request) live as prose inside the copilot planner, so they can drift from what OpsAI.tsx labels the same numbers, and none of them get caveats or the drawer's traceability treatment.",
    "recommendation": "Add the ~8 platform/telemetry metrics to REGISTRY with grain=\"platform\" and have ops_copilot call `evidence()` with sql_kind=\"method\". Deletes _ev() and makes the claim in registry.py true for both surfaces.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -880,7 +995,7 @@
    "impact": "Tuning any threshold requires finding every literal across three layers; the UI copy will silently state a number the backend no longer uses, which in a product whose whole pitch is auditable numbers is a correctness-of-claim bug, not just style.",
    "recommendation": "Move the insight thresholds into config.py next to the existing `MIN_*` block; expose `MIN_SEGMENT_N`/`PREFERRED_PEERS` through `/api/meta` (or the existing `low_n`/`n_peers` flags) so the frontend renders the server's number instead of a literal.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -894,7 +1009,7 @@
    "impact": "The same business concept has four definitions in a codebase whose README claims one shared semantic layer; the `api.py` copy will divide by zero/NULL on an empty window, and a future fix to the metric will land in one to three of the four sites.",
    "recommendation": "Extract one `concentration_top5(where_sql, params)` helper in `analytics.py` (or the registry module) and call it from all four sites, returning a single key name.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -908,7 +1023,7 @@
    "impact": "Charts render slightly off-brand today and will not follow any future token change; the mixed convention inside a single file means a maintainer cannot tell which mechanism is authoritative. (Related: ~150 inline `style={{…}}` objects across 18 tsx files carry raw pixel magic numbers — `minWidth: 84`, `width: 70`, `fontSize: 9` — alongside a 436-line token system.)",
    "recommendation": "Read the three values once via `getComputedStyle(document.documentElement).getPropertyValue('--brand')` (or export them from a single `tokens.ts` that theme.css and charts share) and delete the literals.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -922,7 +1037,7 @@
    "impact": "The hook-dependency suppressions in `ctx.tsx:92,112` are exactly the pattern that needs a linter to stay honest (the `key = JSON.stringify(...)` trick is correct today but nothing enforces it); the backend has 56 hermetic tests while the UI has zero automated checks beyond type-checking.",
    "recommendation": "Add eslint + `eslint-plugin-react-hooks` and a `lint` script (the disables then become meaningful), and enable `noUncheckedIndexedAccess`; a handful of vitest tests on `fmt.ts` (`rial`, `pct`, `deltaPct`) would cover the highest-risk pure logic cheaply.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -936,7 +1051,7 @@
    "impact": "On the one page whose whole purpose is «بدون ترمیم پنهان، بدون عدد ساختگی», two numbers for the same anomaly appear four lines apart, and the surfaced one undercounts the real anomaly 28×. It also silently hides the 43.8M IRR of GMV that has no attempt-level backing.",
    "recommendation": "Change the subquery to `HAVING sum((try_status='Verified')::int)=0` so the reported count matches the audit and the GMV gap, or rename the field/label to 'no settled attempt' and add a second counter for the 28. Either way derive the rules_fa number from the query instead of hard-coding it.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -950,7 +1065,7 @@
    "impact": "A rial estimate whose only baseline is a 5-merchant category median is chipped 'high confidence', and CONF_W['high']=1.0 vs 0.35 inflates its ranking score ~2.9×. The 'this stage is broken' judgement is high-confidence (it comes from the merchant's own 94% NoAttempt rate), but the number displayed next to the chip is not.",
    "recommendation": "Split the two claims: keep the broken-funnel reframing and its urgency, but leave `confidence` bound by the peer-pool rule, or add a separate `severity` field for the broken flag so confidence keeps describing the estimate. The n_peers<8 warning chip already renders (InsightCard.tsx:49-51), so only the chip and the score weight need fixing.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -964,7 +1079,7 @@
    "impact": "At the MIN_PEERS floor of 5, one dead-integration merchant shifts the median a full rank position and can flip the 2pp card trigger either way — suppressing a real opportunity or manufacturing one. The advertised baseline (\"what a comparable business achieves\") is contaminated by businesses that are not transacting at all.",
    "recommendation": "Apply the PSP degeneracy rule to the peer pool (e.g. require verified/sessions above a floor, or no_attempt_rate ≤ 0.6) and document it in docs/ANALYTICS.md §3; alternatively use a trimmed median and expose the peer values in the evidence drawer so contamination is visible.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -978,7 +1093,7 @@
    "impact": "The least-reliable estimate in the system — a broken funnel where essentially none of the gap is recoverable — is displayed as a point figure equal to total sales and ranked above every well-evidenced card. Confidence-in-the-problem is being fed into a formula that means confidence-in-the-estimate.",
    "recommendation": "For `broken` cards emit no rial impact (impact_low/high = 0, as the alert cards do) and rank them by a separate risk magnitude; keep confidence=\"high\" as a problem flag only, not as CONF_W input.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -992,7 +1107,7 @@
    "impact": "At the low end of the allowed range the engine emits a confidently-worded, rial-denominated recommendation from a difference indistinguishable from noise, and the confidence chip cannot flag it because it is not derived from any variance. Uncertainty is asserted (three-level chip, scenario band) but never quantified from the data.",
    "recommendation": "Gate emission on gap > k·SE(own rate) with SE = sqrt(p(1−p)/n) in addition to the fixed pp floor; scale the scenario band by observed peer dispersion (p25..p75) rather than the fixed [0.5, 0.75, 1.0]; state the multiple-comparison exposure in docs/ANALYTICS.md §7.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1006,7 +1121,7 @@
    "impact": "The card's rial figure is not incremental revenue under any coherent counterfactual — it is the size of a mix shift priced as new sales. Confidence \"low\" and effort \"hard\" limit ranking damage, but the number itself estimates nothing.",
    "recommendation": "Anchor the counterfactual on customers rather than transaction share: extra_txns = (peer repeat-txns-per-customer − own) × customers × ticket; or drop the rial figure and present it as a positioning gap with no monetary impact.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1020,7 +1135,7 @@
    "impact": "Any anonymous client can pollute the operator's AI-Ops dashboard and the durable JSONL audit trail with attacker-chosen labels, skewing the intent/feedback aggregates that the Control Center presents as ground truth, and growing the log without bound.",
    "recommendation": "Validate with a Literal/Enum: `surface: Literal[\"merchant\",\"ops\"]` and constrain `intent` to the known plan intents (FastAPI returns 422 automatically); reject unknown values instead of recording them.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1034,7 +1149,7 @@
    "impact": "Quota exhaustion / denial of the AI feature, and the operator's key is effectively lent to anonymous callers as a text-generation proxy. The free-model policy (zarin/ai/models.enforce_free) caps the dollar cost at $0, which is a real mitigation, but not the rate-limit one.",
    "recommendation": "Put /api/copilot behind the same session gate as the merchant data, and add a simple per-IP token bucket in the existing obs middleware (a deque of timestamps is enough) before the provider is constructed.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1048,7 +1163,7 @@
    "impact": "A demo or screenshot reads as a working phone/OTP authentication flow for a payments product. That misrepresents the security posture to a reviewer, and the same screen would be mistaken for real auth by anyone deploying it.",
    "recommendation": "Add one line of muted text under the OTP boxes: «نسخه نمایشی — احراز هویت واقعی متصل نیست؛ هر کدی وارد شود ورود انجام می‌شود.» Costs nothing and makes the honest claim visible where the claim is made.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1062,7 +1177,7 @@
    "impact": "When the Performance page does show a slow or failing endpoint, there is no artifact to go to next — no error log, no correlation id, no persisted trace. Post-hoc diagnosis of anything that happened before the terminal scrolled is impossible.",
    "recommendation": "One `logging` config + a request-id generated in obs.middleware, echoed in a response header and stamped into both the obs event and the ai_events row; log exceptions at ERROR with that id.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1076,7 +1191,7 @@
    "impact": "A frontend/backend version skew surfaces to the user as an opaque JSON parse error (api.ts:166 `res.json()` on HTML) instead of a 404, and the Control Center reports the broken path as 100% healthy. Silent failure with a plausible screen.",
    "recommendation": "Return a JSON 404 for any unmatched path starting with `/api/` before falling through to index.html; add a test asserting /api/nope is 404 JSON.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1090,7 +1205,7 @@
    "impact": "A pipeline that keeps running but stops ingesting (or ingests an empty delta) rewrites the file and the Control Center reports fresh, connected, ok — exactly the stale-data incident this view exists to catch. Same shape in GA4: status() returns connected/ok without ever calling the transport (ga4.py:54-58), though that path is unreachable today since fetch_fn is None.",
    "recommendation": "Report `max(d)` from the sessions mart as freshness (build time can be a second field), and degrade status to a warning past a configured lag threshold.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1104,7 +1219,7 @@
    "impact": "Any unexpected payload shape or chart-library throw unmounts the entire tree to a white page with no message and no recovery path — worse than the per-page Empty states the code otherwise does well. No client-side error is reported anywhere either.",
    "recommendation": "One error boundary around <main> rendering the existing <Empty> component plus a reload action; optionally POST caught errors to a telemetry endpoint so client failures reach AI-Ops-style visibility.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1118,7 +1233,7 @@
    "impact": "~440 KB of avoidable transfer on every cold load and ~44 KB on every `/api/meta` — significant on the Iranian mobile connections this Persian-first product targets, and it scales with every new user rather than being amortized.",
    "recommendation": "`app.add_middleware(GZipMiddleware, minimum_size=1000)` — one line, already available in the installed Starlette. Optionally pre-compress the static assets at build time.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1132,7 +1247,7 @@
    "impact": "A merchant who never opens the Control Center still parses and executes its code; the environment is chosen *before* login, so the split is trivially available. Bundle parse/execute cost is the dominant first-paint term on mid-range mobile.",
    "recommendation": "`const Ops = lazy(() => import('./ops/OpsApp'))` behind the pre-login environment choice, and split recharts into its own chunk via `build.rollupOptions.output.manualChunks`. Drop the unused Vazirmatn weights to the 3–4 the design actually uses.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1146,7 +1261,7 @@
    "impact": "40 concurrent slow/hanging copilot requests stall the entire API — including deterministic merchant endpoints that never touch the LLM. Because the analytics endpoints are also sync and lock-serialized, the failure mode is total, not partial.",
    "recommendation": "Make `/api/copilot` `async def` and do the provider call with an async HTTP client (or `run_in_threadpool` with a dedicated bounded executor + `asyncio.Semaphore` cap), reuse one connection pool across calls, and lower the timeout well below the shared-threadpool budget.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1160,7 +1275,7 @@
    "impact": "For any merchant with five or more findings, real recommendations — including the gmv_change alert, the only card that explains a sales swing — are invisible with no affordance suggesting they exist. The user cannot distinguish \"four is all there is\" from \"four is all we showed you.\"",
    "recommendation": "Render all cards, or keep four above the fold behind a \"N فرصت دیگر\" expander. One-line change plus a counter.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1174,7 +1289,7 @@
    "impact": "The default first screen of a \"what changed\" product shows five absolute numbers with zero change indicators. The weekly cadence the product claims is not expressible, and a merchant cannot ask the obvious \"this month vs last month\" or \"vs the same week last year\" question anywhere in the UI even though /api/changes already accepts arbitrary f1/t1/f2/t2 (api.py:135-142).",
    "recommendation": "Add a 7-day preset and a custom range picker (native <input type=\"date\">), default to 30d rather than all, and always send cf/ct so deltas are present on the landing.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1188,7 +1303,7 @@
    "impact": "On a chat-first landing, roughly a third of real questions get a confident-looking answer to a question the user did not ask. It never hallucinates numbers (the grounding discipline holds), but it also never says \"I can't answer that\" — the worst failure mode for trust in a chat surface, because a miss is indistinguishable from a hit.",
    "recommendation": "Emit an explicit no-coverage response when no branch matches (\"این را هنوز نمی‌توانم پاسخ دهم — می‌توانم درباره …\") instead of falling through to the summary, and pass the previous turn's intent so pronoun follow-ups resolve.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1202,7 +1317,7 @@
    "impact": "A merchant who finds the 912 unverified payments cannot hand the list to their developer or accountant, and cannot be told about them without logging in. For a product positioned as a weekly habit, there is no mechanism that creates the weekly return — the merchant must remember on their own.",
    "recommendation": "Ship CSV on the evidence drawer's session sample and a print-friendly Overview first; a weekly email/SMS digest of the top three cards is the highest-leverage retention feature and reuses copilot's \"priorities\" intent verbatim.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1216,7 +1331,7 @@
    "impact": "A merchant opening \"data quality\" under the \"شفافیت\" section reasonably expects the quality of their own data (their unknown-card share, their missing response codes, their coverage gaps) and instead gets platform statistics plus two controls that appear broken. It also surfaces cross-merchant aggregate information on a single-tenant surface.",
    "recommendation": "Scope /api/quality by m and the selected window for the merchant surface, keep the methodology rules list as-is, and move the platform outcome mix and top-5 concentration to the Control Center where they belong; or hide the merchant/period controls on pages that ignore them.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1230,7 +1345,7 @@
    "impact": "The merchant is told 61.8B IRR is sitting there and given no way to get the 912 identifiers, hand them to finance, or trigger anything. Value stays theoretical, and the \"open it weekly\" habit the product is designed around has no push channel to establish it.",
    "recommendation": "Add a full CSV export for the sessions behind any card (session_key, date, amount, PSP, settled_at) and a deep link to the ZarinPal panel filtered to Paid status. A weekly SMS/email digest of the top card is the cheapest available retention lever.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1244,7 +1359,7 @@
    "impact": "Positioning it beside Paid-but-Unverified as a co-equal \"major innovation\" invites a PSP reviewer to discover the gap and discount the whole innovation list. It also gives away the strongest monetization play: retry-on-failure belongs in ZarinPal's own checkout, where the PSP captures the recovered volume rather than reporting on it.",
    "recommendation": "Reframe Payment Rescue as measurement (\"we quantify the rescue you already get and the gap to your peers\"), and pitch native retry in ZarinPal checkout as the derived roadmap item — that is the version with a revenue-share story attached.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1258,7 +1373,7 @@
    "impact": "For a PSP ops team the surface is thin: it tells them a problem exists platform-wide but not which of 343 merchants to phone, and two of four pages are product self-monitoring rather than payment operations. The highest-ROI internal use case — a ranked merchant call-list worth 116B IRR of stuck settlement — is one query away and absent.",
    "recommendation": "Add /api/admin/merchants ranked by recoverable value (paid_unverified_amount, peer-gap opportunity, no-attempt severity) with the same evidence drawer, as the Control Center's landing view. It converts the internal surface from a status page into a revenue-recovery worklist and is the strongest argument for ZarinPal funding the product internally.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1272,7 +1387,7 @@
    "impact": "The largest number on the merchant's home screen is a low-confidence guess that looks exactly like the one number on the page that is guaranteed real cash. A shop owner scanning for 10 seconds ranks the guess first.",
    "recommendation": "Give estimate cards a visually distinct amount treatment (outlined/greyed with a «برآورد» prefix badge) reserved from the solid treatment used for actual money, and rewrite the label to «اگر به سطح همتایان برسید، حدوداً … بیشتر می‌فروشید — این یک تخمین است، نه پول موجود».",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1286,7 +1401,7 @@
    "impact": "A merchant reading two adjacent tiles gets a flat contradiction with no reconciliation. The cause (the selected window is the entire dataset, so first-purchase == in-period for everyone) is invisible in the UI, so the natural conclusion is that the numbers are wrong — which poisons trust in the rest of the page.",
    "recommendation": "Suppress or annotate the «مشتری جدید» sub-line when new_customers === customers, e.g. «همه مشتریان در این بازه اولین خریدشان را داشتند چون بازه انتخابی کل تاریخچه است».",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1300,7 +1415,7 @@
    "impact": "On any backend hiccup the merchant is dead-ended with an English stack-ish string and must know to reload the browser. This is the single most likely first-run failure a non-technical user will meet.",
    "recommendation": "Map the error to one Persian sentence («ارتباط با سرور برقرار نشد») and add a «تلاش دوباره» button that re-runs the fetch; keep the raw string behind the console or a small «جزئیات فنی» disclosure.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1314,7 +1429,7 @@
    "impact": "The affordance meant to make every number traceable in language a merchant understands is dominated by SQL and English column names. A shop owner opens it once, sees code, and stops using the feature that carries the product's trust story.",
    "recommendation": "Lead the drawer with a one-paragraph «به زبان ساده» restatement and the sample-session table, and collapse فرمول/پارامترها/کوئری behind a «جزئیات فنی» toggle. Run computed_at through faDate.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1328,7 +1443,7 @@
    "impact": "Iranian shop owners transact and think in تومان. «هزار میلیارد ریال» is the hardest available format for the target user to hold in their head, and a factor-of-ten misread of the headline sales figure is the likely failure mode. Nothing on screen even states the unit convention.",
    "recommendation": "Add a ریال/تومان toggle in the topbar next to the period segment (a one-line divide-by-10 in fmt.rial), persisted in sessionStorage; default to تومان for the merchant workspace and keep ریال for Ops.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1342,7 +1457,7 @@
    "impact": "A waterfall's whole readability depends on the ±0 reference line: without it the reader cannot tell where positive stops and negative starts, and the −۴۷٫۸ میلیارد conversion bar loses its anchor. The chart still reads by colour, but the geometry is unmoored.",
    "recommendation": "Change to `var(--line-3)`. Longer term, add a build-time check (or a CSS-var lint) for `var(--x)` names not defined in theme.css — this is the only such leak but it shipped silently.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1356,7 +1471,7 @@
    "impact": "Inconsistent digit systems inside the same grid and the same definition list. The evidence drawer is the product's transparency centrepiece, and it is where the Persian localisation visibly stops — a Gregorian UTC ISO timestamp under a Persian label is the most jarring instance.",
    "recommendation": "Use the existing HOURS_FA for hour labels, `+${faNum(k)}` for cohort headers, and faDate()/an Intl fa-IR dateTime format for computed_at (keep the ISO string in a title attribute for copy/debug). Same for date-valued params.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1370,7 +1485,7 @@
    "impact": "Two visually different glyphs for the same function within one viewport. U+060C is a sentence comma, not a digit-group separator; using it inside numerals is typographically wrong in Persian and breaks the tabular-nums rhythm the .num class establishes.",
    "recommendation": "Change fa.py's translation table to map \",\" → \"٬\" (U+066C) so server-rendered Persian numerals match the client, and add one assertion in tests/ pinning the separator codepoint.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1384,7 +1499,7 @@
    "impact": "The product's stated model — a calm merchant surface vs a denser internal control centre — is not expressed visually. Nothing on screen signals \"you are in an internal tool\", which for an internal ops surface is both an orientation and a safety cue, and it costs the design its most legible strategic idea.",
    "recommendation": "Use the existing data-workspace attribute: under [data-workspace=\"ops\"] shift the accent from --brand to --blue-2 for the active nav and rank badges, drop --bg a step cooler, tighten --fs and section margin-block, and reduce card radius one notch. That is a ~15-line token override, not a second design system.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1398,7 +1513,7 @@
    "impact": "Fails WCAG 2.1 A 2.4.1 Bypass Blocks — a keyboard or switch user must traverse the sidebar, merchant `<select>` and four period buttons before reaching content on every navigation. The missing/vanishing `h1` breaks the standard screen-reader \"jump to h1\" orientation move and leaves five pages with no top-level heading (1.3.1 / 2.4.6).",
    "recommendation": "Add a visually-hidden-until-focused `<a href=\"#main\">پرش به محتوا</a>` as the first child of `.app`, and promote App.tsx:115 `.t-title` to `<h1>` (dropping the per-page `h1` on Overview/ops to `h2`) so every route has exactly one, stable, top-level heading.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1412,7 +1527,7 @@
    "impact": "Fails WCAG 2.1 AA 1.4.13 Content on Hover or Focus (not hoverable, not dismissible) and A 2.5.3 Label in Name (the name \"توضیح: …\" does not contain the visible label). The three-part plain-language explanations — the mechanism that makes the product understandable to non-analysts — are in practice unavailable to screen-reader users and to magnifier users.",
    "recommendation": "Drop `pointer-events:none` and keep the tooltip open on tooltip hover; bind Escape on `document` while open; render the tooltip text in a persistent visually-hidden `<span id={popId}>` so `aria-describedby` is stable and always resolvable; use a real `<button>` with `aria-describedby` and keep the visible label inside it (move \"توضیح\" into visually-hidden text). Darken the dashed underline to ≥3:1.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1426,7 +1541,7 @@
    "impact": "Fails WCAG 2.1 A 1.1.1 Non-text Content (the text alternative does not convey equivalent information) and 1.3.1 Info and Relationships for the cohort grid and the malformed ARIA tables. A blind merchant can read the KPI numbers but cannot obtain the daily trend, the hourly distribution, or any cohort retention value — the analysis the product exists to deliver.",
    "recommendation": "Give each chart a visually-hidden data table (or a `<details>` \"مشاهده به صورت جدول\") generated from the same array; replace the ARIA-table `div`s in FunnelViz/Waterfall with real `<table>` markup (the codebase already uses `.tbl` correctly elsewhere) and drop the `aria-hidden` cells; render CohortGrid as a `<table>` with `<th scope=\"row\">` month headers.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1440,7 +1555,7 @@
    "impact": "Fails WCAG 2.1 AA 4.1.3 Status Messages for the assistant's answers and its loading state, and A 2.4.3 Focus Order at the login step transition. A screen-reader user asks a question and hears nothing — neither that work is in progress nor that an answer arrived — and must hunt for it manually.",
    "recommendation": "Render one persistent `<div aria-live=\"polite\" aria-atomic=\"false\">` wrapper around `.chat` at mount and let bubbles appear inside it; set `aria-busy` on that wrapper while pending. On route change, move focus to the `<main>` (`tabIndex={-1}`) and announce the new page title in a persistent live region. In `Login.choose`, focus the phone `<input>` after the step transition.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1454,7 +1569,7 @@
    "impact": "Fails WCAG 2.1 AA 1.4.11 Non-text Contrast (UI component boundaries need ≥3:1) and A 1.3.5 Identify Input Purpose (no `autocomplete` on the phone/OTP fields). The split-box OTP with no paste distribution is a well-known barrier for users with motor impairments, dyslexia and screen-magnifier users, and it is the mandatory gate to the entire product.",
    "recommendation": "Add `autoComplete=\"one-time-code\"` and an `onPaste` handler that distributes digits across the boxes (or replace the five boxes with one `<input inputMode=\"numeric\" autoComplete=\"one-time-code\" maxLength={5}>`); wrap them in a `<fieldset>` with a `<legend>` and point `aria-describedby` at the instruction paragraph; add `autoComplete=\"tel\"` to the phone field; darken `--line`/field borders to ≥3:1 against their background.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1468,7 +1583,7 @@
    "impact": "The harness measures regex intent routing, not AI quality, while README.md:46 and OpsAI.tsx:65-76 present it as the product's AI quality evaluation. Guard regressions of the kind above would go uncaught.",
    "recommendation": "Add a stubbed-provider adversarial track (fabricated number, rescaled number, unit swap, metric swap, pure-prose causality, empty, English) asserting accept/reject, and report guard precision/recall separately from routing accuracy.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1482,7 +1597,7 @@
    "impact": "Users asking a supported question in unmatched wording get a non-answer presented with medium confidence and traceable evidence, which reads as if the question was understood. Routing is 7 hand-written Persian regexes with no normalization or synonym layer.",
    "recommendation": "Split the terminal branch into overview (question maps to headline KPIs) and out_of_scope (confidence=low, explicit capability list); add ZWNJ/ی-ك normalization and a small synonym table so «نرخ تبدیل» routes to the funnel branch.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1496,7 +1611,7 @@
    "impact": "A truncated (AI_MAX_TOKENS=600), rate-limited or misbehaving free model can render an empty or English answer in an RTL Persian merchant UI, with no fallback to the correct deterministic text and no telemetry flag.",
    "recommendation": "Before accepting, require comp.text.strip() non-empty and a minimum Persian-letter ratio (e.g. >0.5 of letters in the Arabic block); otherwise fall back with a bad_output quality flag.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1510,7 +1625,7 @@
    "impact": "Dropping `_check_merchant` from /api/customers, or omitting `dependencies=_ADMIN` from a newly added /api/admin/* route, would leak data or bypass the operator token with the suite green.",
    "recommendation": "Add a parametrized test iterating `app.routes` that asserts (a) every merchant-scoped route returns 404 for an unknown `m` and 400 for a bad date, and (b) every path starting with `/api/admin` returns 401 when ADMIN_TOKEN is set and no header is sent.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1524,7 +1639,7 @@
    "impact": "The traversal/UNC guard is protected by a test whose green status does not distinguish 'guard verified' from 'guard not exercised' — precisely the case in any environment where the frontend has not been built.",
    "recommendation": "Use `pytest.skip('SPA not built')` so the gap is visible, drop the `content == b''` escape hatch, and add a positive control asserting a legitimate asset path is still served.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1538,7 +1653,7 @@
    "impact": "Coverage can regress silently with no gate. A malformed OpenRouter payload is contained only by gateway.py's blanket `except Exception` (which degrades every LLM answer to fallback rather than surfacing the bug), and a corrupt telemetry file's effect on the Ops AI page is unknown.",
    "recommendation": "Add pytest-cov with a per-module floor (e.g. fail under 80% on zarin/, 60% on the weakest modules), and add tests for provider.py with a stub `fetch_fn`/urlopen covering 200-with-unexpected-shape, non-200, and timeout; add a store.py round-trip test that writes a JSONL file with one corrupt line and asserts recovery.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1552,7 +1667,7 @@
    "impact": "A silent divergence between the JS midpoint and the Python midpoint would make the What-Changed page and the GMV-change card disagree with no test failing.",
    "recommendation": "Either move the midpoint to the API (return the split the backend used and have the page consume it), or add one vitest asserting the JS midpoint matches a fixture generated from the Python function. The former is smaller and removes the duplication entirely.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1566,7 +1681,7 @@
    "impact": "Intent routing is the most likely growth axis for a chat-first product, and each new intent is another regex inserted at the right position in a chain with no test that the ordering is stable. The two surfaces will drift because nothing forces them to share a shape.",
    "recommendation": "Share the `_Plan` type between both planners, and move each intent to a `(pattern, handler)` table so ordering is data rather than control flow — the eval harness in zarin/ai/eval already asserts intent per case and would catch regressions.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1580,7 +1695,7 @@
    "impact": "2,777 lines of TypeScript — including all state management and the hand-mirrored API types — have exactly one gate (`tsc --noEmit`), and the exhaustive-deps suppressions are load-bearing for correctness of the fetch hooks but unverified.",
    "recommendation": "Add eslint + react-hooks plugin to the frontend (the disable comments are already written for it) and expand ruff's select to at least I, B, UP. Both are config-only changes.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1594,7 +1709,7 @@
    "impact": "Small individually, but `noUnusedLocals` cannot see unused *exports* and ruff's default rule set cannot see unused registry entries, so this class of rot accumulates unchecked.",
    "recommendation": "Delete the four dead frontend/Python expressions; either surface the registry via a `/api/metrics` endpoint (which would also make the 8 orphan definitions useful) or drop them.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1608,7 +1723,7 @@
    "impact": "None of these are bugs, but together they mean there is no single answer to «how do we do X here» for planners, SQL reuse, imports, or naming — the friction lands on the next contributor rather than the current one.",
    "recommendation": "Give `ops_copilot` the same `_Plan` return type, replace the `split('WHERE')` trick with a named `_POOL_PREDICATE` constant, keep one period formatter in `fa.py`, and lift the non-cyclic local imports to module scope.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1622,7 +1737,7 @@
    "impact": "A user auditing the count is shown the definition and formula of a different metric, in a product whose header text (Overview.tsx:38) promises every number on the page is traceable to raw data.",
    "recommendation": "Add a `verified` entry to analytics.overview()'s evidence dict using the existing Metric(\"verified\") and point the tile at it.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1636,7 +1751,7 @@
    "impact": "For merchants with 20-49 customers, the concentration number is shown on one surface as reliable enough to display while the engine simultaneously flags the same period as low-n. Minor, but it is a threshold that lives in config for exactly this reason.",
    "recommendation": "Drive the CustomersPage gate from a value served by the API (or reuse `d.low_n`) rather than a hard-coded 20.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1650,7 +1765,7 @@
    "impact": "The densest small-sample surface in the product has the weakest suppression: a shaded heat-map cell labelled as a retention rate can rest on a single customer. Unflagged left truncation makes the first cohort structurally non-comparable to later ones.",
    "recommendation": "Blank or grey any cohort row whose cohort_size < MIN_SEGMENT_N, reusing the existing constant; footnote that the first cohort month is left-truncated by the data window; reconcile the ANALYTICS.md 20-customer concentration claim with the 50 in config.py.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1664,7 +1779,7 @@
    "impact": "Full mart schema and query structure (table names, columns including payer_card_key, predicates) are handed to any caller, which is exactly the reconnaissance an attacker wants if any future query builder is less careful. It is also unusual to expose to end-merchants.",
    "recommendation": "Keep the traceability feature — it is a genuine product strength — but gate the `sql`/`params` fields on an authenticated session (or an explicit \"transparency mode\" flag) once auth exists, and continue serving definition/formula/caveats to everyone.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1678,7 +1793,7 @@
    "impact": "The guard still denies access, but an attacker can force unhandled 500s on every /api/admin/* route, poisoning the Product Performance error-rate panel (obs.py:47 counts status≥500) and hiding real errors.",
    "recommendation": "Compare bytes: `hmac.compare_digest((x_admin_token or \"\").encode(\"utf-8\", \"ignore\"), ADMIN_TOKEN.encode())`, and add a test case alongside tests/test_control.py:88.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1692,7 +1807,7 @@
    "impact": "Loss of the AI audit trail — the artifact backing the grounding/cost claims — is undetectable from inside the product.",
    "recommendation": "Increment a `dropped` counter on OSError and a `corrupt_lines` counter in _warm(), and expose both in the AI-Ops summary; cap/rotate the JSONL by size.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1706,7 +1821,7 @@
    "impact": "A pathological window or a mart rebuild landing mid-query blocks every endpoint including /api/admin/performance, so the Control Center goes down with the data layer rather than reporting on it; there is no bound on how long a request can hold the lock.",
    "recommendation": "Use `connect().cursor()` per query (DuckDB cursors are thread-safe siblings) to drop the global lock to connection setup only, and add a statement timeout so one query cannot pin the process.",
    "effort": "medium",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1720,7 +1835,7 @@
    "impact": "Startup cost is O(total events ever), while only the last 5,000 survive — 1 M events (~380 MB) would be parsed and discarded on every restart. The per-event open/write/close under a lock also serialises AI telemetry writes with the copilot response path.",
    "recommendation": "Seek to the tail (read the last ~N × 1 KB) in `_warm()` instead of the whole file, and rotate or truncate the JSONL at a size cap (`maxlen × avg_size`); keep a single open file handle with periodic flush rather than reopening per event.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1734,7 +1849,7 @@
    "impact": "Three places where the UI promises a capability the build cannot deliver. Individually small, but they are exactly the \"orphan feature\" pattern that erodes trust in the rest of the surface, and the OpsAI gating hides the one number that would have told the team their chat coverage is thin.",
    "recommendation": "Wire cross_source into control.sources() behind the existing web_connected check (or delete the module and its UI section); gate the intent panel on `d.intents?.length` rather than models; give the dormant panel the same drill-through the evidence drawer already implements.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1748,7 +1863,7 @@
    "impact": "The chat surface is the first thing a merchant meets and it is framed as open-ended. Roughly a third of real questions return a canned summary — including a direct question about the 61.8B IRR figure displayed immediately above the input box. That mismatch reads as \"the AI is fake\" and undercuts the (otherwise correct) deterministic-first architecture.",
    "recommendation": "Add a paid_unverified intent and an issuer-bank intent — both are one query each against existing marts. Then make the fallback honest and useful: name the topics it does cover instead of returning a period summary, so the failure mode reads as scope rather than incompetence.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1762,7 +1877,7 @@
    "impact": "A first-run merchant waits for an SMS that will never arrive, or is confused by being told a code was sent to a number they never entered. Reviewers reading docs/screenshots see a login flow the build no longer has.",
    "recommendation": "Require 10-11 digits before enabling «دریافت کد ورود» and require 5 filled boxes before «ورود»; add one line «نسخه نمایشی — هر کد ۵ رقمی وارد شود». Regenerate rd-login.png (and rd-mobile.png, whose bottom nav shows 6 of the 7 current nav items) from the current build.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1776,7 +1891,7 @@
    "impact": "The most prominent numbers on the landing screen read as a ragged row rather than a scannable strip — the one place where a shared baseline does the most work. The .kpi-grid comment at theme.css:406 shows the team already recognised the sibling problem (orphaned cards) but not this one.",
    "recommendation": "Give .stat a 3-row subgrid (label / value / footer) or reserve the footer line with a min-height and let the label clamp to one line with a title attribute, so .v always starts at the same offset within a strip.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1790,7 +1905,7 @@
    "impact": "Persian script has no cap-height cue and thin connecting strokes, so it loses legibility earlier than Latin at the same px — the 9.5px nav is the weakest typographic moment in the product. The clipped selector label is the first thing the eye hits in the topbar on every screen.",
    "recommendation": "Floor the scale at ~11px (raise .bn-item to 10.5–11px and drop to icon-only below ~360px), and either widen the select to ~240px, shorten the option text to the merchant key plus category, or replace it with a custom trigger showing the key with the description on a second line.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
@@ -1804,7 +1919,7 @@
    "impact": "Higher-than-necessary fallback rate degrades the LLM feature's value, while an unbounded call path can exhaust free-tier quota — enforce_free protects money but not rate limits.",
    "recommendation": "Let an LLM run trace to a deterministic run when it is that run correctly rounded to fewer decimals AND carries the same unit; add an lru_cache keyed on (merchant, question, period) around gateway.explain plus a per-merchant daily call ceiling.",
    "effort": "small",
-   "verification": "not-verified (medium/low severity)",
+   "verification": "not verified (verification pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   }

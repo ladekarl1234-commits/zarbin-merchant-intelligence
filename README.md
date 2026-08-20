@@ -136,24 +136,28 @@ CI: [.github/workflows/ci.yml](.github/workflows/ci.yml) (Python + frontend jobs
 This repository carries its own audit. Commit `75de6bb` was evaluated by a panel of **15 specialized
 expert agents** — architecture, code quality, data & analytics correctness, statistical methodology,
 security, reliability, scalability, product, business viability, UX, design, accessibility, AI
-grounding, testing, plus a lens scoring the competition's own 300-point rubric. Every **critical** and
-**high** finding was then re-examined by a **separate verification agent** before being recorded
-(43/43 confirmed, 0 refuted). 58 agents ran in total.
+grounding, testing, plus a lens scoring the competition's own 300-point rubric. **Critical** and
+**high** findings were then re-examined by a **separate verification agent** before being recorded —
+43 of the 44 were verified (**43 confirmed, 0 refuted**; ZB-044 was missed by the per-lens cap).
+58 agents ran in total. The record was then audited itself, which corrected four figures in it and
+surfaced one further defect ([ZB-120](docs/EXPERT_REVIEW.md#zb-120)).
 
 | | |
 |---|---|
 | Mean dimension score | **73.4 / 100** (median 73, range 61–82) |
 | Competition rubric | **236 / 300** (actionability 76/90 · correctness 58/75 · depth 41/60 · UX 36/45 · technical 25/30) |
-| Findings documented | **119** — 5 critical · 39 high · 56 medium · 19 low |
+| Findings documented | **119** — 5 critical · 39 high · 56 medium · 19 low (+ ZB-120, found while auditing the record) |
 | Strongest dimensions | code quality **82** · data correctness **82** · architecture **80** |
 | Weakest dimensions | accessibility **61** · security **66** · scalability **66** |
 
 The headline result is a **claim-vs-enforcement gap**: the analytical core is genuinely strong (grain
 discipline verified live, LMDI exact to ~1e-15, acyclic layering, deterministic-first AI), but several
 guarantees are stated unconditionally in the docs while being only partly enforced in code — the
-realized-GMV cap covers one of four opportunity generators, the evidence drawer prints a formula the
-code no longer uses, and the "the LLM may only rephrase" guard inspects digits only. Those, plus the
-absence of authentication and the accessibility conformance gaps, are the work queue.
+realized-GMV cap lives only in `_gap_card` so three opportunity generators are uncapped (one live card
+reaches 107% of a merchant's realized GMV), the evidence drawer prints a formula the code no longer
+uses, the "the LLM may only rephrase" guard inspects digits only, and one card is outright
+non-deterministic (`ntile` without a tiebreaker returns different money on identical calls). Those,
+plus the absence of authentication and the accessibility conformance gaps, are the work queue.
 
 - 📋 **[docs/EXPERT_REVIEW.md](docs/EXPERT_REVIEW.md)** — the record: method, panel, scores, rubric
   mapping, per-lens verdicts, priority queue, final assessment and the review's own limitations.
