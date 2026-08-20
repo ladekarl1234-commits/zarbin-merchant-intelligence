@@ -58,7 +58,7 @@ DuckDB over Parquet marts  ─┐
 ## Important env vars
 `OPENROUTER_API_KEY` (optional; enables LLM rephrasing) · `OPENROUTER_MODEL` (default
 `deepseek/deepseek-chat-v3-0324:free`, policy-enforced) · `GA4_PROPERTY_ID` +
-`GOOGLE_APPLICATION_CREDENTIALS` (optional GA4) · `ZARIN_PORT` (8630) · `ZARIN_HOST` ·
+`GOOGLE_APPLICATION_CREDENTIALS` (optional GA4) · `ZARIN_ADMIN_TOKEN` (set → `/api/admin/*` needs `X-Admin-Token`) · `ZARIN_PORT` (8630) · `ZARIN_HOST` ·
 `ZARIN_DATA_PATH` · `ZARIN_MARTS_DIR` · `ZARIN_TELEMETRY_DIR`.
 
 ## Deployment

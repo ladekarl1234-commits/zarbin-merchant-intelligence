@@ -69,6 +69,16 @@ def _plan(m: str, question: str, f: str, t: str) -> _Plan:
             f"ضعیف‌ترین نرخ تبدیل در ساعت {fa_num(worst['hour'])} است ({_pct(worst['verified']/worst['sessions'])}). "
             "توزیع کامل در صفحه «قیف پرداخت».", "hours", refs, "medium")
 
+    # recovery is matched BEFORE friction: a question like "چقدر از تراکنش‌های ناموفق نجات
+    # پیدا کرد؟" contains both a failure word and a recovery word; recovery is the intent.
+    if re.search(r"(تلاش مجدد|بازیابی|نجات|ریکاوری|retry)", ql, re.IGNORECASE):
+        fu = funnel(m, f, t)
+        refs.append(fu["evidence"]["recovery"])
+        rec = fu["recovery"]
+        return _Plan(
+            f"از {fa_num(rec['first_fail_pool'])} جلسه‌ای که تلاش اولشان ناموفق بود، {fa_num(rec['recovered'])} جلسه با تلاش مجدد موفق شد "
+            f"({_pct(rec['recovery_rate'])}) و {_rial(rec['recovered_gmv'])} فروش نجات یافت.", "recovery", refs, "high")
+
     if re.search(r"(پرداخت|درگاه|تراکنش).*(شکست|خطا|ناموفق|رد شد)|(شکست|خطا|ناموفق).*(بیشتر|بدتر|زیاد|پرداخت|درگاه|بانک|تراکنش)|چرا.*(شکست|خطا|ناموفق)|وضعیت (شکست|خطا)", ql):
         fu = funnel(m, f, t)
         refs.append(fu["evidence"]["funnel"])
@@ -77,14 +87,6 @@ def _plan(m: str, question: str, f: str, t: str) -> _Plan:
             f"در این بازه: انصراف پیش از پرداخت {_pct(r['no_attempt_rate'])}، رهاشدن در بانک {_pct(r['inbank_abandon_rate'])}، "
             f"خطای صریح بانکی {_pct(r['failed_bank_rate'])}. نرخ تبدیل نهایی {_pct(r['conv'])}. "
             "این سه حالت ماهیت متفاوتی دارند و در قیف پرداخت جدا نمایش داده می‌شوند.", "friction", refs, "high")
-
-    if re.search(r"(تلاش مجدد|بازیابی|نجات|ریکاوری|retry)", ql, re.IGNORECASE):
-        fu = funnel(m, f, t)
-        refs.append(fu["evidence"]["recovery"])
-        rec = fu["recovery"]
-        return _Plan(
-            f"از {fa_num(rec['first_fail_pool'])} جلسه‌ای که تلاش اولشان ناموفق بود، {fa_num(rec['recovered'])} جلسه با تلاش مجدد موفق شد "
-            f"({_pct(rec['recovery_rate'])}) و {_rial(rec['recovered_gmv'])} فروش نجات یافت.", "recovery", refs, "high")
 
     if re.search(r"(مقایسه|همتا|رقبا|مشابه|جایگاه|رتبه)", ql):
         b = benchmarks(m, f, t)

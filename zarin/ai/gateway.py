@@ -27,22 +27,33 @@ _SYSTEM_PROMPT = (
 )
 
 _PERSIAN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+# every separator that can sit between digits: ASCII , . / and the Persian/Arabic comma
+# (U+060C), decimal (U+066B), thousands (U+066C), plus spaces. Stripping them means
+# "۶۱٫۸"→"618", "۲۳،۸۰۱"→"23801", "۶۱٬۸۰۰٬۰۰۰"→"61800000000".
+_SEP = re.compile(r"(?<=\d)[,./،٫٬  \s](?=\d)")
 
 
 def _digit_runs(text: str) -> list[str]:
-    ascii_text = text.translate(_PERSIAN_DIGITS)
-    # collapse thousands separators so 61,800 and 61800 compare equal
-    ascii_text = re.sub(r"(?<=\d)[,٬.٬](?=\d)", "", ascii_text)
+    ascii_text = _SEP.sub("", text.translate(_PERSIAN_DIGITS))
     return [r for r in re.findall(r"\d+", ascii_text) if len(r) >= 2]
 
 
+def _traces_to(x: str, det: list[str]) -> bool:
+    """A number `x` traces to a deterministic run `d` iff it is that run, OR it is the
+    significant-digit prefix of a longer run whose remainder is all zeros (an
+    order-of-magnitude abbreviation, e.g. "618" ⇒ "61800000000"). Fail-closed:
+    an arbitrary substring like "80" inside "61800000000" does NOT trace."""
+    for d in det:
+        if d.startswith(x) and set(d[len(x):]) <= {"0"}:
+            return True
+    return False
+
+
 def is_grounded(llm_text: str, deterministic_text: str) -> bool:
-    """Every multi-digit number in the LLM answer must trace to the deterministic text."""
+    """Every multi-digit number in the LLM answer must trace to the deterministic text.
+    Prevents the model presenting an invented number as engine truth."""
     det = _digit_runs(deterministic_text)
-    for x in _digit_runs(llm_text):
-        if not any(x in d or d in x for d in det):
-            return False
-    return True
+    return all(_traces_to(x, det) for x in _digit_runs(llm_text))
 
 
 def explain(*, question: str, merchant_scope: str, intent: str, deterministic_answer_fa: str,
@@ -74,11 +85,11 @@ def explain(*, question: str, merchant_scope: str, intent: str, deterministic_an
             f"متریک‌ها: {', '.join(m['name'] for m in ctx['metrics'] if m.get('name'))}"
         )
         comp = provider.complete(_SYSTEM_PROMPT, user)
-    except (ValueError, RuntimeError) as e:
+    except Exception as e:  # noqa: BLE001 — a misbehaving provider must never break the copilot
         base.fallback = True
         base.quality_flags = ["provider_error"]
         base.provider = getattr(provider, "name", None)
-        _emit(base, merchant_scope, surface, success=False, err=str(e))
+        _emit(base, merchant_scope, surface, success=False, grounded=False, err=str(e))
         return base
 
     if not is_grounded(comp.text, deterministic_answer_fa):
@@ -89,7 +100,9 @@ def explain(*, question: str, merchant_scope: str, intent: str, deterministic_an
         base.provider, base.model = comp.provider, comp.model
         base.latency_ms, base.total_tokens = comp.latency_ms, comp.total_tokens
         base.cost_usd = comp.cost_usd
-        _emit(base, merchant_scope, surface, success=False)
+        # telemetry records the LLM output as NOT grounded (that is the real signal),
+        # even though the answer we show is the grounded deterministic one.
+        _emit(base, merchant_scope, surface, success=False, grounded=False)
         return base
 
     out = AIResponse(
@@ -104,14 +117,18 @@ def explain(*, question: str, merchant_scope: str, intent: str, deterministic_an
     return out
 
 
-def _emit(r: AIResponse, merchant_scope: str, surface: str, *, success: bool, err: str | None = None) -> None:
+def _emit(r: AIResponse, merchant_scope: str, surface: str, *, success: bool,
+          grounded: bool | None = None, err: str | None = None) -> None:
+    # `grounded` here is the LLM OUTPUT's grounding (the real quality signal), which differs
+    # from r.grounded (whether the SHOWN answer is grounded — true by construction on fallback).
     flags = list(r.quality_flags)
     if not r.evidence and "no_evidence" not in flags:
         flags.append("no_evidence")
     if err:
         flags.append(f"error:{err[:80]}")
     telemetry.record(
-        intent=r.intent, source=r.source, grounded=r.grounded, fallback=r.fallback,
+        intent=r.intent, source=r.source,
+        grounded=r.grounded if grounded is None else grounded, fallback=r.fallback,
         success=success, provider=r.provider, model=r.model, latency_ms=r.latency_ms,
         prompt_tokens=r.prompt_tokens, completion_tokens=r.completion_tokens,
         total_tokens=r.total_tokens, cost_usd=r.cost_usd, evidence_count=len(r.evidence),

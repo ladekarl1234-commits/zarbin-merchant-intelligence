@@ -45,6 +45,7 @@ Windows on OneDrive: set `UV_LINK_MODE=copy` (hardlinks are blocked). Launchers 
 | `OPENROUTER_API_KEY` | — | optional; enables LLM rephrasing |
 | `OPENROUTER_MODEL` | `deepseek/deepseek-chat-v3-0324:free` | policy-enforced free model |
 | `GA4_PROPERTY_ID`, `GOOGLE_APPLICATION_CREDENTIALS` | — | optional GA4 source |
+| `ZARIN_ADMIN_TOKEN` | — | operator token; when set, `/api/admin/*` requires header `X-Admin-Token` |
 
 Secrets come only from the environment; none are committed. The dataset is git-ignored and is
 not in history.
@@ -81,6 +82,10 @@ This is the *target*, not what ships in the challenge. Rationale and triggers: `
   hackathon dataset.**
 
 ### Security boundaries at the edge
-- `/api/admin/*` is operator-scoped by design; in production put it behind RBAC (operator role).
+- `/api/admin/*` is operator-scoped. **Before any non-loopback (`0.0.0.0`) deploy, set
+  `ZARIN_ADMIN_TOKEN`** — the routes then require the `X-Admin-Token` header (the ops UI must send
+  it, e.g. injected by the reverse proxy or a login flow). In production replace this with OIDC + RBAC.
+  On the default loopback demo the token is unset and the routes are open.
 - The LLM boundary (`ai/safe_context.py`) already strips everything sensitive; keep it on the path.
-- Never send env vars or SQL to a model; never expose unbounded SQL tools.
+- Never send env vars or SQL to a model; never expose unbounded SQL tools. Free-text copilot
+  questions are length-capped (`MAX_QUESTION_LEN`).

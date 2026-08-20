@@ -59,10 +59,13 @@ def platform(f: str, t: str) -> dict:
         "recovered_gmv": agg.get("recovered_gmv") or 0,
     }
 
+    # window-scoped to match the KPIs' grain (an all-time count next to windowed KPIs misleads)
     anomalies = q1("""SELECT
-        (SELECT count(*) FROM sessions WHERE outcome='reversed') AS reversed_sessions,
+        (SELECT count(*) FROM sessions WHERE outcome='reversed' AND d BETWEEN $f AND $t) AS reversed_sessions,
         (SELECT count(*) FROM sessions WHERE session_status='Verified' AND outcome='verified'
-           AND session_key IN (SELECT session_key FROM attempts GROUP BY 1 HAVING sum(ok::int)=0)) AS verified_wo_ok_try""")
+           AND d BETWEEN $f AND $t
+           AND session_key IN (SELECT session_key FROM attempts GROUP BY 1 HAVING sum(ok::int)=0)) AS verified_wo_ok_try""",
+        {"f": f, "t": t})
 
     return {
         "period": {"from": f, "to": t},

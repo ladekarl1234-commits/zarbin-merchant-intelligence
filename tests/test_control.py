@@ -78,3 +78,22 @@ def test_ops_copilot_feedback():
     d = client.get("/api/admin/copilot", params={"q": "AI امروز چطور عمل کرده؟"}).json()
     fb = client.post("/api/admin/copilot/feedback", params={"intent": d["intent"], "useful": False})
     assert fb.status_code == 200 and fb.json()["ok"]
+
+
+def test_admin_open_on_loopback_by_default():
+    # no ZARIN_ADMIN_TOKEN in the test env → admin routes are open (loopback dev)
+    assert client.get("/api/admin/performance").status_code == 200
+
+
+def test_admin_guard_enforced_when_token_set(monkeypatch):
+    from zarin import api
+    monkeypatch.setattr(api, "ADMIN_TOKEN", "s3cret")
+    assert client.get("/api/admin/performance").status_code == 401
+    assert client.get("/api/admin/performance", headers={"X-Admin-Token": "s3cret"}).status_code == 200
+    assert client.get("/api/admin/performance", headers={"X-Admin-Token": "wrong"}).status_code == 401
+
+
+def test_copilot_rejects_overlong_question():
+    m = _a_merchant()
+    assert client.get("/api/copilot", params={"m": m, "q": "x" * 600}).status_code == 400
+    assert client.get("/api/admin/copilot", params={"q": "x" * 600}).status_code == 400

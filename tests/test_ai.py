@@ -115,3 +115,24 @@ def test_copilot_answer_numbers_are_deterministic_even_with_bad_llm():
                        provider=FakeProvider("فروش ۸۸۸۸۸۸ و رشد ۷۷۷٪ داشتی"))
     assert d["fallback"] and "hallucination_risk" in d["quality_flags"]
     assert "۸۸۸۸۸۸" not in d["answer_fa"] and "۷۷۷" not in d["answer_fa"]
+
+
+def test_grounding_guard_rejects_digit_substrings_of_a_large_number():
+    """The substring hole: a fabricated number whose digits merely APPEAR inside a large
+    computed figure must NOT pass as grounded. Only the figure, or its zero-padded
+    order-of-magnitude abbreviation, traces. DET → 61800000000 and 123."""
+    assert not gateway.is_grounded("نرخ تبدیل ۸۰ درصد بود", DET)   # 80 ⊂ 61800000000 — fabricated
+    assert not gateway.is_grounded("۱۸ مشتری جدید داشتی", DET)      # 18 ⊂ … — fabricated
+    assert not gateway.is_grounded("رشد ۱۲ برابری", DET)           # 12 ⊂ … — fabricated
+    assert gateway.is_grounded("حدود ۶۱٫۸ میلیارد ریال از ۱۲۳ پرداخت", DET)  # legit abbreviation
+    assert gateway.is_grounded("۶۱٬۸۰۰٬۰۰۰٬۰۰۰ ریال", DET)         # the figure itself
+
+
+def test_recovery_question_routes_to_recovery_not_friction():
+    """A question that names both failure and rescue is a recovery question — friction's
+    broadened regex must not swallow it (recovery is matched first)."""
+    d = copilot.answer("M1", "چقدر از تراکنش‌های ناموفق نجات پیدا کرد؟",
+                       "2026-01-01", "2026-01-31", use_llm=False)
+    assert d["intent"] == "recovery"
+    d2 = copilot.answer("M1", "چرا پرداخت‌ها شکست می‌خورند؟", "2026-01-01", "2026-01-31", use_llm=False)
+    assert d2["intent"] == "friction"

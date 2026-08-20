@@ -14,6 +14,12 @@ HOST = os.environ.get("ZARIN_HOST", "127.0.0.1")  # containers set 0.0.0.0
 
 TELEMETRY_DIR = Path(os.environ.get("ZARIN_TELEMETRY_DIR", ROOT / "data" / "telemetry"))
 
+# Optional operator token for the Control Center API. Unset (default) → open, which is
+# fine for the loopback single-tenant demo. Set it before ANY non-loopback deploy and the
+# `/api/admin/*` routes require the `X-Admin-Token` header. See docs/DEPLOYMENT_SPEC.md.
+ADMIN_TOKEN = os.environ.get("ZARIN_ADMIN_TOKEN", "").strip()
+MAX_QUESTION_LEN = 500  # cap free-text copilot questions (memory / prompt-size guard)
+
 # --- AI copilot (OpenRouter) ---------------------------------------------------
 # The AI layer is OPTIONAL. With no key the product runs fully offline on the
 # deterministic engine; the LLM only ever rephrases numbers the engine computed.

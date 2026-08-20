@@ -6,14 +6,14 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import analytics, control, copilot, insights, obs, ops_copilot, peers
 from .ai import telemetry as ai_telemetry
 from .ai.eval import run_eval
-from .config import CURRENCY_NOTE, CUSTOMER_SCOPE_CAVEAT, FEE_CAVEAT, STATIC_DIR
+from .config import ADMIN_TOKEN, CURRENCY_NOTE, CUSTOMER_SCOPE_CAVEAT, FEE_CAVEAT, MAX_QUESTION_LEN, STATIC_DIR
 from .db import q, q1
 
 app = FastAPI(title="Zarbin — زرین‌بین", docs_url="/api/docs", openapi_url="/api/openapi.json")
@@ -28,6 +28,18 @@ def _range() -> tuple[str, str]:
 def _check_merchant(m: str) -> None:
     if not q1("SELECT 1 AS x FROM merchant_stats WHERE merchant_key=$m", {"m": m}):
         raise HTTPException(404, f"merchant {m} not found")
+
+
+def _admin_guard(x_admin_token: str | None = Header(default=None)) -> None:
+    """Operator-token gate for /api/admin/*. Enforced only when ZARIN_ADMIN_TOKEN is set."""
+    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(401, "operator token required for the Control Center API")
+
+
+def _check_question(q_: str) -> str:
+    if len(q_) > MAX_QUESTION_LEN:
+        raise HTTPException(400, f"question too long (max {MAX_QUESTION_LEN} chars)")
+    return q_
 
 
 def _valid_date(s: str, field: str) -> str:
@@ -133,6 +145,7 @@ def changes(m: str, f1: str, t1: str, f2: str, t2: str):
 def ask(m: str, q_: str = Query(alias="q"), f: str | None = None, t: str | None = None,
         surface: str = "merchant"):
     _check_merchant(m)
+    q_ = _check_question(q_)
     f, t = _dates(m, f, t)
     return copilot.answer(m, q_, f, t, surface=surface)
 
@@ -146,42 +159,51 @@ def copilot_feedback(m: str, intent: str, useful: bool, surface: str = "merchant
 
 
 # --- Control Center (operator surface) ----------------------------------------
-# Single-tenant hackathon build; production auth/RBAC path documented in docs/DEPLOYMENT_SPEC.md.
-@app.get("/api/admin/platform")
+# Single-tenant hackathon build; _admin_guard enforces ZARIN_ADMIN_TOKEN when set (open on
+# loopback by default). Production auth/RBAC path documented in docs/DEPLOYMENT_SPEC.md.
+_ADMIN = [Depends(_admin_guard)]
+
+
+@app.get("/api/admin/platform", dependencies=_ADMIN)
 def admin_platform(f: str | None = None, t: str | None = None):
     f, t = _dates("", f, t)
     return control.platform(f, t)
 
 
-@app.get("/api/admin/performance")
+@app.get("/api/admin/performance", dependencies=_ADMIN)
 def admin_performance():
     return control.performance()
 
 
-@app.get("/api/admin/ai-ops")
+@app.get("/api/admin/ai-ops", dependencies=_ADMIN)
 def admin_ai_ops():
     return control.ai_ops()
 
 
-@app.get("/api/admin/sources")
+@app.get("/api/admin/sources", dependencies=_ADMIN)
 def admin_sources(f: str | None = None, t: str | None = None):
     f, t = _dates("", f, t)
     return control.sources(f, t)
 
 
-@app.get("/api/admin/ai-eval")
-@lru_cache(maxsize=1)
+@app.get("/api/admin/ai-eval", dependencies=_ADMIN)
 def admin_ai_eval():
+    return _cached_eval()
+
+
+@lru_cache(maxsize=1)
+def _cached_eval():
     return run_eval()
 
 
-@app.get("/api/admin/copilot")
+@app.get("/api/admin/copilot", dependencies=_ADMIN)
 def admin_ask(q_: str = Query(alias="q"), f: str | None = None, t: str | None = None):
+    q_ = _check_question(q_)
     f, t = _dates("", f, t)
     return ops_copilot.answer(q_, f, t)
 
 
-@app.post("/api/admin/copilot/feedback")
+@app.post("/api/admin/copilot/feedback", dependencies=_ADMIN)
 def admin_copilot_feedback(intent: str, useful: bool):
     ai_telemetry.record_feedback(merchant_scope="platform", intent=intent, useful=useful, surface="ops")
     return {"ok": True}

@@ -116,6 +116,7 @@ Docker: `docker compose up`.
 `OPENROUTER_API_KEY` (optional; enables LLM rephrasing) · `OPENROUTER_MODEL`
 (default `deepseek/deepseek-chat-v3-0324:free`, **free-model policy enforced**) ·
 `GA4_PROPERTY_ID` + `GOOGLE_APPLICATION_CREDENTIALS` (optional GA4) ·
+`ZARIN_ADMIN_TOKEN` (set → Control Center API requires `X-Admin-Token`) ·
 `ZARIN_PORT` (8630) · `ZARIN_HOST` · `ZARIN_DATA_PATH` · `ZARIN_MARTS_DIR` · `ZARIN_TELEMETRY_DIR`.
 No secrets are committed; the dataset is git-ignored and absent from history.
 
