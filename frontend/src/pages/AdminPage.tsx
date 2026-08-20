@@ -46,8 +46,9 @@ export default function AdminPage() {
 
   const aiState = useMemo(() => {
     if (!data) return "—";
-    if (!data.ai.requests) return "هنوز درخواستی ثبت نشده";
-    if ((data.ai.grounded_rate ?? 0) < data.slo.target_ai_grounded_rate) return "نیازمند بررسی";
+    if ((data.api.error_rate ?? 0) > 0.01) return "نیازمند بررسی فنی";
+    if (!data.ai.requests) return "سامانه فعال؛ AI هنوز نمونه کافی ندارد";
+    if ((data.ai.grounded_rate ?? 0) < data.slo.target_ai_grounded_rate) return "نیازمند بررسی AI";
     return "سالم";
   }, [data]);
 
@@ -61,17 +62,28 @@ export default function AdminPage() {
           <div>
             <span className="eyebrow">وضعیت کل سامانه</span>
             <h2>{aiState}</h2>
-            <p>این صفحه خودِ موتور تحلیل را پایش می‌کند؛ یعنی فقط کسب‌وکار را نمی‌سنجیم، کیفیت پاسخ‌گویی زرین‌بین را هم می‌سنجیم.</p>
+            <p>این صفحه هم زیرساخت API و هم موتور تحلیل هوشمند را پایش می‌کند؛ کیفیت خودِ زرین‌بین نیز یک متریک محصول است.</p>
           </div>
           <button className="btn" onClick={load}>به‌روزرسانی</button>
         </div>
         <div className="ops-grid">
           <Stat label="پذیرنده" value={faNum(data.platform.merchants)} />
           <Stat label="جلسه پرداخت" value={faNum(data.platform.sessions)} hint="هر فرایند پرداخت از ساخت لینک تا نتیجه نهایی؛ تلاش مجدد یک جلسه جدید حساب نمی‌شود." />
+          <Stat label="P95 API" value={data.api.p95_latency_ms == null ? "—" : `${faNum(Math.round(data.api.p95_latency_ms))} ms`} hint="۹۵٪ درخواست‌های API ثبت‌شده سریع‌تر از این زمان پاسخ داده‌اند." />
+          <Stat label="خطای API" value={data.api.error_rate == null ? "—" : pct(data.api.error_rate)} hint="سهم پاسخ‌های ۵۰۰ به بالا در telemetry درون‌پردازشی فعلی." />
           <Stat label="نرخ پاسخ مستند" value={data.ai.grounded_rate == null ? "—" : pct(data.ai.grounded_rate)} hint="سهم پاسخ‌های دستیار که حداقل یک شاهد تحلیلی قابل ردیابی دارند." />
           <Stat label="تاخیر متوسط AI" value={data.ai.avg_latency_ms == null ? "—" : `${faNum(Math.round(data.ai.avg_latency_ms))} ms`} hint="زمان از دریافت سوال تا آماده شدن پاسخ؛ شامل fallback داخلی هم می‌شود." />
           <Stat label="Fallback" value={data.ai.fallback_rate == null ? "—" : pct(data.ai.fallback_rate)} hint="وقتی مدل بیرونی در دسترس نیست یا خطا می‌دهد، پاسخ قطعی داخلی جایگزین می‌شود." />
           <Stat label="هزینه AI" value={`$${data.ai.cost_usd.toFixed(4)}`} hint="هزینه مدل ثبت‌شده در Gateway. مسیر رایگان OpenRouter هزینه مدل را صفر نگه می‌دارد؛ هزینه زیرساخت جداست." />
+        </div>
+      </Section>
+
+      <Section title="عملکرد API" sub="Turnaround خود محصول، مستقل از مدل AI. این telemetry برای evaluator تک‌نودی در حافظه نگه داشته می‌شود و در production باید به OpenTelemetry منتقل شود.">
+        <div className="card ops-panel">
+          <div className="ops-row"><b>درخواست‌های ثبت‌شده</b><span className="num">{faNum(data.api.requests)}</span></div>
+          <div className="ops-row"><b>میانگین زمان API</b><span className="num">{data.api.avg_latency_ms == null ? "—" : `${faNum(Math.round(data.api.avg_latency_ms))} ms`}</span></div>
+          <div className="ops-row"><b>P95 API</b><span className="num">{data.api.p95_latency_ms == null ? "—" : `${faNum(Math.round(data.api.p95_latency_ms))} ms`}</span></div>
+          <div className="ops-row"><b>Success rate</b><span className="num">{data.api.success_rate == null ? "—" : pct(data.api.success_rate)}</span></div>
         </div>
       </Section>
 
