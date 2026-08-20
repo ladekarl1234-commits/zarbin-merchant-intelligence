@@ -11,7 +11,7 @@ type Ctx = {
   period: Period;
   setPresetId: (id: string) => void;
   presetId: string;
-  presets: { id: string; label: string }[];
+  presets: { id: string; label: string; short?: string }[];
   openEvidence: (title: string, items: Evidence[], sampleOutcome?: string) => void;
   drawer: { title: string; items: Evidence[]; sampleOutcome?: string } | null;
   closeEvidence: () => void;
@@ -41,9 +41,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const presets = useMemo(() => [
-    { id: "all", label: "کل دوره (۶ ماه)" },
-    { id: "d90", label: "۹۰ روز آخر" },
-    { id: "d30", label: "۳۰ روز آخر" },
+    { id: "all", label: "کل دوره (۶ ماه)", short: "کل دوره" },
+    { id: "d90", label: "۹۰ روز آخر", short: "۹۰ روز" },
+    { id: "d30", label: "۳۰ روز آخر", short: "۳۰ روز" },
   ], []);
 
   const period = useMemo<Period>(() => {

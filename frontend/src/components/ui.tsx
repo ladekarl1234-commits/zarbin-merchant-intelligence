@@ -24,6 +24,17 @@ export const IconServer = I("M4 5h16v5H4zM4 14h16v5H4zM8 7.5h.01M8 16.5h.01");
 export const IconSpark = I("M12 3v6m0 6v6M3 12h6m6 0h6M6 6l3 3m6 6l3 3M18 6l-3 3M9 15l-3 3");
 export const IconPlug = I("M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0zM12 16v6");
 
+/** ZarinPal-style brand mark: a skewed yellow bar + a blue dot. */
+export function ZMark({ size = 34 }: { size?: number }) {
+  const s = size / 56;
+  return (
+    <div className="zmark" style={{ width: size, height: size }} aria-hidden>
+      <div className="z-bar" style={{ insetInlineEnd: 12 * s, top: 6 * s, width: 26 * s, height: 44 * s, borderRadius: 8 * s }} />
+      <div className="z-dot" style={{ insetInlineEnd: 28 * s, top: 10 * s, width: 26 * s, height: 26 * s }} />
+    </div>
+  );
+}
+
 export function Section(p: { title: string; sub?: string; children: React.ReactNode }) {
   return (
     <section className="section">
@@ -40,7 +51,6 @@ export function EvBtn(p: { title: string; items: Evidence[]; sampleOutcome?: str
   return (
     <button type="button" className="ev-btn" onClick={() => openEvidence(p.title, p.items, p.sampleOutcome)}
             aria-label={`نحوه محاسبه ${p.title}`}>
-      <IconSearch />
       {p.label ?? "محاسبه"}
     </button>
   );
