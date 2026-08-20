@@ -110,6 +110,10 @@ export type AdminOps = {
   period: { from: string; to: string };
   platform: { sessions: number; verified: number; gmv: number; merchants: number; avg_tries: number };
   data_quality: { paid_unverified: number; no_attempt: number; reversed: number };
+  api: {
+    requests: number; success_rate: number | null; error_rate: number | null;
+    avg_latency_ms: number | null; p95_latency_ms: number | null; routes: Record<string, number>;
+  };
   ai: {
     requests: number; success_rate: number | null; grounded_rate: number | null; fallback_rate: number | null;
     avg_latency_ms: number | null; p95_latency_ms: number | null; cost_usd: number;
