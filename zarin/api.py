@@ -10,11 +10,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import ai_ops, analytics, connectors, insights, peers
+from . import ai_ops, analytics, connectors, insights, ops_telemetry, peers
 from .config import CURRENCY_NOTE, CUSTOMER_SCOPE_CAVEAT, FEE_CAVEAT, STATIC_DIR
 from .db import q, q1
 
 app = FastAPI(title="Zarbin — زرین‌بین", docs_url="/api/docs", openapi_url="/api/openapi.json")
+app.middleware("http")(ops_telemetry.observe_http)
 
 
 def _range() -> tuple[str, str]:
@@ -147,6 +148,7 @@ def _admin_snapshot() -> dict:
         "period": {"from": lo, "to": hi},
         "platform": totals,
         "data_quality": data_quality,
+        "api": ops_telemetry.stats(),
         "ai": ai_ops.stats(),
         "sources": connectors.source_statuses(),
         "ga4": connectors.ga4_snapshot(),
