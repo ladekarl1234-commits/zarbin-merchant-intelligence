@@ -7,9 +7,9 @@ ALL = ("2026-01-01", "2026-02-28")
 
 
 def test_attempts_are_not_sessions():
-    """9 attempt rows for M1 must collapse to 7 sessions."""
-    assert q1("SELECT count(*) AS n FROM sessions WHERE merchant_key='M1'")["n"] == 8  # 7 Jan + 1 Feb
-    assert q1("SELECT count(*) AS n FROM attempts WHERE merchant_key='M1'")["n"] == 9  # try_seq>0 rows
+    """10 attempt rows for M1 must collapse to 9 sessions."""
+    assert q1("SELECT count(*) AS n FROM sessions WHERE merchant_key='M1'")["n"] == 9  # 7 Jan + 2 Feb (incl. Reversed)
+    assert q1("SELECT count(*) AS n FROM attempts WHERE merchant_key='M1'")["n"] == 10  # try_seq>0 rows
 
 
 def test_retries_do_not_inflate_gmv_or_counts():
@@ -73,4 +73,15 @@ def test_lmdi_decomposition_is_exact():
 def test_conv_drivers_sum_to_conv_change():
     ch = changes("M1", "2026-01-01", "2026-01-31", "2026-02-01", "2026-02-28")
     dconv = ch["after"]["conv"] - ch["before"]["conv"]
+    # the identity must include the reversed term (Feb has a Reversed session in the fixture)
+    assert "reversed_rate" in ch["conv_drivers"]
+    assert ch["conv_drivers"]["reversed_rate"] != 0
     assert abs(sum(ch["conv_drivers"].values()) - dconv) < 1e-9
+
+
+def test_recovered_is_verified_only():
+    """A Paid-after-retry session must NOT be counted as 'recovered' (success = Verified)."""
+    from zarin.db import q1
+    # fixture has no Paid-after-retry, so assert the mart rule directly:
+    bad = q1("SELECT count(*) AS n FROM sessions WHERE recovered AND session_status != 'Verified'")
+    assert bad["n"] == 0

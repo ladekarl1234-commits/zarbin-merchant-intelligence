@@ -13,15 +13,34 @@ const OUTCOME_FA: Record<string, string> = {
 export default function EvidenceDrawer() {
   const { drawer, closeEvidence, merchant, period } = useApp();
   const [samples, setSamples] = useState<SessionSample | null>(null);
+  const [sampleErr, setSampleErr] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setSamples(null);
+    setSampleErr(false);
     if (!drawer) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeEvidence();
+    const opener = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeEvidence();
+      if (e.key === "Tab" && ref.current) {
+        // contain focus within the drawer
+        const items = ref.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, [tabindex]:not([tabindex="-1"])');
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
     document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";  // scroll lock
     ref.current?.focus();
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+      opener?.focus();  // restore focus to the element that opened the drawer
+    };
   }, [drawer, closeEvidence]);
 
   if (!drawer) return null;
@@ -29,7 +48,8 @@ export default function EvidenceDrawer() {
   const loadSamples = () =>
     get<SessionSample>("evidence/sessions", {
       m: merchant, f: period.f, t: period.t, outcome: drawer.sampleOutcome,
-    }).then(setSamples);
+    }).then((s) => { setSamples(s); setSampleErr(false); })
+      .catch(() => setSampleErr(true));
 
   return (
     <>
@@ -79,8 +99,11 @@ export default function EvidenceDrawer() {
             </div>
           ))}
 
+          {drawer.sampleOutcome && (<>
           <h3 style={{ marginTop: 24 }}>ردیابی تا جلسه‌های منبع</h3>
-          {!samples ? (
+          {sampleErr ? (
+            <div className="callout">دریافت نمونه‌ها ممکن نشد. <button className="ev-btn" onClick={loadSamples}>تلاش دوباره</button></div>
+          ) : !samples ? (
             <button className="btn" onClick={loadSamples}>نمایش نمونه جلسه‌های منبع</button>
           ) : (
             <>
@@ -105,6 +128,7 @@ export default function EvidenceDrawer() {
               </div>
             </>
           )}
+          </>)}
         </div>
       </div>
     </>

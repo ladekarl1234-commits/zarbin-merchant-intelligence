@@ -1,7 +1,8 @@
 services:
   zarbin:
     build: .
+    # bind-publish to localhost only: the app has no auth (evaluator mode)
     ports:
-      - "8630:8630"
+      - "127.0.0.1:8630:8630"
     volumes:
       - ./data:/app/data

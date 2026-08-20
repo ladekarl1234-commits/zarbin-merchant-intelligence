@@ -53,6 +53,9 @@ ROWS = [
     row(8, 1, "M2", 500000, "Verified", "Verified", card="D1", bank="B1",
         created="2026-01-15 09:00:00", verified="2026-01-15 09:01:00", settled="2026-01-15 09:00:30"),
     row(10, 1, "M2", 100000, "Failed", "InBank", created="2026-02-05 09:00:00"),
+    # S11: a Reversed session on M1 (Feb) — exercises the sixth outcome and the reversed
+    # term of the conversion-driver identity, which must stay exact.
+    row(11, 1, "M1", 120000, "Reversed", "Reversed", created="2026-02-15 13:00:00"),
 ]
 
 

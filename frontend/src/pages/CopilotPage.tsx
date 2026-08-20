@@ -25,14 +25,17 @@ export default function CopilotPage() {
   const ask = async (q: string) => {
     if (!q.trim()) return;
     setInput("");
-    setTurns((t) => [...t, { q, pending: true }]);
+    // capture this turn's index at dispatch so concurrent questions never overwrite each other
+    let idx = -1;
+    setTurns((t) => { idx = t.length; return [...t, { q, pending: true }]; });
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+    let a: CopilotAnswer;
     try {
-      const a = await get<CopilotAnswer>("copilot", { m: merchant, q, f: period.f, t: period.t });
-      setTurns((t) => t.map((x, i) => (i === t.length - 1 ? { q, a } : x)));
+      a = await get<CopilotAnswer>("copilot", { m: merchant, q, f: period.f, t: period.t });
     } catch {
-      setTurns((t) => t.map((x, i) => (i === t.length - 1 ? { q, a: { answer_fa: "خطا در پردازش پرسش.", intent: "error", evidence: [], note_fa: "" } } : x)));
+      a = { answer_fa: "خطا در پردازش پرسش. لطفاً دوباره تلاش کنید.", intent: "error", evidence: [], note_fa: "" };
     }
+    setTurns((t) => t.map((x, i) => (i === idx ? { q, a } : x)));
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
   };
 

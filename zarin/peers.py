@@ -22,7 +22,8 @@ BENCH_METRICS = {
     "first_try_conv": ("sum(first_try_verified)/nullif(sum(sessions),0)", True),
     "no_attempt_rate": ("sum(no_attempt)/nullif(sum(sessions),0)", False),
     "inbank_abandon_rate": ("sum(abandoned_inbank)/nullif(sum(sessions),0)", False),
-    "recovery_rate": ("sum(recovered)/nullif(sum(sessions)-sum(first_try_ok)-sum(no_attempt),0)", True),
+    # same denominator as the merchant's own recovery_rate (analytics.funnel): first-fail pool
+    "recovery_rate": ("sum(recovered)/nullif(sum(attempted)-sum(first_try_ok),0)", True),
 }
 
 

@@ -42,7 +42,7 @@ def raw_truth(m):
                sum((s.attempted=0)::int) no_attempt,
                sum((s.ss='Paid')::int) paid_unverified,
                sum(CASE WHEN s.ss='Paid' THEN s.amount ELSE 0 END) paid_amount,
-               sum((s.ss IN ('Verified','Paid') AND s.n_tries>1
+               sum((s.ss = 'Verified' AND s.n_tries>1
                     AND f.fstat NOT IN ('Verified','Paid'))::int) recovered,
                sum((f.fstat='Verified')::int) first_try_verified
         FROM s LEFT JOIN f ON s.session_key=f.session_key

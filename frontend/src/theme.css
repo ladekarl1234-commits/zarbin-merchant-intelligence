@@ -166,6 +166,11 @@ a { color: inherit; }
 }
 .ev-btn:hover { color: var(--info); background: var(--info-bg); }
 .ev-btn svg { width: 13px; height: 13px; }
+/* touch: give the signature affordance and icon buttons a 44px hit area on coarse pointers */
+@media (pointer: coarse) {
+  .ev-btn { min-height: 44px; padding-inline: 10px; }
+  .btn { min-height: 44px; }
+}
 
 /* stat strip: one container, divided — not a card grid */
 .stats {

@@ -70,7 +70,7 @@ export default function FunnelPage() {
                       <td>{rial(b.lo, false)} تا {rial(b.hi, false)}</td>
                       <td>{faNum(b.sessions)}</td>
                       <td>
-                        <span className={`chip ${b.conv >= (d.rates.conv ?? 0) ? "chip-good" : "chip-bad"}`}>{pct(b.conv)}</span>
+                        <span className={`chip ${d.rates.conv != null && b.conv >= d.rates.conv ? "chip-good" : "chip-mute"}`}>{pct(b.conv)}</span>
                       </td>
                     </tr>
                   ))}

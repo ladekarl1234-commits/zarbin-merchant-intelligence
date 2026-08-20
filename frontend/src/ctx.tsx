@@ -28,14 +28,15 @@ function addDays(iso: string, days: number): string {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [meta, setMeta] = useState<Meta | null>(null);
-  const [merchant, setMerchant] = useState<string>(() => location.hash.match(/m=([^&]+)/)?.[1] ?? "");
+  const [merchant, setMerchant] = useState<string>("");
   const [presetId, setPresetId] = useState("all");
   const [drawer, setDrawer] = useState<Ctx["drawer"]>(null);
 
   useEffect(() => {
     get<Meta>("meta", {}).then((m) => {
       setMeta(m);
-      setMerchant((cur) => cur || m.demo[0]?.merchant_key || m.merchants[0].merchant_key);
+      const first = m.demo[0]?.merchant_key ?? m.merchants[0]?.merchant_key;
+      if (first) setMerchant((cur) => cur || first);
     });
   }, []);
 

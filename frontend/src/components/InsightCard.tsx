@@ -2,12 +2,15 @@ import type { InsightCard as Card } from "../api";
 import { faNum, rial } from "../fmt";
 import { ConfChip, EvBtn } from "./ui";
 
-const KIND_SAMPLE: Record<string, string | undefined> = {
+// Map an insight kind to the single session outcome whose rows are its evidence.
+// Kinds that span multiple outcomes (a mix, or a change) are NOT keyed here → the
+// drawer hides the "source sessions" block rather than showing non-evidence rows.
+const KIND_SAMPLE: Record<string, string> = {
   paid_unverified: "paid_unverified",
   no_attempt_gap: "no_attempt",
   inbank_gap: "abandoned_inbank",
-  high_value_friction: undefined,
-  recovery_gap: undefined,
+  // high_value_friction, recovery_gap, repeat_gap, concentration, gmv_change:
+  // intentionally omitted — no single outcome represents them.
 };
 
 const EFFORT_FA: Record<string, string> = { easy: "اقدام سریع", medium: "اقدام متوسط", hard: "پروژه بلندمدت" };

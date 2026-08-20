@@ -25,6 +25,7 @@ SELECT coalesce(sum(sessions),0) AS sessions, coalesce(sum(attempted),0) AS atte
        coalesce(sum(verified),0) AS verified, coalesce(sum(no_attempt),0) AS no_attempt,
        coalesce(sum(abandoned_inbank),0) AS abandoned_inbank, coalesce(sum(failed_bank),0) AS failed_bank,
        coalesce(sum(paid_unverified),0) AS paid_unverified, coalesce(sum(paid_unverified_amount),0) AS paid_unverified_amount,
+       coalesce(sum(reversed),0) AS reversed,
        coalesce(sum(recovered),0) AS recovered, coalesce(sum(first_try_ok),0) AS first_try_ok,
        coalesce(sum(first_try_verified),0) AS first_try_verified,
        coalesce(sum(gmv),0) AS gmv, coalesce(sum(fee_index_sum),0) AS fee_index_sum
@@ -207,6 +208,9 @@ def customers(m: str, f: str, t: str) -> dict:
 
     return {
         "period": {"from": f, "to": t},
+        # interval + cohorts are computed over the FULL data window on purpose (retention
+        # needs the whole history), so the UI labels them «کل بازه داده», not the selected period.
+        "whole_range_blocks": ["interval", "cohorts"],
         "summary": b, "concentration": conc, "interval": interval,
         "cohorts": cohorts, "dormant": dormant,
         "evidence": {
@@ -249,15 +253,17 @@ def changes(m: str, f1: str, t1: str, f2: str, t2: str) -> dict:
             "ticket": _lmdi_contrib(c1["gmv"], c2["gmv"], c1["ticket"], c2["ticket"]),
         }
 
-    # conversion change root-cause: conv = 1 - Σ loss rates, so Δconv = -Σ Δrates
+    # conversion change root-cause. Identity: conv = 1 − (paid + no_attempt + inbank +
+    # failed_bank + reversed)/sessions, so Δconv = −Σ Δ(each loss rate) EXACTLY, incl. reversed.
     conv_drivers = {
-        k: -( (b[k] or 0) - (a[k] or 0) )
+        k: -((b[k] or 0) - (a[k] or 0))
         for k in ("no_attempt_rate", "inbank_abandon_rate", "failed_bank_rate")
     } if a["sessions"] and b["sessions"] else {}
-    paid_rate_a = a["paid_unverified"] / a["sessions"] if a["sessions"] else 0
-    paid_rate_b = b["paid_unverified"] / b["sessions"] if b["sessions"] else 0
     if conv_drivers:
-        conv_drivers["paid_unverified_rate"] = -(paid_rate_b - paid_rate_a)
+        for label, key in (("paid_unverified_rate", "paid_unverified"), ("reversed_rate", "reversed")):
+            ra = (a[key] / a["sessions"]) if a["sessions"] else 0
+            rb = (b[key] / b["sessions"]) if b["sessions"] else 0
+            conv_drivers[label] = -(rb - ra)
 
     return {
         "before": {"from": f1, "to": t1, **c1},

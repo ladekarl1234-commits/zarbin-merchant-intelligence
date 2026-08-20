@@ -1,6 +1,7 @@
 """FastAPI app: /api/* JSON endpoints + static frontend."""
 from __future__ import annotations
 
+from datetime import date
 from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException, Query
@@ -24,9 +25,17 @@ def _check_merchant(m: str) -> None:
         raise HTTPException(404, f"merchant {m} not found")
 
 
+def _valid_date(s: str, field: str) -> str:
+    try:
+        date.fromisoformat(s)
+    except ValueError:
+        raise HTTPException(400, f"invalid date for {field}: {s!r} (expected YYYY-MM-DD)") from None
+    return s
+
+
 def _dates(m: str, f: str | None, t: str | None) -> tuple[str, str]:
     lo, hi = _range()
-    return (f or lo, t or hi)
+    return (_valid_date(f, "f") if f else lo, _valid_date(t, "t") if t else hi)
 
 
 @app.get("/api/meta")
@@ -102,6 +111,8 @@ def get_peers(m: str, f: str | None = None, t: str | None = None):
 @app.get("/api/changes")
 def changes(m: str, f1: str, t1: str, f2: str, t2: str):
     _check_merchant(m)
+    for name, v in (("f1", f1), ("t1", t1), ("f2", f2), ("t2", t2)):
+        _valid_date(v, name)
     return analytics.changes(m, f1, t1, f2, t2)
 
 
@@ -112,18 +123,23 @@ def ask(m: str, q_: str = Query(alias="q"), f: str | None = None, t: str | None 
     return copilot.answer(m, q_, f, t)
 
 
+_VALID_OUTCOMES = {"verified", "paid_unverified", "no_attempt", "abandoned_inbank", "failed_bank", "reversed"}
+
+
 @app.get("/api/evidence/sessions")
 def evidence_sessions(m: str, outcome: str | None = None, f: str | None = None,
-                      t: str | None = None, limit: int = 12):
+                      t: str | None = None, limit: int = Query(12, ge=1, le=50)):
     """Drill-through: sample source sessions behind a metric."""
     _check_merchant(m)
     f, t = _dates(m, f, t)
+    if outcome is not None and outcome not in _VALID_OUTCOMES:
+        raise HTTPException(400, f"unknown outcome: {outcome!r}")
     cond = "AND outcome = $o" if outcome else ""
     rows = q(f"""
         SELECT session_key, d, amount, outcome, n_tries, first_try_status, last_try_status,
                win_psp, session_status
         FROM sessions WHERE merchant_key=$m AND d BETWEEN $f AND $t {cond}
-        ORDER BY amount DESC LIMIT {min(int(limit), 50)}""",
+        ORDER BY amount DESC LIMIT {int(limit)}""",
         {"m": m, "f": f, "t": t, **({"o": outcome} if outcome else {})})
     total = q1(f"SELECT count(*) AS n FROM sessions WHERE merchant_key=$m AND d BETWEEN $f AND $t {cond}",
                {"m": m, "f": f, "t": t, **({"o": outcome} if outcome else {})})
@@ -161,7 +177,8 @@ if STATIC_DIR.exists():
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str):
-        f = STATIC_DIR / path
-        if path and f.is_file():
+        base = STATIC_DIR.resolve()
+        f = (STATIC_DIR / path).resolve()
+        if path and f.is_file() and f.is_relative_to(base):
             return FileResponse(f)
         return FileResponse(STATIC_DIR / "index.html")

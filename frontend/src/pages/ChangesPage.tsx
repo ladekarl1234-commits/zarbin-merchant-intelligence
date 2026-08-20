@@ -12,6 +12,7 @@ const DRIVER_FA: Record<string, string> = {
   inbank_abandon_rate: "رهاشدن در بانک",
   failed_bank_rate: "خطای صریح بانکی",
   paid_unverified_rate: "پرداخت تاییدنشده",
+  reversed_rate: "برگشت‌خورده",
 };
 
 export default function ChangesPage() {
@@ -19,9 +20,12 @@ export default function ChangesPage() {
   const [state, setState] = useState<{ data: Changes | null; loading: boolean; error: string | null }>({ data: null, loading: true, error: null });
 
   const windows = useMemo(() => {
+    // integer-day midpoint, matching the backend insight card (zarin/insights._change_alert)
+    // so the Changes page and the "GMV change" insight quote the same split.
     const f = new Date(period.f + "T12:00:00");
     const t = new Date(period.t + "T12:00:00");
-    const mid = new Date((f.getTime() + t.getTime()) / 2);
+    const spanDays = Math.round((t.getTime() - f.getTime()) / 86400000);
+    const mid = new Date(f.getTime() + Math.floor(spanDays / 2) * 86400000);
     const mid2 = new Date(mid.getTime() + 86400000);
     const iso = (x: Date) => x.toISOString().slice(0, 10);
     return { f1: period.f, t1: iso(mid), f2: iso(mid2), t2: period.t };
@@ -93,7 +97,8 @@ export default function ChangesPage() {
             <div className="card" style={{ padding: 20 }}>
               <h3 style={{ fontSize: "var(--fs-m)", marginBottom: 4 }}>ریشه تغییر نرخ تبدیل</h3>
               <p style={{ fontSize: "var(--fs-s)", color: "var(--ink-2)", marginBottom: 12 }}>
-                تغییر نرخ تبدیل دقیقاً برابر مجموع تغییر این چهار حالت شکست است (با علامت معکوس).
+                هر عدد نشان می‌دهد آن حالت چقدر روی نرخ تبدیل اثر گذاشته (مثبت = به نفع تبدیل).
+                مجموع این اثرها دقیقاً برابر کل تغییر نرخ تبدیل است.
               </p>
               <div className="tbl-wrap">
                 <table className="tbl num">

@@ -54,7 +54,8 @@ def build(data_path: Path = DATA_PATH, out_dir: Path = MARTS_DIR, quiet: bool = 
              SELECT session_key FROM raw GROUP BY 1
              HAVING sum((try_seq=0)::int)>0 AND sum((try_seq>0)::int)>0)) AS mixed_noattempt
     """).fetchone()
-    assert a == (0, 0, 0), f"raw data violates audited invariants: dup={a[0]} inconsistent={a[1]} mixed={a[2]}"
+    if a != (0, 0, 0):
+        raise ValueError(f"raw data violates audited invariants: dup={a[0]} inconsistent={a[1]} mixed={a[2]}")
 
     con.execute(f"""
         CREATE TABLE sessions AS
@@ -84,7 +85,9 @@ def build(data_path: Path = DATA_PATH, out_dir: Path = MARTS_DIR, quiet: bool = 
         )
         SELECT *,
           ({OUTCOME_SQL}) AS outcome,
-          session_status IN ('Verified','Paid')
+          -- recovered = the retry ended in a VERIFIED payment (product success rule).
+          -- Paid-after-retry sessions (379 dataset-wide) are surfaced via paid_unverified instead.
+          session_status = 'Verified'
             AND n_tries > 1
             AND first_try_status NOT IN ('Verified','Paid') AS recovered,
           attempted AND first_try_status IN ('Verified','Paid') AS first_try_ok,
@@ -116,13 +119,13 @@ def build(data_path: Path = DATA_PATH, out_dir: Path = MARTS_DIR, quiet: bool = 
                count(*) FILTER (WHERE outcome = 'no_attempt') AS no_attempt,
                count(*) FILTER (WHERE outcome = 'abandoned_inbank') AS abandoned_inbank,
                count(*) FILTER (WHERE outcome = 'failed_bank') AS failed_bank,
+               count(*) FILTER (WHERE outcome = 'reversed') AS reversed,
                count(*) FILTER (WHERE recovered) AS recovered,
                count(*) FILTER (WHERE first_try_ok) AS first_try_ok,
                count(*) FILTER (WHERE first_try_verified) AS first_try_verified,
                coalesce(sum(amount) FILTER (WHERE outcome = 'verified'), 0) AS gmv,
                coalesce(sum(amount) FILTER (WHERE outcome = 'paid_unverified'), 0) AS paid_unverified_amount,
-               coalesce(sum(adjusted_fee) FILTER (WHERE outcome = 'verified'), 0) AS fee_index_sum,
-               count(DISTINCT payer_card_key) FILTER (WHERE outcome = 'verified') AS paying_customers
+               coalesce(sum(adjusted_fee) FILTER (WHERE outcome = 'verified'), 0) AS fee_index_sum
         FROM sessions GROUP BY merchant_key, d
     """)
 
@@ -194,8 +197,10 @@ def build(data_path: Path = DATA_PATH, out_dir: Path = MARTS_DIR, quiet: bool = 
           (SELECT sum(amount) FROM raw WHERE try_status = 'Verified') AS gmv_attempt_level,
           (SELECT sum(amount) FROM sessions WHERE outcome = 'verified') AS gmv_session_level
     """).fetchone()
-    assert b[1] == b[2], f"session mart grain broken: {b[1]} != {b[2]}"
-    assert b[0] == b[3], f"attempt rows lost: {b[0]} != {b[3]}"
+    if b[1] != b[2]:
+        raise ValueError(f"session mart grain broken: {b[1]} != {b[2]}")
+    if b[0] != b[3]:
+        raise ValueError(f"attempt rows lost: {b[0]} != {b[3]}")
     # GMV counted once per session may differ from attempt-level sum only by the
     # ~28 audited Verified-sessions-without-Verified-try (session-level is authoritative).
     for name in ("sessions", "attempts", "merchant_daily", "customers", "merchant_stats"):

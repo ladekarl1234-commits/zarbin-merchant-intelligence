@@ -56,11 +56,11 @@ export default function Overview() {
           <Delta cur={k.conv} prev={p?.conv} />
         </div>
         <div className="stat" role="listitem">
-          <span className="k">میانه مبلغ تراکنش <EvBtn title="میانه مبلغ تراکنش" items={[ov.data.evidence.median_ticket]} label="" /></span>
+          <span className="k">میانه مبلغ تراکنش <EvBtn title="میانه مبلغ تراکنش" items={[ov.data.evidence.median_ticket]} sampleOutcome="verified" label="" /></span>
           <div className="v num">{rial(k.median_ticket, false)}<span className="u">ریال</span></div>
         </div>
         <div className="stat" role="listitem">
-          <span className="k">مشتریان پرداخت‌کننده <EvBtn title="مشتریان" items={[ov.data.evidence.customers]} label="" /></span>
+          <span className="k">مشتریان پرداخت‌کننده <EvBtn title="مشتریان" items={[ov.data.evidence.customers]} sampleOutcome="verified" label="" /></span>
           <div className="v num">{faNum(k.customers)}</div>
         </div>
       </div>

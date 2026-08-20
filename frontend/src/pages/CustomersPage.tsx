@@ -40,7 +40,7 @@ export default function CustomersPage() {
           <div className="v num">{pct(repeatGmvShare)}</div>
         </div>
         <div className="stat">
-          <span className="k">میانه فاصله بین دو خرید</span>
+          <span className="k">میانه فاصله بین دو خرید <span className="chip chip-mute" style={{ fontSize: 9 }}>کل بازه</span></span>
           <div className="v num">{d.interval.median_days != null ? `${faNum(Math.round(d.interval.median_days))}` : "—"}<span className="u">روز</span></div>
         </div>
       </div>
@@ -53,7 +53,7 @@ export default function CustomersPage() {
       )}
 
       <Section title="بازگشت مشتریان (کوهورت ماهانه)"
-               sub="هر ردیف: مشتریانی که اولین خرید موفقشان در آن ماه بود؛ ستون‌های بعدی سهم بازگشت آن‌ها در ماه‌های بعد.">
+               sub="روی کل بازه داده محاسبه می‌شود (نه فقط دوره انتخابی). هر ردیف: مشتریانی که اولین خرید موفقشان در آن ماه بود؛ ستون‌های بعدی سهم بازگشت آن‌ها در ماه‌های بعد.">
         {d.cohorts.length >= 2 ? (
           <div className="card" style={{ padding: 18 }}>
             <CohortGrid cohorts={d.cohorts} />
