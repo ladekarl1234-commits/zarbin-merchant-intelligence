@@ -12,6 +12,7 @@ from __future__ import annotations
 from .analytics import changes, period_agg
 from .config import MIN_CUSTOMERS_RETENTION, MIN_SESSIONS_INSIGHT
 from .db import q1
+from .fa import fa_digits, fa_money, fa_num, fa_pct
 from .peers import _quantile, peer_group, peer_period_rates
 from .registry import evidence
 
@@ -55,7 +56,7 @@ def _gap_card(*, kind, me, peers_rates, rate_key, f, t, title_fa, diagnosis_fa, 
     return {
         "id": f"{kind}", "kind": kind,
         "title_fa": title_fa,
-        "observation_fa": f"نرخ شما {mine*100:.1f}٪ است؛ میانه همتایان {p50*100:.1f}٪ (اختلاف {gap_mid*100:.1f} واحد درصد).",
+        "observation_fa": f"نرخ شما {fa_pct(mine)} است؛ میانه همتایان {fa_pct(p50)} (اختلاف {fa_digits(f'{gap_mid*100:.1f}')} واحد درصد).",
         "diagnosis_fa": diagnosis_fa,
         "action_fa": action_fa,
         "impact_low": round(min(lo, hi)), "impact_high": round(max(lo, hi)),
@@ -91,7 +92,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
         cards.append({
             "id": "paid_unverified", "kind": "paid_unverified",
             "title_fa": "پرداخت‌های تاییدنشده — پول رسیده اما تایید نشده",
-            "observation_fa": f"{n:,} پرداخت به مبلغ {amt:,.0f} ریال در این دوره تسویه بانکی شده اما هرگز Verify نشده است.",
+            "observation_fa": f"{fa_num(n)} پرداخت به مبلغ {fa_money(amt)} در این دوره تسویه بانکی شده اما هرگز Verify نشده است.",
             "diagnosis_fa": "فراخوانی تایید (verify) سمت شما انجام نمی‌شود؛ معمولاً خطای کال‌بک یا وریفای دستی فراموش‌شده.",
             "action_fa": "تایید خودکار تراکنش‌ها را فعال یا خطای کال‌بک را برطرف کنید و این پرداخت‌ها را از پیشخوان زرین‌پال تعیین تکلیف کنید.",
             "impact_low": round(amt), "impact_high": round(amt),
@@ -134,7 +135,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
                     cards.append({
                         "id": "recovery_gap", "kind": "recovery_gap",
                         "title_fa": "تلاش مجدد کمتر از همتایان به نتیجه می‌رسد",
-                        "observation_fa": f"از {fp:,.0f} جلسه‌ای که تلاش اولشان ناموفق بود فقط {mine_rr*100:.1f}٪ نجات یافت؛ میانه همتایان {p50*100:.1f}٪.",
+                        "observation_fa": f"از {fa_num(fp)} جلسه‌ای که تلاش اولشان ناموفق بود فقط {fa_pct(mine_rr)} نجات یافت؛ میانه همتایان {fa_pct(p50)}.",
                         "diagnosis_fa": "پس از شکست اول، مشتری مسیر ساده‌ای برای تلاش دوباره ندارد یا صفحه پرداخت به او پیشنهاد تکرار نمی‌دهد.",
                         "action_fa": "دکمه «پرداخت مجدد» را بلافاصله پس از شکست نمایش دهید و جلسه را تا انقضای ۳۰ دقیقه‌ای زنده نگه دارید.",
                         "impact_low": round(lo), "impact_high": round(hi),
@@ -165,7 +166,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
                 cards.append({
                     "id": "high_value_friction", "kind": "high_value_friction",
                     "title_fa": "پرداخت‌های گران‌قیمت بیشتر شکست می‌خورند",
-                    "observation_fa": f"نرخ تبدیل پنجک بالای مبلغ {hv['conv_top']*100:.1f}٪ است؛ {gap*100:.1f} واحد درصد کمتر از مبالغ میانی خودتان.",
+                    "observation_fa": f"نرخ تبدیل پنجک بالای مبلغ {fa_pct(hv['conv_top'])} است؛ {fa_digits(f'{gap*100:.1f}')} واحد درصد کمتر از مبالغ میانی خودتان.",
                     "diagnosis_fa": "در مبالغ بالا سقف کارت، خطای بانک یا تردید مشتری پررنگ‌تر است؛ این مقایسه درون داده خود شماست و اثر ترکیب پذیرنده‌ها را ندارد.",
                     "action_fa": "برای سفارش‌های گران پرداخت قسطی/دومرحله‌ای یا کارت‌به‌کارت جایگزین پیشنهاد دهید و سقف کارت را قبل از پرداخت یادآوری کنید.",
                     "impact_low": round(lo), "impact_high": round(hi),
@@ -193,7 +194,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
                 cards.append({
                     "id": "repeat_gap", "kind": "repeat_gap",
                     "title_fa": "مشتریان کمتر از همتایان برمی‌گردند",
-                    "observation_fa": f"{mine_share*100:.1f}٪ از پرداخت‌های موفق شما از مشتریان تکراری است؛ میانه همتایان {p50*100:.1f}٪.",
+                    "observation_fa": f"{fa_pct(mine_share)} از پرداخت‌های موفق شما از مشتریان تکراری است؛ میانه همتایان {fa_pct(p50)}.",
                     "diagnosis_fa": "جذب مشتری دارید اما نگه‌داشت ضعیف‌تر از پذیرندگان مشابه است.",
                     "action_fa": "برای مشتریان یک‌بارخرید کمپین بازگشت (پیامک/کد تخفیف خرید دوم) اجرا کنید؛ اثر آن در همین گزارش قابل پیگیری است.",
                     "impact_low": round(extra_txns * ticket * 0.4), "impact_high": round(extra_txns * ticket),
@@ -218,11 +219,11 @@ def generate(m: str, f: str, t: str) -> list[dict]:
         cards.append({
             "id": "concentration", "kind": "concentration",
             "title_fa": "وابستگی فروش به چند مشتری معدود",
-            "observation_fa": f"۵ مشتری برتر {conc['top5']*100:.0f}٪ از فروش موفق این دوره را ساخته‌اند ({conc['top5_gmv']:,.0f} ریال).",
+            "observation_fa": f"۵ مشتری برتر {fa_pct(conc['top5'], 0)} از فروش موفق این دوره را ساخته‌اند ({fa_money(conc['top5_gmv'])}).",
             "diagnosis_fa": "از دست دادن یکی از این مشتریان ضربه بزرگی به درآمد می‌زند؛ این یک ریسک است، نه فرصت فوری.",
             "action_fa": "برای مشتریان کلیدی قرارداد/مشوق وفاداری تعریف کنید و هم‌زمان جذب مشتری جدید را تقویت کنید.",
             "impact_low": 0, "impact_high": 0,
-            "impact_label_fa": f"فروش در معرض ریسک: {conc['top5_gmv']:,.0f} ریال",
+            "impact_label_fa": f"فروش در معرض ریسک: {fa_money(conc['top5_gmv'])}",
             "confidence": "high", "effort": "hard", "n": int(conc["n"]),
             "risk_gmv": conc["top5_gmv"],
             "evidence": [evidence("customer_concentration",
@@ -266,12 +267,12 @@ def _change_alert(m: str, f: str, t: str) -> dict | None:
     direction = "رشد" if rel > 0 else "افت"
     return {
         "id": "gmv_change", "kind": "gmv_change",
-        "title_fa": f"{direction} {abs(rel)*100:.0f}٪ فروش در نیمه دوم دوره",
-        "observation_fa": f"فروش از {ch['before']['gmv']:,.0f} به {ch['after']['gmv']:,.0f} ریال رسید.",
-        "diagnosis_fa": f"تجزیه LMDI: بیشترین سهم از «{names[driver_key]}» است ({contrib[driver_key]:,.0f} ریال از کل تغییر {ch['delta_gmv']:,.0f} ریالی).",
+        "title_fa": f"{direction} {fa_pct(abs(rel), 0)} فروش در نیمه دوم دوره",
+        "observation_fa": f"فروش موفق از {fa_money(ch['before']['gmv'])} به {fa_money(ch['after']['gmv'])} رسید.",
+        "diagnosis_fa": f"تجزیه LMDI: بیشترین سهم از «{names[driver_key]}» است ({fa_money(contrib[driver_key])} از کل تغییر {fa_money(ch['delta_gmv'])}).",
         "action_fa": "جزئیات را در صفحه «چه چیزی تغییر کرد؟» ببینید؛ سهم هر عامل به‌صورت قطعی محاسبه شده است.",
         "impact_low": 0, "impact_high": 0,
-        "impact_label_fa": f"تغییر کل: {ch['delta_gmv']:,.0f} ریال",
+        "impact_label_fa": f"تغییر کل: {fa_money(ch['delta_gmv'])}",
         "confidence": "high", "effort": "easy", "n": int(ch["before"]["sessions"] + ch["after"]["sessions"]),
         "risk_gmv": abs(ch["delta_gmv"]),
         "evidence": [ch["evidence"]],

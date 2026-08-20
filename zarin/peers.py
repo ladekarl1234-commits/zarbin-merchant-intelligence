@@ -19,7 +19,7 @@ POOL_SQL = "SELECT * FROM merchant_stats WHERE sessions >= 500"
 # metric -> (column expr over period-aggregated merchant_daily, higher_is_better)
 BENCH_METRICS = {
     "conv": ("sum(verified)/nullif(sum(sessions),0)", True),
-    "first_try_conv": ("sum(first_try_ok)/nullif(sum(sessions),0)", True),
+    "first_try_conv": ("sum(first_try_verified)/nullif(sum(sessions),0)", True),
     "no_attempt_rate": ("sum(no_attempt)/nullif(sum(sessions),0)", False),
     "inbank_abandon_rate": ("sum(abandoned_inbank)/nullif(sum(sessions),0)", False),
     "recovery_rate": ("sum(recovered)/nullif(sum(sessions)-sum(first_try_ok)-sum(no_attempt),0)", True),

@@ -26,6 +26,7 @@ SELECT coalesce(sum(sessions),0) AS sessions, coalesce(sum(attempted),0) AS atte
        coalesce(sum(abandoned_inbank),0) AS abandoned_inbank, coalesce(sum(failed_bank),0) AS failed_bank,
        coalesce(sum(paid_unverified),0) AS paid_unverified, coalesce(sum(paid_unverified_amount),0) AS paid_unverified_amount,
        coalesce(sum(recovered),0) AS recovered, coalesce(sum(first_try_ok),0) AS first_try_ok,
+       coalesce(sum(first_try_verified),0) AS first_try_verified,
        coalesce(sum(gmv),0) AS gmv, coalesce(sum(fee_index_sum),0) AS fee_index_sum
 FROM merchant_daily WHERE {PERIOD_SQL}
 """
@@ -39,7 +40,8 @@ def period_agg(m: str, f: str, t: str) -> dict:
     r["no_attempt_rate"] = r["no_attempt"] / s if s else None
     r["inbank_abandon_rate"] = r["abandoned_inbank"] / s if s else None
     r["failed_bank_rate"] = r["failed_bank"] / s if s else None
-    r["first_try_conv"] = r["first_try_ok"] / s if s else None
+    # user-facing: first attempt led to a VERIFIED payment (Paid-first counts only for the recovery pool)
+    r["first_try_conv"] = r["first_try_verified"] / s if s else None
     r["avg_ticket"] = r["gmv"] / r["verified"] if r["verified"] else None
     return r
 

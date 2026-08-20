@@ -88,6 +88,7 @@ def build(data_path: Path = DATA_PATH, out_dir: Path = MARTS_DIR, quiet: bool = 
             AND n_tries > 1
             AND first_try_status NOT IN ('Verified','Paid') AS recovered,
           attempted AND first_try_status IN ('Verified','Paid') AS first_try_ok,
+          attempted AND first_try_status = 'Verified' AS first_try_verified,
           created_at::date AS d,
           date_trunc('month', created_at)::date AS month,
           extract(hour FROM created_at)::int AS hour,
@@ -117,6 +118,7 @@ def build(data_path: Path = DATA_PATH, out_dir: Path = MARTS_DIR, quiet: bool = 
                count(*) FILTER (WHERE outcome = 'failed_bank') AS failed_bank,
                count(*) FILTER (WHERE recovered) AS recovered,
                count(*) FILTER (WHERE first_try_ok) AS first_try_ok,
+               count(*) FILTER (WHERE first_try_verified) AS first_try_verified,
                coalesce(sum(amount) FILTER (WHERE outcome = 'verified'), 0) AS gmv,
                coalesce(sum(amount) FILTER (WHERE outcome = 'paid_unverified'), 0) AS paid_unverified_amount,
                coalesce(sum(adjusted_fee) FILTER (WHERE outcome = 'verified'), 0) AS fee_index_sum,
@@ -149,6 +151,7 @@ def build(data_path: Path = DATA_PATH, out_dir: Path = MARTS_DIR, quiet: bool = 
                  count(*) FILTER (WHERE outcome = 'no_attempt') AS no_attempt,
                  count(*) FILTER (WHERE recovered) AS recovered,
                  count(*) FILTER (WHERE first_try_ok) AS first_try_ok,
+                 count(*) FILTER (WHERE first_try_verified) AS first_try_verified,
                  coalesce(sum(amount) FILTER (WHERE outcome = 'verified'), 0) AS gmv,
                  coalesce(sum(amount) FILTER (WHERE outcome = 'paid_unverified'), 0) AS paid_unverified_amount,
                  quantile_cont(amount, 0.5) FILTER (WHERE outcome = 'verified') AS median_ticket,
@@ -176,7 +179,7 @@ def build(data_path: Path = DATA_PATH, out_dir: Path = MARTS_DIR, quiet: bool = 
                coalesce(cust.cust_gmv, 0) AS cust_gmv,
                verified / nullif(sessions, 0) AS conv,
                attempted / nullif(sessions, 0) AS attempt_rate,
-               first_try_ok / nullif(sessions, 0) AS first_try_conv,
+               first_try_verified / nullif(sessions, 0) AS first_try_conv,
                gmv / nullif(active_days, 0) AS gmv_per_day
         FROM base LEFT JOIN cust USING (merchant_key)
     """)

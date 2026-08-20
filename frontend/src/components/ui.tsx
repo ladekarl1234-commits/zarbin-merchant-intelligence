@@ -1,0 +1,69 @@
+import type { Evidence } from "../api";
+import { useApp } from "../ctx";
+
+/* one coherent inline icon set: 1.8 stroke, round caps */
+const I = (d: string) => (p: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+       strokeLinecap="round" strokeLinejoin="round" aria-hidden className={p.className}>
+    <path d={d} />
+  </svg>
+);
+export const IconHome = I("M3 11l9-8 9 8M5 9v11h5v-6h4v6h5V9");
+export const IconFunnel = I("M3 4h18l-7 8v7l-4-2v-5L3 4z");
+export const IconUsers = I("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M15 3.13a4 4 0 0 1 0 7.75");
+export const IconScale = I("M12 3v18M5 7l7-4 7 4M3 13l2-6 2 6a3 3 0 0 1-4 0zM17 13l2-6 2 6a3 3 0 0 1-4 0z");
+export const IconMore = I("M5 12h.01M12 12h.01M19 12h.01");
+export const IconSearch = I("M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3");
+export const IconClose = I("M18 6L6 18M6 6l12 12");
+export const IconDelta = I("M3 20h18L12 4 3 20z");
+export const IconChat = I("M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z");
+export const IconShield = I("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z");
+
+export function Section(p: { title: string; sub?: string; children: React.ReactNode }) {
+  return (
+    <section className="section">
+      <h2>{p.title}</h2>
+      {p.sub && <p className="sub">{p.sub}</p>}
+      {p.children}
+    </section>
+  );
+}
+
+/** the signature affordance: «این عدد از کجا آمد؟» */
+export function EvBtn(p: { title: string; items: Evidence[]; sampleOutcome?: string; label?: string }) {
+  const { openEvidence } = useApp();
+  return (
+    <button type="button" className="ev-btn" onClick={() => openEvidence(p.title, p.items, p.sampleOutcome)}
+            aria-label={`نحوه محاسبه ${p.title}`}>
+      <IconSearch />
+      {p.label ?? "محاسبه"}
+    </button>
+  );
+}
+
+export function ConfChip({ level }: { level: "high" | "medium" | "low" }) {
+  const map = { high: ["chip-good", "اطمینان بالا"], medium: ["chip-warn", "اطمینان متوسط"], low: ["chip-mute", "اطمینان پایین"] } as const;
+  const [cls, label] = map[level];
+  return <span className={`chip ${cls}`}>{label}</span>;
+}
+
+export function Empty(p: { title: string; body: string }) {
+  return (
+    <div className="empty" role="status">
+      <b>{p.title}</b>
+      {p.body}
+    </div>
+  );
+}
+
+export function Skeleton({ h = 120 }: { h?: number }) {
+  return <div className="skel" style={{ height: h }} aria-hidden />;
+}
+
+export function Loading({ rows = 3 }: { rows?: number }) {
+  return (
+    <div style={{ display: "grid", gap: 14 }} aria-busy="true" aria-label="در حال بارگذاری">
+      {Array.from({ length: rows }, (_, i) => <Skeleton key={i} h={i === 0 ? 90 : 150} />)}
+    </div>
+  );
+}

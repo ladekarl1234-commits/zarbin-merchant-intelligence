@@ -35,8 +35,10 @@ def test_paid_is_not_verified():
 
 def test_first_try_and_recovery():
     a = period_agg("M1", *JAN)
-    assert a["first_try_ok"] == 3       # S6, S7, S3(Paid first try counts as ok attempt)
-    assert a["recovered"] == 1          # S1 only
+    assert a["first_try_ok"] == 3        # S6, S7, S3 (Paid first try is not a failed attempt)
+    assert a["first_try_verified"] == 2  # S6, S7 — the user-facing first-attempt success
+    assert a["first_try_conv"] == 2 / 7  # must never exceed final conv semantics
+    assert a["recovered"] == 1           # S1 only
     pool = a["attempted"] - a["first_try_ok"]
     assert pool == 3 and a["recovered"] / pool == 1 / 3
 
