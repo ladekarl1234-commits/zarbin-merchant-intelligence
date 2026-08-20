@@ -21,7 +21,17 @@ from .config import ROOT
 
 AI_EVENTS_PATH = Path(os.environ.get("ZARIN_AI_EVENTS_PATH", ROOT / "data" / "runtime" / "ai_events.jsonl"))
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/free")
+
+
+def _free_model_policy(requested: str | None) -> str:
+    """Enforce the product rule: OpenRouter must use a free router/model only."""
+    model = (requested or "openrouter/free").strip()
+    if model == "openrouter/free" or model.endswith(":free"):
+        return model
+    return "openrouter/free"
+
+
+OPENROUTER_MODEL = _free_model_policy(os.environ.get("OPENROUTER_MODEL"))
 _LOCK = Lock()
 
 
@@ -175,18 +185,24 @@ def admin_answer(question: str, ops: dict[str, Any]) -> dict[str, Any]:
     """Grounded operations copilot over already-computed control-plane telemetry."""
     started = time.perf_counter()
     ai = ops["ai"]
+    api = ops.get("api", {})
     sources = ops["sources"]
     q = question.lower()
     if "fallback" in q or "فالبک" in q or "جایگزین" in q:
         rate = ai.get("fallback_rate")
         answer_fa = "هنوز درخواست AI ثبت نشده است." if rate is None else f"نرخ fallback فعلی {rate * 100:.1f}٪ است. اگر از هدف ۵٪ بالاتر رفته، ابتدا دسترسی OpenRouter و خطاهای درخواست‌های اخیر را بررسی کنید."
         intent = "ai_fallback"
+    elif "api" in q or "ای‌پی‌آی" in q or "خطای سرویس" in q:
+        p95 = api.get("p95_latency_ms")
+        error = api.get("error_rate")
+        answer_fa = "هنوز نمونه کافی از API ثبت نشده است." if p95 is None else f"P95 فعلی API حدود {p95:.0f} میلی‌ثانیه و نرخ خطای ۵۰۰ به بالا {(error or 0) * 100:.1f}٪ است."
+        intent = "api_health"
     elif "کند" in q or "سرعت" in q or "تاخیر" in q or "latency" in q:
         p95 = ai.get("p95_latency_ms")
-        answer_fa = "هنوز داده‌ای برای زمان پاسخ نداریم." if p95 is None else f"P95 زمان پاسخ AI حدود {p95:.0f} میلی‌ثانیه است. هدف اولیه زیر ۱۰۰۰ میلی‌ثانیه تعریف شده است."
+        answer_fa = "هنوز داده‌ای برای زمان پاسخ AI نداریم." if p95 is None else f"P95 زمان پاسخ AI حدود {p95:.0f} میلی‌ثانیه است. هدف اولیه زیر ۱۰۰۰ میلی‌ثانیه تعریف شده است."
         intent = "ai_latency"
     elif "هزینه" in q or "cost" in q:
-        answer_fa = f"هزینه ثبت‌شده مدل در این نسخه ${ai.get('cost_usd', 0):.4f} است. مسیر پیش‌فرض openrouter/free است؛ هزینه زیرساخت جدا از هزینه مدل است."
+        answer_fa = f"هزینه ثبت‌شده مدل در این نسخه ${ai.get('cost_usd', 0):.4f} است. policy فقط openrouter/free یا مدل‌های صریح :free را می‌پذیرد؛ هزینه زیرساخت جدا از هزینه مدل است."
         intent = "ai_cost"
     elif "منبع" in q or "گوگل" in q or "analytics" in q:
         missing = [s["label"] for s in sources if not s["configured"]]
@@ -204,13 +220,16 @@ def admin_answer(question: str, ops: dict[str, Any]) -> dict[str, Any]:
     if os.environ.get("OPENROUTER_API_KEY"):
         safe_context = {
             "deterministic_answer_fa": answer_fa,
+            "api": api,
             "ai": {k: ai.get(k) for k in ("requests", "grounded_rate", "fallback_rate", "avg_latency_ms", "p95_latency_ms", "cost_usd", "models", "intents")},
             "sources": sources,
+            "source_insights": ops.get("source_insights", []),
+            "ga4": ops.get("ga4"),
             "slo": ops.get("slo", {}),
             "platform": ops.get("platform", {}),
         }
         system = (
-            "You are the Persian operations copilot for an analytics platform. Use only the supplied telemetry. "
+            "You are the Persian operations copilot for an analytics platform. Use only the supplied telemetry and source insights. "
             "Never invent incidents, costs, causes, or numbers. Distinguish observation from recommendation. "
             "Answer briefly and clearly for a product/engineering manager."
         )
