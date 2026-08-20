@@ -143,3 +143,64 @@ def ga4_snapshot() -> dict[str, Any] | None:
         return json.loads(GA4_SNAPSHOT.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
+
+
+def _delta(cur: float, prev: float) -> float | None:
+    return None if prev == 0 else (cur - prev) / prev
+
+
+def ga4_insights() -> list[dict[str, Any]]:
+    """Turn a GA4 snapshot into deterministic, evidence-carrying operational insights.
+
+    The LLM is deliberately not used here. A model may explain these cards later, but
+    the numbers and trigger conditions are computed first and remain reproducible.
+    """
+    snap = ga4_snapshot()
+    if not snap:
+        return []
+    rows = sorted(snap.get("rows", []), key=lambda r: str(r.get("date", "")))
+    if not rows:
+        return []
+
+    cards: list[dict[str, Any]] = []
+    if len(rows) >= 14:
+        prev, cur = rows[-14:-7], rows[-7:]
+        for key, label in (("sessions", "ترافیک سایت"), ("users", "کاربران سایت"), ("purchase_revenue", "درآمد ثبت‌شده در GA4")):
+            before = sum(float(r.get(key, 0) or 0) for r in prev)
+            after = sum(float(r.get(key, 0) or 0) for r in cur)
+            change = _delta(after, before)
+            if change is None or abs(change) < 0.10:
+                continue
+            direction = "رشد" if change > 0 else "افت"
+            cards.append({
+                "id": f"ga4_{key}_wow",
+                "source": "ga4",
+                "title_fa": f"{direction} {label}",
+                "observation_fa": f"در ۷ روز اخیر {label} نسبت به ۷ روز قبل {abs(change) * 100:.1f}٪ {'بیشتر' if change > 0 else 'کمتر'} شده است.",
+                "action_fa": (
+                    "کانال‌ها و صفحات ورودیِ عامل رشد را جداگانه بررسی کنید تا الگوی موفق تکرار شود."
+                    if change > 0 else
+                    "ابتدا acquisition و صفحات ورودی را بررسی کنید؛ این کارت فقط تغییر را نشان می‌دهد و علت را حدس نمی‌زند."
+                ),
+                "metric": key,
+                "current": after,
+                "previous": before,
+                "change": change,
+                "sample_days": 14,
+                "caveat_fa": "مقایسه ۷ روز با ۷ روز قبل است؛ تغییر لزوماً علت افت یا رشد پرداخت نیست.",
+            })
+    if not cards:
+        cards.append({
+            "id": "ga4_snapshot_ready",
+            "source": "ga4",
+            "title_fa": "داده Google Analytics آماده تحلیل است",
+            "observation_fa": f"{len(rows)} روز داده در snapshot فعلی وجود دارد.",
+            "action_fa": "با تکمیل حداقل ۱۴ روز داده، تغییرات هفتگی به‌صورت خودکار به insight تبدیل می‌شوند.",
+            "metric": "coverage_days",
+            "current": len(rows),
+            "previous": None,
+            "change": None,
+            "sample_days": len(rows),
+            "caveat_fa": "این کارت فقط پوشش داده را گزارش می‌کند.",
+        })
+    return cards[:5]
