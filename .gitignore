@@ -10,3 +10,6 @@ frontend/dist/
 .pytest_cache/
 .ruff_cache/
 *.duckdb
+.playwright-cli/
+shot-*.png
+*.png
