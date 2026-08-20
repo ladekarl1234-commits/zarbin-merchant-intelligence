@@ -1,0 +1,37 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Zarbin Dashboard",
+      "type": "shell",
+      "command": "uv run zarin",
+      "problemMatcher": [],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "detail": "Builds marts if missing, then serves the dashboard at http://localhost:8630",
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
+      "label": "Zarbin: Run tests",
+      "type": "shell",
+      "command": "uv run pytest -q",
+      "group": "test",
+      "problemMatcher": [],
+      "detail": "Metric-correctness + API tests on deterministic fixtures"
+    },
+    {
+      "label": "Zarbin: Build data marts",
+      "type": "shell",
+      "command": "uv run python -m zarin.pipeline",
+      "problemMatcher": [],
+      "detail": "(Re)build the Parquet marts from data/other_challenge_data.csv.gz"
+    },
+    {
+      "label": "Zarbin: Build frontend",
+      "type": "shell",
+      "command": "npm --prefix frontend run build",
+      "problemMatcher": [],
+      "detail": "tsc typecheck + Vite production build into zarin/static"
+    }
+  ]
+}

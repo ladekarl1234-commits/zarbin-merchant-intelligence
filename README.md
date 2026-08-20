@@ -7,21 +7,30 @@
 
 ساخته‌شده برای چالش «هوش تجاری پذیرندگان» زرین‌پال — کاملاً فارسی و راست‌به‌چپ، اجرا با یک فرمان، بدون هیچ کلید و سرویس خارجی.
 
-## اجرا (کمتر از دو دقیقه)
+## ▶ اجرا و مشاهده (کمتر از یک دقیقه)
 
-پیش‌نیاز: [uv](https://docs.astral.sh/uv/) (مدیر پکیج پایتون). Node لازم نیست — فرانت‌اند ساخته‌شده در ریپو موجود است.
+پیش‌نیاز فقط [uv](https://docs.astral.sh/uv/) است (مدیر پکیج پایتون). **Node لازم نیست** — فرانت‌اند ساخته‌شده در مخزن موجود است.
 
 ```bash
-git clone <this-repo>
-cd <repo>
-# دیتاست چالش را اینجا بگذارید: data/other_challenge_data.csv.gz
+git clone https://github.com/ladekarl1234-commits/zarbin-merchant-intelligence.git
+cd zarbin-merchant-intelligence
+# دیتاست چالش را اینجا بگذارید:  data/other_challenge_data.csv.gz
 #   (یا مسیر دلخواه:  ZARIN_DATA_PATH=/path/to/file.csv.gz)
 uv run zarin
-# → http://localhost:8630
 ```
 
-اولین اجرا marts تحلیلی (Parquet) را می‌سازد (~۱ دقیقه) و اجراهای بعدی فوری‌اند.
-با Docker: `docker compose up` (همان کار را در کانتینر می‌کند؛ مسیر تست‌شده uv است).
+سپس داشبورد را باز کنید:
+
+### 🔗 http://localhost:8630
+
+> **بهترین شروع دمو:** پذیرنده **M156** را انتخاب کنید و از صفحه «نمای کلی» شروع کنید.
+> مسیر ۶۰ ثانیه‌ای: فرصت اول ← دکمه «این عدد از کجا آمد؟» ← صفحه «چه چیزی تغییر کرد؟» ← تغییر به نمای موبایل.
+
+اولین اجرا marts تحلیلی (Parquet) را در حدود **۳۰ ثانیه** می‌سازد؛ اجراهای بعدی فوری‌اند.
+
+- **VS Code:** پس از باز کردن پوشه، از منوی Terminal → Run Task گزینهٔ **«Run Zarbin Dashboard»** را بزنید (یا `scripts/run.ps1` در ویندوز، `scripts/run.sh` در لینوکس/مک).
+- **Docker:** `docker compose up` (روی `127.0.0.1:8630` منتشر می‌شود؛ مسیر مرجع تست‌شده uv است).
+- **ویندوز/OneDrive:** اسکریپت‌های `scripts/run.*` به‌صورت خودکار `UV_LINK_MODE=copy` را تنظیم می‌کنند تا محدودیت hardlink دور زده شود.
 
 ```bash
 uv run pytest -q                     # ۱۶ تست صحت متریک

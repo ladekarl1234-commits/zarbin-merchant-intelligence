@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Zarbin: Debug server",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "zarin",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": { "ZARIN_PORT": "8630" }
+    }
+  ]
+}
