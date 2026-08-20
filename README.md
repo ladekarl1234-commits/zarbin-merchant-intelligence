@@ -1,137 +1,331 @@
-# زرین‌بین (Zarbin) — موتور هوش و اقدام برای پذیرندگان زرین‌پال
+# زرین‌بین · Zarbin
 
-**زرین‌بین** یک داشبورد BI معمولی نیست؛ یک **موتور بینش و اقدام** است که دیتاست ۲٫۲ میلیون
-تلاش پرداخت را به تصمیم‌های مشخص، عددی و قابل‌ردیابی برای پذیرنده تبدیل می‌کند:
+### Merchant Intelligence + AI Operations for ZarinPal
 
-> **مشاهده ← تشخیص ← اثر مالی (بازه‌ای) ← اقدام پیشنهادی ← سطح اطمینان ← شواهد تا سطح جلسه**
+زرین‌بین فقط یک داشبورد BI نیست. محصول دو فضای هماهنگ دارد که یک موتور داده و متریک مشترک را استفاده می‌کنند:
 
-ساخته‌شده برای چالش «هوش تجاری پذیرندگان» زرین‌پال — کاملاً فارسی و راست‌به‌چپ، اجرا با یک فرمان، بدون هیچ کلید و سرویس خارجی.
+**داشبورد پذیرنده** برای اینکه صاحب کسب‌وکار خیلی ساده بفهمد «چه اتفاقی افتاده، چرا، چقدر مهم است، چه کاری انجام بدهم و این عدد از کجا آمده؟»
 
-## ▶ اجرا و مشاهده (کمتر از یک دقیقه)
+**مرکز کنترل** برای تیم Business / Product / Data / Engineering تا علاوه بر وضعیت کل داده، performance، turnaround/latency، هزینه، سلامت منابع داده و کیفیت خودِ AI را ببیند.
 
-پیش‌نیاز فقط [uv](https://docs.astral.sh/uv/) است (مدیر پکیج پایتون). **Node لازم نیست** — فرانت‌اند ساخته‌شده در مخزن موجود است.
+> **Data → deterministic metrics → actionable insight → evidence → optional AI explanation**
+>
+> مدل زبانی منبع حقیقت اعداد نیست.
+
+---
+
+## ▶ اجرا و مشاهده
+
+پیش‌نیاز اصلی: [uv](https://docs.astral.sh/uv/). برای مسیر اصلی Node لازم نیست؛ build فرانت داخل پروژه سرو می‌شود.
 
 ```bash
 git clone https://github.com/ladekarl1234-commits/zarbin-merchant-intelligence.git
 cd zarbin-merchant-intelligence
-# دیتاست چالش را اینجا بگذارید:  data/other_challenge_data.csv.gz
-#   (یا مسیر دلخواه:  ZARIN_DATA_PATH=/path/to/file.csv.gz)
+git switch feature/dual-surface-ai-ops
+
+# دیتاست چالش:
+# data/other_challenge_data.csv.gz
+# یا: ZARIN_DATA_PATH=/path/to/file.csv.gz
+
 uv run zarin
 ```
 
-سپس داشبورد را باز کنید:
-
 ### 🔗 http://localhost:8630
 
-> **بهترین شروع دمو:** پذیرنده **M156** را انتخاب کنید و از صفحه «نمای کلی» شروع کنید.
-> مسیر ۶۰ ثانیه‌ای: فرصت اول ← دکمه «این عدد از کجا آمد؟» ← صفحه «چه چیزی تغییر کرد؟» ← تغییر به نمای موبایل.
+در VS Code نیز می‌توانید از **Terminal → Run Task → Run Zarbin Dashboard** استفاده کنید.
 
-اولین اجرا marts تحلیلی (Parquet) را در حدود **۳۰ ثانیه** می‌سازد؛ اجراهای بعدی فوری‌اند.
-
-- **VS Code:** پس از باز کردن پوشه، از منوی Terminal → Run Task گزینهٔ **«Run Zarbin Dashboard»** را بزنید (یا `scripts/run.ps1` در ویندوز، `scripts/run.sh` در لینوکس/مک).
-- **Docker:** `docker compose up` (روی `127.0.0.1:8630` منتشر می‌شود؛ مسیر مرجع تست‌شده uv است).
-- **ویندوز/OneDrive:** اسکریپت‌های `scripts/run.*` به‌صورت خودکار `UV_LINK_MODE=copy` را تنظیم می‌کنند تا محدودیت hardlink دور زده شود.
+برای تست و build:
 
 ```bash
-uv run pytest -q                     # ۲۴ تست صحت متریک و API
-uv run python pipeline/validate.py   # QA مستقل در برابر API زنده (سرور باید بالا باشد)
-uv run ruff check .                  # لینت
+uv run pytest -q
+uv run ruff check .
+npm --prefix frontend ci
+npm --prefix frontend run build
 ```
 
-## پیش‌نمایش محصول
+---
 
-| نمای کلی (فید اقدام) | چه چیزی تغییر کرد؟ (تجزیه LMDI) |
-|---|---|
-| ![نمای کلی](docs/screenshots/desk-overview.png) | ![چه چیزی تغییر کرد](docs/screenshots/desk-changes.png) |
-| **کشوی شواهد — «این عدد از کجا آمد؟»** | **موبایل** |
-| ![کشوی شواهد](docs/screenshots/desk-evidence.png) | ![موبایل](docs/screenshots/mob-overview.png) |
+## دو فضای محصول
 
-تصاویر بیشتر (قیف، مشتریان، همتایان، کیفیت داده، موبایل) در `docs/screenshots/`.
+### 1) داشبورد پذیرنده
 
-## چه چیزی این پروژه را متفاوت می‌کند
+برای پذیرنده‌ای که تحلیل‌گر داده نیست:
 
-1. **فید اقدام، نه دیوار نمودار.** صفحه اول «مهم‌ترین فرصت‌های شما» است، رتبه‌بندی‌شده با
-   `اثر مالی × اطمینان ÷ زحمت`. هر کارت اقدام مشخص و برآورد بازه‌ای ریالی دارد.
-2. **ردیابی به‌عنوان قابلیت محصول.** هر عدد مهم دکمه «این عدد از کجا آمد؟» دارد:
-   تعریف متریک، فرمول، SQL واقعی اجراشده، پارامترها، حجم نمونه، هشدارها، و نمونه جلسه‌های
-   منبع (`session_key`های قابل پیگیری در دیتاست خام). همه از یک registry مرکزی.
-3. **پنج حالت شکست، نه یک «ناموفق» عمومی.** NoAttempt (به درگاه نرسید) ≠ رها در بانک ≠
-   خطای صریح ≠ تسویه بدون تایید — هرکدام تشخیص و اقدام متفاوتی دارند.
-4. **بینش بدیع: «پرداخت‌های تاییدنشده».** ۸,۷۰۶ جلسه در کل داده (۱۱۶٫۵ میلیارد ریال) پول تسویه
-   شده اما هرگز Verify نشده‌اند — پول واقعی، نه برآورد؛ با اقدام مشخص (اصلاح کال‌بک/تایید خودکار).
-5. **همتایان توضیح‌پذیر.** مقایسه فقط با پذیرندگان هم‌صنف و هم‌مقیاس (قاعده شفاف در UI)؛
-   با همتای ناکافی، معیار سرکوب می‌شود — هرگز جعل نمی‌شود.
-6. **تجزیه دقیق «چرا فروش تغییر کرد».** LMDI: سهم جلسه‌ها/تبدیل/تیکت دقیقاً جمع‌پذیر؛ لایه دوم،
-   تغییر تبدیل را به چهار حالت شکست تجزیه می‌کند (هویت جبری، تست‌شده).
-7. **فرصت = شکاف تا همتایان، نه جمع شکست‌ها.** با بازه (کف/سقف) و سطح اطمینان.
-8. **دستیار «از کسب‌وکارت بپرس» قطعی و آفلاین.** پاسخ‌ها از موتور تحلیلی می‌آیند نه LLM —
-   قابل اجرا برای داور بدون هیچ کلید، و هر پاسخ شواهد دارد.
-9. **خویشتن‌داری تحلیلی.** نمونه کم = عدم نمایش، با توضیح. اصلاح خاموش داده ممنوع.
+- **نمای کلی و Action Feed** — مهم‌ترین فرصت‌ها و هشدارها، نه دیوار نمودار؛
+- **قیف پرداخت** — NoAttempt، رهاشدن در بانک، شکست صریح، Paid-but-unverified و Verified جدا از هم؛
+- **Payment Rescue** — پرداخت‌هایی که بعد از retry واقعاً نجات یافته‌اند؛
+- **مشتریان** — جدید/تکراری، cohort، تمرکز و مشتری ارزشمند غیرفعال؛
+- **همتایان رفتاری** — مقایسه با کسب‌وکار هم‌صنف و هم‌مقیاس با suppression نمونه کوچک؛
+- **چه چیزی تغییر کرد؟** — تجزیه تغییر فروش به حجم، تبدیل و مبلغ خرید؛
+- **Ask Your Business** — پرسش فارسی با متن یا **Voice-to-Text**؛
+- **Evidence Drawer** — تعریف، فرمول، روش/SQL، sample size، caveat و drill-through به sessionهای منبع.
 
-## صفحه‌ها
+### 2) مرکز کنترل · Business / Technical / AI Ops
 
-| صفحه | محتوا |
-|---|---|
-| نمای کلی | KPIها + فید فرصت‌های رتبه‌بندی‌شده + روند روزانه |
-| قیف پرداخت | قیف ۴مرحله‌ای، ۵ حالت نتیجه، اولین‌تلاش/نهایی، نجات با تلاش مجدد، باند مبلغ، PSP، کدهای خطا |
-| مشتریان | تکرار/جدید، کوهورت بازگشت ماهانه، تمرکز، مشتریان ارزشمند غیرفعال، فاصله خرید |
-| همتایان | صدک دقیق در گروه همتایان توضیح‌پذیر + «چرا این همتایان؟» |
-| چه چیزی تغییر کرد؟ | تجزیه LMDI + ریشه تغییر نرخ تبدیل |
-| بپرس | دستیار قطعی فارسی با شواهد |
-| کیفیت داده | حالت‌ها، تمرکز بازار، ناهنجاری‌ها، قواعد تحلیلی |
+این بخش خودِ زرین‌بین را پایش می‌کند:
 
-انتخاب پذیرنده (حالت ارزیاب) شامل پیشنهادهای دمو است که **برنامه‌ریزی‌شده از داده** انتخاب
-می‌شوند (بزرگ‌ترین فروش، بیشترین پرداخت تاییدنشده، بالاترین انصراف، بیشترین نجات، بیشترین تکرار).
+- تعداد پذیرنده و sessionهای تحت پوشش؛
+- AI request volume؛
+- **Grounded-answer rate**؛
+- **Fallback rate**؛
+- average و P95 latency / turnaround؛
+- model mix و intent mix؛
+- هزینه مدل ثبت‌شده؛
+- recent AI requests؛
+- سلامت منبع داده؛
+- Google Analytics connection/snapshot؛
+- insightهای مشتق‌شده از منبع جدید؛
+- **Voice Mode مدیریتی** برای پرسیدن درباره سرعت، fallback، هزینه و source health.
+
+اصطلاحات فنی که برای همه واضح نیستند با hover/focus tooltip توضیح داده می‌شوند تا UI شلوغ نشود.
+
+---
+
+## AI: مفید، ولی تحت کنترل
+
+### OpenRouter
+
+اتصال بیرونی اختیاری است و مدل پیش‌فرض:
+
+```text
+openrouter/free
+```
+
+است.
+
+```bash
+export OPENROUTER_API_KEY=...
+export OPENROUTER_MODEL=openrouter/free
+uv run zarin
+```
+
+معماری Copilot عمداً LLM-first نیست:
+
+```text
+Question
+  ↓
+Deterministic Analytics
+  ↓
+Evidence-safe Context
+  ↓
+Optional OpenRouter explanation
+  ↓
+Answer + provenance + telemetry
+```
+
+اگر OpenRouter خطا بدهد یا کلید وجود نداشته باشد، پاسخ deterministic داخلی کار می‌کند. قبل از ارسال context به provider بیرونی، raw session/card data، SQL parameters و ردیف‌های حساس حذف می‌شوند.
+
+### AI خودش هم اندازه‌گیری می‌شود
+
+مرکز کنترل حداقل این موارد را ثبت می‌کند:
+
+- latency؛
+- groundedness؛
+- fallback؛
+- success؛
+- model؛
+- intent؛
+- cost؛
+- error/fallback state.
+
+این یعنی سؤال فقط «AI داریم؟» نیست؛ سؤال «AI واقعاً خوب کار می‌کند؟» هم بخشی از محصول است.
+
+---
+
+## Google Analytics 4 و داده‌های آینده
+
+هسته به CSV چالش قفل نشده است. `zarin/connectors.py` مرز اتصال منابع بیرونی است.
+
+برای GA4:
+
+```bash
+uv sync --group connectors
+export GA4_PROPERTY_ID=123456789
+export GOOGLE_APPLICATION_CREDENTIALS=/secure/path/service-account.json
+```
+
+سپس endpoint همگام‌سازی می‌تواند snapshot bounded بسازد. منبع جدید **فقط نمایش داده نمی‌شود**: بعد از sync، قواعد deterministic تغییرات معنادار را به insight تبدیل می‌کنند؛ در مرحله بعد AI فقط همان insight و evidence را توضیح می‌دهد.
+
+GA4 سیگنال مکمل traffic/acquisition/behavior است و جایگزین payment truth نیست. قبل از join کردن داده‌های چند منبع، identity، timezone و attribution semantics باید صریح تعریف و تست شوند.
+
+---
+
+## چرا این Stack؟
+
+| لایه | انتخاب فعلی | دلیل |
+|---|---|---|
+| Frontend | React + Vite + TypeScript | SPA تحلیلی سریع، کم‌پیچیدگی، judge-friendly |
+| API | FastAPI | نزدیکی به data-science stack، OpenAPI و مرز روشن domain API |
+| Analytics | DuckDB + Parquet | برای چند میلیون ردیف OLAP بسیار سریع و ساده، بدون warehouse سنگین |
+| Metrics | semantic/registry + deterministic Python/SQL | یک منبع حقیقت و traceability |
+| AI | provider adapter + OpenRouter free route | قابل تعویض، fallback-safe، cost-aware |
+| External data | connector adapters | GA4 و منابع بعدی بدون شکستن metric core |
+
+**نکته مهم:** این stack بهترین fit برای challenge و single-node production-shaped deployment است، نه ادعای «بی‌نهایت horizontally scalable». مسیر scale صریحاً در ADR نوشته شده است.
+
+برای جزئیات و trade-offها: [`docs/ADR/0001-platform-stack-and-scale.md`](docs/ADR/0001-platform-stack-and-scale.md)
+
+---
 
 ## معماری
 
+```text
+                     ┌──────────────────────────────┐
+                     │          Sources             │
+                     │ ZarinPal CSV · GA4 · future  │
+                     └──────────────┬───────────────┘
+                                    │ adapters
+                                    ▼
+                     ┌──────────────────────────────┐
+                     │ Validation / Semantic Layer  │
+                     │ session grain · metric defs  │
+                     └──────────────┬───────────────┘
+                                    ▼
+             ┌──────────────────────────────────────────┐
+             │ DuckDB / Parquet + Deterministic Engine │
+             │ analytics · peers · changes · insights  │
+             └─────────────┬────────────────┬───────────┘
+                           │                │
+                  evidence│                │safe context
+                           ▼                ▼
+                  ┌──────────────┐   ┌─────────────────┐
+                  │ Merchant API │   │ AI Gateway      │
+                  │ + lineage    │   │ OpenRouter/free │
+                  └──────┬───────┘   │ + fallback     │
+                         │           └────────┬────────┘
+                         │                    │ telemetry
+              ┌──────────▼──────────┐  ┌──────▼──────────────┐
+              │ Merchant Dashboard │  │ Control Center      │
+              │ insights + voice   │  │ Business + AI Ops  │
+              └─────────────────────┘  └─────────────────────┘
 ```
-data/other_challenge_data.csv.gz
-   └─ zarin/pipeline.py  (DuckDB → Parquet marts + assertهای صحت)
-        ├─ sessions / attempts / merchant_daily / customers / merchant_stats
-        └─ zarin/api.py (FastAPI) ── کوئری زنده DuckDB روی marts
-             ├─ zarin/registry.py   ← لایه معنایی: تنها منبع تعریف متریک‌ها
-             ├─ zarin/analytics.py  ← قیف، مشتری، LMDI
-             ├─ zarin/peers.py      ← همتایان + سرکوب
-             ├─ zarin/insights.py   ← موتور فرصت و رتبه‌بندی
-             └─ zarin/copilot.py    ← دستیار قطعی
-frontend/ (Vite + React + TS، RTL، Vazirmatn) → build در zarin/static (کامیت‌شده برای اجرای بدون Node)
-```
 
-- ۲٫۲ میلیون ردیف = قلمرو DuckDB؛ کوئری‌های زنده یعنی SQLِ کشوی شواهد همان SQLِ اجراشده است.
-- هیچ محاسبه سنگینی در مرورگر انجام نمی‌شود؛ پاسخ APIها زیر ~۳۰۰ms.
-- جزئیات: `docs/ARCHITECTURE.md`، تصمیم‌ها: `docs/DECISIONS.md`.
+### مسیر scale واقعی
 
-## مستندات
+وقتی multi-tenant/concurrency نیاز ایجاد کند، بدون تغییر semantic metrics:
 
-| سند | محتوا |
-|---|---|
-| [docs/DATA_AUDIT.md](docs/DATA_AUDIT.md) | ممیزی انتقادی دیتاست: دانه، معنای وضعیت‌ها، تایید/رد فرضیه‌ها، ناهنجاری‌ها، مخدوش‌کننده‌ها |
-| [docs/ANALYTICS.md](docs/ANALYTICS.md) | روش‌شناسی + مرجع متریک‌ها: همتایان، فرصت، LMDI، آستانه‌های خویشتن‌داری |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | معماری، جریان داده، کارایی |
-| [docs/PRODUCT.md](docs/PRODUCT.md) | هویت محصول، مخاطب، اصول |
-| [docs/DESIGN.md](docs/DESIGN.md) | سیستم طراحی (برند زرین‌پال، RTL، دسترس‌پذیری) |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | تصمیم‌های مهم: زمینه ← گزینه‌ها ← تصمیم ← چرا ← هزینه |
-| [docs/VALIDATION.md](docs/VALIDATION.md) | سه لایه اعتبارسنجی + نتایج واقعی |
-| [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | سناریوی دقیق ویدئوی دمو (دسکتاپ + موبایل) با چک‌لیست |
+- raw/Parquet → Object Storage؛
+- control-plane state → Postgres؛
+- OLAP concurrency → ClickHouse / warehouse؛
+- ingestion → Queue + Workers؛
+- telemetry → OpenTelemetry + durable observability backend؛
+- identity → OIDC/RBAC + tenant isolation؛
+- secrets → Secret Manager.
 
-## نگاشت به معیارهای داوری
-
-| معیار | امتیاز | کجا |
-|---|---|---|
-| **اقدام‌پذیری و بدیع‌بودن** | 90 | فید فرصت با عدد و اقدام مشخص؛ بینش‌های فراتر از سند چالش: پرداخت‌های تاییدنشده (پول واقعی راکد)، نجات پرداخت درون‌جلسه‌ای، شکاف NoAttempt در برابر همتایان (کشف یکپارچه‌سازی خراب مثل M265)، اصطکاک مبلغ‌بالا درون-پذیرنده، مشتریان ارزشمند غیرفعال |
-| **صحت و ردیابی‌پذیری** | 75 | registry مرکزی متریک؛ کشوی «این عدد از کجا آمد؟» با SQL واقعی + نمونه session_key؛ سطح تلاش/جلسه صریح؛ ۱۶ تست خطاهای مرگبار؛ QA مستقل ۲۴/۲۴ از CSV خام (docs/VALIDATION.md) |
-| **عمق تحلیلی** | 60 | تفکیک پنج‌حالته شکست؛ همتایان هم‌مقیاس با سرکوب؛ LMDI جمع‌پذیر دولایه؛ فرصت بازه‌ای مبتنی بر خط پایه؛ کنترل مخدوش‌کننده (باندهای مبلغ درون-پذیرنده، مقایسه‌های درون-پذیرنده به‌خاطر ترکیب ماهانه/تمرکز ۷۲٪ GMV در ۵ پذیرنده) |
-| **UX غیرتکنیکال** | 45 | فارسی محاوره‌محور، اولویت‌محور؛ «سه کار مهم این هفته» به‌جای ۴۷ متریک؛ افشای تدریجی (بینش ← نمودار ← شواهد)؛ موبایل با ناوبری پایین؛ حالت‌های خالی صادقانه |
-| **کیفیت فنی و اجراپذیری** | 30 | `uv run zarin` تک‌فرمان؛ بدون کلید/شبکه؛ pytest+ruff+tsc پاس؛ ساختار ماژولار تایپ‌دار؛ README همین سند |
-
-## محدودیت‌های شناخته‌شده
-
-- کارت‌ها merchant-scoped هستند → ادعای ردیابی بین‌پذیرنده‌ای مشتری وجود ندارد.
-- `adjusted_fee` فقط «شاخص نسبی کارمزد» است (ضریب محرمانگی) — در همه نقاط نمایش تذکر داده می‌شود.
-- برآوردهای فرصت همبستگی‌محورند، نه علّی؛ زبان محصول («برآورد»، «مرتبط با») همین را می‌گوید.
-- در صنف‌های کوچک (مثلاً ISP با ۲۵ پذیرنده) گروه همتا ممکن است به کل صنف بازگردد یا سرکوب شود — به‌جای عدد نامطمئن.
-- داده فقط ۶ ماه است؛ تحلیل بازگشت بلندمدت مشتری محدود به همین پنجره است.
+جزئیات: [`docs/DEPLOYMENT_SPEC.md`](docs/DEPLOYMENT_SPEC.md)
 
 ---
-*همه مبالغ به ریال (IRR) است. ساخته‌شده برای هکاتون زرین‌پال — ۱۴۰۵.*
+
+## نوآوری‌های مهم
+
+- **Paid-but-unverified**: پول settle شده اما پذیرنده verification نهایی را کامل نکرده؛ outcome مستقل، نه «failure» عمومی.
+- **Payment Rescue**: سنجش retry recovery بدون double-count کردن session/GMV.
+- **Opportunity Engine**: gap/counterfactual با scenario band و guardrail، نه جمع مبالغ شکست‌خورده.
+- **Matched Peers**: benchmark قابل توضیح و suppression برای peer pool کوچک.
+- **What Changed**: decomposition دقیق فروش به drivers، نه صرفاً «فروش ۱۲٪ کم شد».
+- **Evidence as Product**: کاربر از insight تا formula/query/source session پایین می‌رود.
+- **AI observing AI**: کیفیت خودِ لایه هوشمند بخشی از داشبورد مدیریت است.
+- **Evidence-safe external AI**: provider بیرونی حق دسترسی مستقیم به raw data ندارد.
+- **Data-source-to-insight**: connector جدید فقط chart تولید نمی‌کند؛ ابتدا deterministic insight می‌سازد.
+
+---
+
+## Design System
+
+اصل طراحی:
+
+> **ساده‌ترین رابطی که تصمیم را منتقل می‌کند.**
+
+- Persian-first و RTL؛
+- Vazirmatn؛
+- زرد برند فقط برای action/stateهای مهم؛
+- progressive disclosure؛
+- chart فقط وقتی تصمیمی را روشن می‌کند؛
+- Evidence Drawer برای جزئیات فنی؛
+- hover/focus tooltip برای اصطلاح دشوار؛
+- mobile hierarchy واقعی؛
+- Voice به‌عنوان shortcut، نه وابستگی اجباری.
+
+جزئیات: [`docs/DESIGN.md`](docs/DESIGN.md) و [`docs/PLATFORM_BOOK.md`](docs/PLATFORM_BOOK.md)
+
+---
+
+## برای توسعه‌دهنده بعدی
+
+مسیرها عمداً واضح هستند:
+
+```text
+Metric meaning       → zarin/registry.py
+Deterministic logic  → zarin/analytics.py
+Merchant actions     → zarin/insights.py
+Peer methodology     → zarin/peers.py
+AI policy/telemetry  → zarin/ai_ops.py
+External sources     → zarin/connectors.py
+HTTP surface         → zarin/api.py
+Merchant UI          → frontend/src/pages/*
+Control Center       → frontend/src/pages/AdminPage.tsx
+Voice                → frontend/src/components/VoiceInput.tsx
+```
+
+بخوانید: [`CONTRIBUTING.md`](CONTRIBUTING.md) و [`memory.md`](memory.md).
+
+---
+
+## مستندات کلیدی
+
+| سند | هدف |
+|---|---|
+| [`docs/DATA_AUDIT.md`](docs/DATA_AUDIT.md) | grain، وضعیت‌ها، nullها، confounderها و محدودیت‌های واقعی داده |
+| [`docs/ANALYTICS.md`](docs/ANALYTICS.md) | methodology و metric logic |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | معماری challenge engine |
+| [`docs/ADR/0001-platform-stack-and-scale.md`](docs/ADR/0001-platform-stack-and-scale.md) | چرا این stack و مسیر scale |
+| [`docs/DEPLOYMENT_SPEC.md`](docs/DEPLOYMENT_SPEC.md) | runtime profiles، env contract، SLO و production target |
+| [`docs/PLATFORM_BOOK.md`](docs/PLATFORM_BOOK.md) | داستان کامل محصول، innovation، AI/data contract و design philosophy |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | تصمیم‌های تحلیلی/محصولی قبلی |
+| [`docs/VALIDATION.md`](docs/VALIDATION.md) | validation مستقل اعداد |
+| [`docs/JURY_REVIEW.md`](docs/JURY_REVIEW.md) | adversarial jury و deductions |
+| [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | سناریوی دمو |
+| [`memory.md`](memory.md) | حافظه پایدار برای ادامه کار انسان/Agent |
+
+---
+
+## امنیت و حریم داده
+
+- raw challenge data و `data/` gitignored هستند؛
+- OpenRouter key و Google credentials فقط از environment خوانده می‌شوند؛
+- context مدل بیرونی aggregate/evidence-safe است؛
+- اپ در local mode روی localhost bind می‌شود؛
+- قبل از internet exposure باید auth/RBAC، tenant isolation، secret manager، rate limiting و audit policy اضافه شود.
+
+---
+
+## وضعیت deployment
+
+### Local / judge
+
+```bash
+uv run zarin
+# http://localhost:8630
+```
+
+### Connected demo
+
+OpenRouter و GA4 اختیاری‌اند؛ نبود آن‌ها Merchant Analytics را از کار نمی‌اندازد.
+
+### Production
+
+Spec و migration path موجود است، اما evaluator build را با SaaS multi-tenant production اشتباه نمی‌گیریم. این صداقت معماری عمدی است.
+
+---
+
+## Hackathon philosophy
+
+Rubric به‌صورت مستقیم روی طراحی محصول اثر گذاشته است:
+
+- **Actionability:** هر insight باید observation → diagnosis → impact → action داشته باشد.
+- **Correctness:** metric registry + evidence + source drill-through.
+- **Analytical depth:** segmentation، matched peers، decomposition، confounder control و restrained counterfactuals.
+- **Nontechnical UX:** زبان ساده و progressive disclosure.
+- **Technical quality:** deterministic core، tests، CI، deployment docs، ADR، extensibility و failure-safe AI.
+
+هدف زرین‌بین این نیست که «داده بیشتری نشان بدهد»؛ هدف این است که **تصمیم بهتر بسازد و بتواند ثابت کند چرا آن تصمیم را پیشنهاد داده است.**
