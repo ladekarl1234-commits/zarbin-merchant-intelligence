@@ -23,6 +23,11 @@ export default function CustomersPage() {
   return (
     <>
       <div className="callout callout-info" style={{ marginBottom: 18 }}>{meta?.notes.customer}</div>
+      {d.low_n && (
+        <div className="callout" style={{ marginBottom: 18 }}>
+          تعداد مشتریان این پذیرنده کم است؛ نرخ‌ها و تمرکز و کوهورت زیر ممکن است نویزی باشند و با احتیاط تفسیر شوند.
+        </div>
+      )}
 
       <div className="stats">
         <div className="stat">

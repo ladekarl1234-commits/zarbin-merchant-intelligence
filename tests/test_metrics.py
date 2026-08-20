@@ -63,6 +63,21 @@ def test_customer_period_semantics():
     assert s["customers"] == 1 and s["new_customers"] == 0  # C1 first paid in Jan → returning
 
 
+def test_repeat_is_counted_within_period_not_lifetime():
+    """C1 (lifetime 3 purchases) has only ONE purchase in Feb → must NOT count as an
+    in-period repeater. The old lifetime-n_verified rule wrongly reported 1 here."""
+    feb = customers("M1", "2026-02-01", "2026-02-28")["summary"]
+    assert feb["repeat_txns"] == 0 and feb["repeat_customers"] == 0
+    # In January C1 genuinely bought twice (S1, S6) → in-period repeat holds
+    jan = customers("M1", "2026-01-01", "2026-01-31")["summary"]
+    assert jan["repeat_customers"] == 1 and jan["repeat_txns"] == 2
+
+
+def test_customer_low_n_flag():
+    """A merchant with few paying customers gets a low_n caution flag."""
+    assert customers("M2", "2026-01-01", "2026-06-30")["low_n"] is True
+
+
 def test_lmdi_decomposition_is_exact():
     ch = changes("M1", "2026-01-01", "2026-01-31", "2026-02-01", "2026-02-28")
     assert ch["decomposable"]

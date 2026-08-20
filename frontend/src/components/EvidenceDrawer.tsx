@@ -102,7 +102,7 @@ export default function EvidenceDrawer() {
                   </dl>
                 </>
               )}
-              <h3>کوئری اجراشده</h3>
+              <h3>{ev.sql_kind === "method" ? "روش محاسبه" : "کوئری اجراشده"}</h3>
               <pre className="sqlbox">{ev.sql}</pre>
               {(ev.note_fa || ev.method_fa || ev.rule_fa) && (
                 <div className="callout callout-info">{ev.note_fa ?? ev.method_fa ?? ev.rule_fa}</div>

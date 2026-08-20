@@ -75,9 +75,11 @@ def _gap_card(*, kind, me, peers_rates, rate_key, f, t, title_fa, diagnosis_fa, 
         q1("SELECT quantile_cont(amount,0.5) AS v FROM sessions "
            "WHERE merchant_key=$m AND d BETWEEN $f AND $t AND outcome='verified'",
            {"m": me["m"], "f": f, "t": t})["v"] or 0
+    # scenario range, NOT a confidence interval: how much of the peer gap actually closes.
     excess_sessions = gap_mid * sessions
-    lo = round(excess_sessions * 0.5 * ticket)   # conservative: half the gap recovers
-    hi = round(excess_sessions * 1.0 * ticket)   # optimistic: gap closes to peer median
+    lo = round(excess_sessions * 0.5 * ticket)   # conservative scenario: half the gap recovers
+    mid = round(excess_sessions * 0.75 * ticket)  # most-likely point estimate
+    hi = round(excess_sessions * 1.0 * ticket)   # optimistic scenario: gap fully closes
     if hi <= 0:
         return None
 
@@ -88,11 +90,11 @@ def _gap_card(*, kind, me, peers_rates, rate_key, f, t, title_fa, diagnosis_fa, 
     broken = mine > 0.5  # more than half of sessions lost at this stage → infra problem
     if capped:
         hi = round(realized)
-        lo = min(lo, hi)
+        lo, mid = min(lo, hi), min(mid, hi)
 
     # confidence: few peers can never be "high"; a broken funnel is high-confidence-problem
     conf = "low" if n_peers < 8 else _conf(sessions, n_peers)
-    label = "برآورد فرصت قابل بازیابی در این دوره"
+    label = "برآورد فرصت (سناریوی محافظه‌کارانه تا خوش‌بینانه، نه بازه اطمینان آماری)"
     if broken:
         label = "این مرحله بیش از نیمی از پرداخت‌ها را از دست می‌دهد — ابتدا زیرساخت را رفع کنید"
         conf = "high"
@@ -107,11 +109,11 @@ def _gap_card(*, kind, me, peers_rates, rate_key, f, t, title_fa, diagnosis_fa, 
         "observation_fa": f"نرخ شما {fa_pct(mine)} است؛ میانه همتایان {fa_pct(p50)} (اختلاف {fa_digits(f'{gap_mid*100:.1f}')} واحد درصد، بر پایه {fa_num(n_peers)} همتا).",
         "diagnosis_fa": diagnosis_fa,
         "action_fa": action_fa,
-        "impact_low": lo, "impact_high": hi,
+        "impact_low": lo, "impact_mid": mid, "impact_high": hi,
         "impact_label_fa": label,
         "confidence": conf, "effort": effort,
         "n": int(sessions), "n_peers": n_peers, "capped": capped, "broken": broken,
-        "evidence": [evidence(metric_id,
+        "evidence": [evidence(metric_id, sql_kind="method",
                               sql=_PEER_RATE_SQL.replace("{num}", _GAP_NUM.get(rate_key, "verified")),
                               params={"m": me["m"], "f": f, "t": t, "peers_n": n_peers,
                                       "peer_median_rate": round(p50, 4), "your_rate": round(mine, 4),
@@ -119,13 +121,13 @@ def _gap_card(*, kind, me, peers_rates, rate_key, f, t, title_fa, diagnosis_fa, 
                                       "ticket_outcome": outcome, "median_ticket_of_outcome": round(ticket)},
                               n=int(sessions), period=_fmt_period(f, t),
                               extra={"note_fa": (extra_note or "") + " " + peer_note}),
-                     evidence("opportunity",
+                     evidence("opportunity", sql_kind="method",
                               sql=("recoverable = (your_rate − peer_median) × sessions "
                                    "× recovery_fraction × median_ticket_of_lost_sessions;\n"
                                    f"= ({round(mine,4)} − {round(p50,4)}) × {int(sessions)} "
-                                   f"× [0.5 … 1.0] × {round(ticket):,}"),
-                              params={"recovery_fraction_low": 0.5, "recovery_fraction_high": 1.0,
-                                      "capped_at_realized_gmv": capped},
+                                   f"× [0.5 … 0.75 … 1.0] × {round(ticket):,}"),
+                              params={"recovery_fraction_low": 0.5, "recovery_fraction_mid": 0.75,
+                                      "recovery_fraction_high": 1.0, "capped_at_realized_gmv": capped},
                               n=int(sessions), period=_fmt_period(f, t))],
     }
 
@@ -146,9 +148,9 @@ def generate(m: str, f: str, t: str) -> list[dict]:
         cards.append({
             "id": "paid_unverified", "kind": "paid_unverified", "card_type": "opportunity",
             "title_fa": "پرداخت‌های تاییدنشده — پول رسیده اما تایید نشده",
-            "observation_fa": f"{fa_num(n)} پرداخت به مبلغ {fa_money(amt)} در این دوره تسویه بانکی شده اما هرگز Verify نشده است.",
-            "diagnosis_fa": "فراخوانی تایید (verify) سمت شما انجام نمی‌شود؛ معمولاً خطای کال‌بک یا وریفای دستی فراموش‌شده.",
-            "action_fa": "تایید خودکار تراکنش‌ها را فعال یا خطای کال‌بک را برطرف کنید و این پرداخت‌ها را از پیشخوان زرین‌پال تعیین تکلیف کنید.",
+            "observation_fa": f"{fa_num(n)} پرداخت به مبلغ {fa_money(amt)} در این دوره در بانک تسویه شده، اما مرحله تایید نهایی سمت فروشگاه شما انجام نشده است.",
+            "diagnosis_fa": "پس از پرداخت موفق، فروشگاه باید تراکنش را «تایید نهایی» کند؛ معمولاً به‌خاطر خطای بازگشت (callback) یا فراموش‌شدن تایید دستی این مرحله انجام نمی‌شود.",
+            "action_fa": "تایید خودکار تراکنش‌ها را در فروشگاه فعال کنید یا خطای بازگشت پرداخت را رفع کنید و این پرداخت‌ها را از پیشخوان زرین‌پال تعیین تکلیف نمایید.",
             "impact_low": round(amt), "impact_high": round(amt),
             "impact_label_fa": "مبلغ واقعی در انتظار تعیین تکلیف (برآورد نیست)",
             "confidence": "high", "effort": "easy", "n": n,
@@ -226,7 +228,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
                     "impact_low": round(lo), "impact_high": round(hi),
                     "impact_label_fa": "برآورد فروش در معرض اصطکاک مبلغ بالا",
                     "confidence": _conf(n_top, 8), "effort": "medium", "n": int(n_top),
-                    "evidence": [evidence("conv",
+                    "evidence": [evidence("conv", sql_kind="method",
                                           sql="ntile(5) OVER (ORDER BY amount) within merchant; conv(top) vs conv(mid)",
                                           params={"m": m, "f": f, "t": t, **{k: (round(v, 4) if isinstance(v, float) else v) for k, v in hv.items()}},
                                           n=int(n_top), period=_fmt_period(f, t),
@@ -254,7 +256,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
                     "impact_low": round(extra_txns * ticket * 0.4), "impact_high": round(extra_txns * ticket),
                     "impact_label_fa": "برآورد فروش بالقوه از رسیدن به میانه همتایان",
                     "confidence": "low", "effort": "hard", "n": int(stats["customers"]),
-                    "evidence": [evidence("repeat_txn_share",
+                    "evidence": [evidence("repeat_txn_share", sql_kind="method",
                                           sql="repeat_txns / cust_txns FROM merchant_stats; baseline = same ratio across peer group",
                                           params={"m": m, "own": round(mine_share, 4), "peer_p50": round(p50, 4),
                                                   "peers_n": len(vals)},
@@ -280,7 +282,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
             "impact_label_fa": f"فروش در معرض ریسک: {fa_money(conc['top5_gmv'])}",
             "confidence": "high", "effort": "hard", "n": int(conc["n"]),
             "risk_gmv": conc["top5_gmv"],
-            "evidence": [evidence("customer_concentration",
+            "evidence": [evidence("customer_concentration", sql_kind="method",
                                   sql="SELECT sum(g) FILTER (rk<=5)/sum(g) FROM (per-card GMV ranked) WHERE merchant/period",
                                   params={"m": m, "f": f, "t": t}, n=int(conc["n"]), period=_fmt_period(f, t))],
         })
@@ -317,10 +319,14 @@ def _psp_card(m: str, f: str, t: str) -> dict | None:
     """Actionable PSP-routing insight from within-merchant attempt success rates."""
     from .db import q
     rows = q("""
-        SELECT psp_code, count(*) AS attempts, avg(ok::int) AS ok_rate
+        SELECT psp_code, count(*) AS attempts, avg(ok::int) AS ok_rate,
+               sum(ok::int) AS successes
         FROM attempts WHERE merchant_key=$m AND d BETWEEN $f AND $t AND psp_code IS NOT NULL
         GROUP BY psp_code HAVING count(*) >= 200 ORDER BY ok_rate""", {"m": m, "f": f, "t": t})
-    rows = [r for r in rows if r["ok_rate"] is not None]
+    # Exclude degenerate/disabled rails: a PSP at ~0% success (or with almost no successes) is
+    # a broken/off gateway, not a "weak" one you can reroute away from — including it would
+    # manufacture a phantom opportunity (selection bias). Require real success volume on both ends.
+    rows = [r for r in rows if r["ok_rate"] is not None and r["ok_rate"] >= 0.05 and r["successes"] >= 30]
     if len(rows) < 2:
         return None
     worst, best = rows[0], rows[-1]
@@ -382,13 +388,23 @@ def _change_alert(m: str, f: str, t: str) -> dict | None:
     driver_key = max(contrib, key=lambda k: abs(contrib[k]))
     names = {"sessions": "تعداد جلسه‌های پرداخت", "conv": "نرخ تبدیل", "ticket": "مبلغ متوسط تراکنش"}
     direction = "رشد" if rel > 0 else "افت"
+    worse = rel < 0
+    # a concrete, factor-tied next step — not just "open another page"
+    action_by_driver = {
+        "sessions": ("کاهش ترافیک عامل اصلی بوده — کانال‌های جذب و کمپین‌های نیمه دوم دوره را بررسی کنید و دلیل افت بازدید را پیدا کنید."
+                     if worse else "رشد از ترافیک بیشتر آمده — همان کانال جذب موفق را تقویت و بودجه‌اش را حفظ کنید."),
+        "conv": ("افت از نرخ تبدیل بوده — صفحه «قیف پرداخت» را ببینید که کدام مرحله (بدون اقدام/بانک) بدتر شده و همان را رفع کنید."
+                 if worse else "بهبود از نرخ تبدیل آمده — تغییری که این نرخ را بالا برده شناسایی و تثبیت کنید."),
+        "ticket": ("افت از کوچک‌تر شدن سبد خرید بوده — پیشنهاد فروش مکمل/بسته‌ای برای بالا بردن مبلغ سفارش را امتحان کنید."
+                   if worse else "رشد از بزرگ‌تر شدن سبد خرید آمده — همین ترکیب محصول/قیمت را حفظ کنید."),
+    }
     return {
         "id": "gmv_change", "kind": "gmv_change", "card_type": "alert",
         "title_fa": f"{direction} {fa_pct(abs(rel), 0)} فروش در نیمه دوم دوره",
         "observation_fa": f"فروش موفق از {fa_money(ch['before']['gmv'])} به {fa_money(ch['after']['gmv'])} رسید.",
         # plain-cause on the card face; the method name (LMDI) lives in the evidence drawer only
         "diagnosis_fa": f"بیشترین دلیل این تغییر «{names[driver_key]}» بوده است ({fa_money(contrib[driver_key])} از کل تغییر {fa_money(ch['delta_gmv'])}).",
-        "action_fa": "جزئیات و سهم دقیق هر عامل را در صفحه «چه چیزی تغییر کرد؟» ببینید.",
+        "action_fa": action_by_driver[driver_key],
         "impact_low": 0, "impact_high": 0,
         "impact_label_fa": f"تغییر کل فروش: {fa_money(ch['delta_gmv'])}",
         "confidence": "high", "effort": "easy", "n": int(ch["before"]["sessions"] + ch["after"]["sessions"]),

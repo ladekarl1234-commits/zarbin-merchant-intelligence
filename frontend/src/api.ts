@@ -2,7 +2,7 @@
 
 export type Evidence = {
   metric_id: string; name_fa: string; definition_fa: string; formula: string;
-  grain: string; caveats: string[]; sql: string; params: Record<string, unknown>;
+  grain: string; caveats: string[]; sql: string; sql_kind?: "query" | "method"; params: Record<string, unknown>;
   n: number | null; period: string | null; computed_at: string;
   note_fa?: string; method_fa?: string; rule_fa?: string;
 };
@@ -29,7 +29,7 @@ export type Overview = {
 export type InsightCard = {
   id: string; kind: string; card_type?: "opportunity" | "alert"; title_fa: string;
   observation_fa: string; diagnosis_fa: string; action_fa: string;
-  impact_low: number; impact_high: number; impact_label_fa: string; impact_is_count?: boolean;
+  impact_low: number; impact_mid?: number; impact_high: number; impact_label_fa: string; impact_is_count?: boolean;
   confidence: "high" | "medium" | "low"; effort: string; n: number; score: number;
   n_peers?: number; capped?: boolean; broken?: boolean;
   risk_gmv?: number; evidence: Evidence[];
@@ -48,6 +48,7 @@ export type Funnel = {
 };
 
 export type Customers = {
+  low_n?: boolean;
   summary: {
     customers: number; new_customers: number; txns: number; repeat_txns: number;
     gmv: number; repeat_gmv: number; repeat_customers: number;

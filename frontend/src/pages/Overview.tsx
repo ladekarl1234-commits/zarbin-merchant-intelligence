@@ -68,7 +68,7 @@ export default function Overview() {
       {k.paid_unverified > 0 && (
         <div className="callout" style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <b className="num">{faNum(k.paid_unverified)} پرداخت به مبلغ {rial(k.paid_unverified_amount)}</b>
-          تسویه شده اما هنوز از سمت شما تایید (Verify) نشده است.
+          در بانک تسویه شده اما هنوز مرحله تایید نهایی سمت فروشگاه شما انجام نشده است.
           <EvBtn title="پرداخت‌های تاییدنشده" items={[ov.data.evidence.paid_unverified]} sampleOutcome="paid_unverified" label="جزئیات" />
         </div>
       )}

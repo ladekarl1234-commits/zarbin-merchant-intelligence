@@ -33,11 +33,20 @@ export default function InsightCard({ card, rank }: { card: Card; rank: number }
         {card.impact_high > 0 ? (
           <>
             <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", width: "100%" }}>{card.impact_label_fa}</span>
-            <span className="amount num">
-              {hasInterval
-                ? `${amount(card.impact_low)} تا ${card.impact_is_count ? amount(card.impact_high) : rial(card.impact_high)}`
-                : (card.impact_is_count ? amount(card.impact_high) : rial(card.impact_high))}
-            </span>
+            {card.impact_mid != null && hasInterval ? (
+              <>
+                <span className="amount num">{card.impact_is_count ? amount(card.impact_mid) : rial(card.impact_mid)}</span>
+                <span className="num" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+                  (بین {amount(card.impact_low)} تا {card.impact_is_count ? amount(card.impact_high) : rial(card.impact_high)})
+                </span>
+              </>
+            ) : (
+              <span className="amount num">
+                {hasInterval
+                  ? `${amount(card.impact_low)} تا ${card.impact_is_count ? amount(card.impact_high) : rial(card.impact_high)}`
+                  : (card.impact_is_count ? amount(card.impact_high) : rial(card.impact_high))}
+              </span>
+            )}
           </>
         ) : (
           <span className="num" style={{ fontSize: "var(--fs-m)", fontWeight: 700 }}>{card.impact_label_fa}</span>

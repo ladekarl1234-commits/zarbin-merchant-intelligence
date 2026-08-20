@@ -131,7 +131,7 @@ def funnel(m: str, f: str, t: str) -> dict:
             {"id": "created", "label_fa": "جلسه ایجاد شد", "n": agg["sessions"]},
             {"id": "attempted", "label_fa": "اقدام به پرداخت", "n": agg["attempted"]},
             {"id": "settled", "label_fa": "پول به بانک رسید", "n": settled},
-            {"id": "verified", "label_fa": "تایید نهایی (Verified)", "n": agg["verified"]},
+            {"id": "verified", "label_fa": "تایید نهایی", "n": agg["verified"]},
         ],
         # all six outcomes so the breakdown sums exactly to sessions (reversed is ~0 but real)
         "outcomes": {k: agg[k] for k in
@@ -158,19 +158,24 @@ def funnel(m: str, f: str, t: str) -> dict:
 
 def customers(m: str, f: str, t: str) -> dict:
     p = {"m": m, "f": f, "t": t}
+    # "repeat" is counted WITHIN the selected period (k_period), not on the customers table's
+    # lifetime n_verified — otherwise a sub-period silently counts cross-period buyers as
+    # in-period repeaters (e.g. a one-off January buyer with a March purchase). first_ts stays
+    # lifetime so "new" = first-ever purchase falls inside the period.
     base_sql = f"""
         WITH v AS (
-          SELECT s.payer_card_key AS card, s.amount, s.created_at, c.first_ts, c.n_verified
+          SELECT s.payer_card_key AS card, s.amount, c.first_ts,
+                 count(*) OVER (PARTITION BY s.payer_card_key) AS k_period
           FROM sessions s JOIN customers c
             ON c.merchant_key = s.merchant_key AND c.payer_card_key = s.payer_card_key
           WHERE s.{PERIOD_SQL} AND s.outcome='verified')
         SELECT count(DISTINCT card) AS customers,
                count(DISTINCT card) FILTER (WHERE first_ts >= $f::date) AS new_customers,
                count(*) AS txns,
-               count(*) FILTER (WHERE n_verified > 1) AS repeat_txns,
+               count(*) FILTER (WHERE k_period > 1) AS repeat_txns,
                sum(amount) AS gmv,
-               coalesce(sum(amount) FILTER (WHERE n_verified > 1), 0) AS repeat_gmv,
-               count(DISTINCT card) FILTER (WHERE n_verified > 1) AS repeat_customers
+               coalesce(sum(amount) FILTER (WHERE k_period > 1), 0) AS repeat_gmv,
+               count(DISTINCT card) FILTER (WHERE k_period > 1) AS repeat_customers
         FROM v"""
     b = q1(base_sql, p)
 
@@ -207,10 +212,13 @@ def customers(m: str, f: str, t: str) -> dict:
         FROM customers WHERE merchant_key=$m AND n_verified >= 3
           AND last_ts < ($t::date - INTERVAL 30 DAY)""", {"m": m, "t": t})
 
+    from .config import MIN_CUSTOMERS_RETENTION
     return {
         "period": {"from": f, "to": t},
         # NOTE: interval + cohorts are computed over the FULL data window on purpose
         # (retention needs the whole history); the UI labels them «کل بازه داده».
+        # low_n: too few paying customers for the retention/concentration figures to mean much.
+        "low_n": (b["customers"] or 0) < MIN_CUSTOMERS_RETENTION,
         "summary": b, "concentration": conc, "interval": interval,
         "cohorts": cohorts, "dormant": dormant,
         "evidence": {

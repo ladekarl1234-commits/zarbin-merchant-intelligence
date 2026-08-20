@@ -80,8 +80,15 @@ REGISTRY: dict[str, Metric] = {m.id: m for m in _M}
 
 
 def evidence(metric_id: str, *, sql: str, params: dict, n: int | None = None,
-             period: str | None = None, extra: dict | None = None) -> dict:
-    """Build the evidence payload the UI's drawer renders. SQL is the SQL that ran."""
+             period: str | None = None, extra: dict | None = None,
+             sql_kind: str = "query") -> dict:
+    """Build the evidence payload the UI's drawer renders.
+
+    sql_kind="query": `sql` is the literal query that ran (drawer: «کوئری اجراشده»).
+    sql_kind="method": `sql` is representative method/pseudo-code because the figure is
+    assembled from several aggregates (drawer: «روش محاسبه») — kept honest, never labeled
+    as the exact executed query.
+    """
     m = REGISTRY[metric_id]
     return {
         "metric_id": m.id,
@@ -91,6 +98,7 @@ def evidence(metric_id: str, *, sql: str, params: dict, n: int | None = None,
         "grain": m.grain,
         "caveats": list(m.caveats),
         "sql": sql.strip(),
+        "sql_kind": sql_kind,
         "params": params,
         "n": n,
         "period": period,

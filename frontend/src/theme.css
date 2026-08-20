@@ -171,7 +171,7 @@ a { color: inherit; }
 /* touch: give the signature affordance and icon buttons a 44px hit area on coarse pointers */
 @media (pointer: coarse) {
   .ev-btn { min-height: 44px; padding-inline: 10px; }
-  .btn { min-height: 44px; }
+  .btn, .select { min-height: 44px; }
 }
 
 /* stat strip: one container, divided — not a card grid */
