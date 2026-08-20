@@ -1,0 +1,510 @@
+# Expert Panel Review — Zarbin (زرین‌بین)
+
+An auditable record of an independent, multi-agent expert evaluation of this software.
+It documents **how** the review was run, **which** specialized lenses reviewed it, **what**
+they scored, **what they found**, and **what remains to be fixed** — not just a headline number.
+
+> **Result at a glance** — 15 expert lenses, **119 documented findings** (5 critical / 39 high / 56 medium / 19 low), mean dimension score **73.4/100** (median 73, range 61–82). Against the competition's own rubric: **236/300**. All 43 critical/high findings were independently re-verified and **confirmed** (0 refuted).
+
+---
+
+## 1. Scope and snapshot
+
+| | |
+|---|---|
+| Product | Zarbin — dual-surface merchant intelligence for ZarinPal (Merchant Workspace + Operations Control Center) |
+| Commit reviewed | `75de6bb` on `main` (25 commits) |
+| Backend | 3,049 lines Python (`zarin/`) |
+| Frontend | 2,341 lines TypeScript/TSX (`frontend/src/`) |
+| Tests | 667 lines (`tests/`) |
+| Documentation | 17 Markdown documents (`docs/`, `docs/ADR/`) |
+| Panel | 58 agents total — 15 expert lenses + 43 independent verification agents |
+
+**Explicitly out of scope for this round** (excluded by request — not scored, no findings raised):
+the demo video, and deployment / hosting / release / CI-CD / infrastructure provisioning.
+Automated tests and code-level quality gates remained in scope; the evaluation targets the
+**software itself**.
+
+---
+
+## 2. How this review was produced
+
+1. **15 specialized expert lenses** were run as independent agents, in parallel, against the same
+   commit. Each inspected the real source **and the live running product** (read-only: it could read
+   code, run the test suite, run the AI evaluation harness and call the local API — it could not
+   modify files, build, or restart anything).
+2. Each returned a **structured evaluation**: a 0–100 score for its dimension, an explicit rationale,
+   observed strengths, and findings — each with **severity, location, observed evidence, impact,
+   recommendation and effort**.
+3. Every **critical** or **high** finding was then handed to a **separate verification agent** which
+   re-examined the actual code/behaviour and returned **CONFIRMED** or **REFUTED** with cited evidence.
+   This exists so the register below lists *real* problems, not model speculation.
+4. Aggregates are computed **deterministically** from the returned data — not estimated by a model.
+   This document is generated from the panel's structured output; the raw data is in
+   [`expert_review_findings.json`](expert_review_findings.json).
+
+Scoring calibration given to every agent:
+
+| Band | Meaning |
+|---|---|
+| 90–100 | Exceptional — production-grade for a real fintech at scale |
+| 75–89 | Strong — clearly above typical hackathon/MVP work, minor gaps |
+| 60–74 | Adequate — works and is defensible, real gaps a serious team would fix |
+| 40–59 | Weak — deficiencies that would block production use |
+| 0–39 | Poor |
+
+---
+
+## 3. Dimension scores
+
+| # | Lens | Dimension | Score | Confidence | Findings |
+|---:|---|---|---:|---|---|
+| 1 | `rubric-official` | Official competition rubric (300 pts) | **78.7** | high | 3 high · 4 medium · 1 low |
+| 2 | `architecture` | Technical architecture & engineering quality | **80** | high | 2 high · 4 medium · 2 low |
+| 3 | `code-quality` | Code quality & maintainability | **82** | high | 2 high · 4 medium · 2 low |
+| 4 | `data-correctness` | Data & analytics correctness | **82** | high | 3 high · 2 medium · 2 low |
+| 5 | `statistics` | Statistical methodology rigor | **72** | high | 3 high · 4 medium · 1 low |
+| 6 | `security` | Security & privacy | **66** | high | 1 critical · 2 high · 3 medium · 2 low |
+| 7 | `reliability` | Reliability, error handling & observability | **70** | high | 2 high · 4 medium · 2 low |
+| 8 | `scalability` | Scalability & performance | **66** | high | 1 critical · 3 high · 3 medium · 1 low |
+| 9 | `product` | Product quality | **78** | high | 2 high · 5 medium · 1 low |
+| 10 | `business` | Business viability & value proposition | **73** | high | 1 critical · 3 high · 3 medium · 1 low |
+| 11 | `ux` | UX & usability (non-technical merchant) | **76** | high | 2 high · 5 medium · 1 low |
+| 12 | `design` | Visual & interaction design, Persian/RTL craft | **76** | medium | 2 high · 4 medium · 2 low |
+| 13 | `accessibility` | Accessibility & inclusive design | **61** | high | 3 high · 5 medium |
+| 14 | `ai-grounding` | AI quality, grounding & AI-Ops | **70** | high | 1 critical · 3 high · 3 medium · 1 low |
+| 15 | `testing-qa` | Testing & quality assurance | **70** | high | 1 critical · 4 high · 3 medium |
+
+**Aggregate:** mean **73.4/100** · median **73** · range **61–82** across 15 dimensions.
+
+---
+
+## 4. Against the competition's own rubric
+
+The rubric from the original brief, scored by the dedicated `rubric-official` lens:
+
+| Criterion | Awarded | Max | Reasoning |
+|---|---:|---:|---|
+| Actionability & novelty of insights | **76** | 90 | Nine independent generators, each ending in a number plus a concrete act; ranking by impact×confidence÷effort; opportunity modeled as a counterfactual peer gap, explicitly never Σ failed amounts; genuine restraint (4/60 merchants correctly get zero cards). Paid-but-unverified and the PSP-routing card (naming the weak gateway and its error codes) are real novelty beyond the brief. Held back because actions are per-kind constants not cross-linked to sibling evidence, there is no what-if or did-it-work loop, and the chat front door dead-ends on common questions the engine can answer. |
+| Correctness & traceability | **58** | 75 | Grain is enforced with build-time assertions that raise (pipeline.py:46-58, 190-203), the registry is a real single source of truth, evidence honestly distinguishes executed SQL from method pseudo-code, drill-through to real session_keys works live, peers are suppressed rather than fabricated, and concentration/fee/card-scope caveats are surfaced. Three concrete defects cost points: the GMV cap covers one of four generators (a card at 108% of realized GMV), the registry's opportunity formula contradicts the computation printed beside it, and the quality page shows 1 next to a hardcoded 28 for a similarly-worded anomaly. |
+| Analytical depth | **41** | 60 | Two exact decompositions (LMDI on GMV, identity decomposition of Δconv into loss-rate drivers), matched peers with a documented three-level fallback ladder, within-merchant amount quintiles chosen specifically to strip merchant-mix confounding, cohort triangle, inter-purchase interval, and a sophisticated selection-bias guard excluding degenerate PSP rails (insights.py:328-329). This is real multi-step reasoning, not charts side by side. Capped because no card carries statistical uncertainty (the band is a fixed constant, gating is a flat 2pp), and issuer_bank_code, init_time_ms, verify_type and dow are materialized but drive zero analysis — the two obvious remaining depth moves are untouched. |
+| Nontechnical UX | **36** | 45 | Persian-first RTL throughout with jargon quarantined to the evidence drawer (LMDI is named only there, deliberately); Observation→Diagnosis→Action reads like advice, not a dashboard; confidence and effort are words not scores; every card carries «این عدد از کجا آمد؟»; empty states are written as good news; thin-peer warnings are plain language. Deducted for a low-confidence 147B headline whose caveat is visually dominated by the number, a fallback chat answer that is a dead end, a customers answer that reads self-contradictory to a layperson (23,801 customers / 23,801 new / 35.8% repeat), and rial-only figures at 10^11 scale for merchants who think in toman. |
+| Technical quality & executability | **25** | 30 | Three runtime dependencies, no pandas, hand-rolled SVG charts, 2,677 backend + 2,777 frontend lines for this scope — genuinely lean. `uv run zarin` is one command with the frontend prebuilt into zarin/static (no Node needed) and marts auto-building. 56 tests pass in 1.3s and target the invariants that matter (retry inflation, LMDI exactness, grounding guard against digit-substring and rescale attacks, path traversal, admin token, peer suppression); ruff clean; validation at every trust boundary returns 400 not 500; ADRs present. Lost points for zero frontend tests despite a duplicated period-midpoint calculation across the language boundary, and for a cap test that covered one code path while three siblings regressed. |
+| **Total** | **236** | **300** | |
+
+---
+
+## 5. What each expert concluded
+
+### Official competition rubric (300 pts) — 78.7/100
+
+*Lens `rubric-official` · confidence high*
+
+Zarbin is clearly above typical hackathon work: 9 independent insight generators that each end in a rial figure plus a concrete action, an exact LMDI decomposition, explainable matched peers with real suppression, and a metric registry that makes almost every number drillable to source session_keys (verified live). I ran the suite (56 pass, 1.3s), ruff (clean), the AI eval (12/12), and probed /api/insights across 60 merchants: 56 get at least one card, kinds are well distributed, and the paid-but-unverified card surfaces genuinely bankable money. The gaps are real though: the realized-GMV sanity cap is applied to only one of four opportunity generators (M21 shows an "opportunity" 108% of its entire six-month sales), the registry's opportunity formula contradicts the computation printed beside it in the same evidence drawer, and the chat-first landing surface falls back to a canned KPI summary for common questions the engine can already answer.
+
+**Why this score:** 236/300 = 78.7. Not 88: three verifiable defects sit on the product's own headline claim of traceability — an opportunity figure exceeding the merchant's entire realized GMV with no cap chip, a drawer printing two irreconcilable formulas for the number it is explaining, and the honesty page contradicting itself (1 vs 28). Depth also stops short of what the data offers: issuer bank, init latency and day-of-week are in the marts and unused, and no card carries statistical uncertainty. Not 68: I verified live that the engine is real and broad — 56 of 60 sampled merchants receive evidence-backed cards spanning nine generators, the LMDI and Δconv decompositions are exact and tested, peers are genuinely suppressed when thin, drill-through reaches actual session rows, and the whole product runs from one command with 56 fast tests and a clean linter. That is materially above MVP work in every criterion, with correctness defects that are small diffs rather than architectural.
+
+**Strengths observed:**
+
+- Paid-but-unverified as a first-class insight: verified live for M156 (912 sessions, 61.8B IRR, outcome='paid_unverified' with settled_at) — real settled money, labeled «برآورد نیست», with drill-through to actual session_keys via /api/evidence/sessions
+
+### Technical architecture & engineering quality — 80/100
+
+*Lens `architecture` · confidence high*
+
+The declared layering is real, not decorative: I mapped every internal import and the graph is strictly acyclic (config/db/registry ← analytics/peers/insights ← copilot/control ← api), with zero upward imports and the AI package depending on nothing in the analytics layer. The metric registry genuinely is the single source of truth for the merchant surface — every analytics/peers/insights return path calls `registry.evidence()`, and `EvidenceDrawer.tsx` renders it with no per-metric branching, which is the strongest idea here and it pays off. Three runtime deps, stdlib urllib for the LLM, honest ADRs that match the code, 56 passing tests over a real fixture run through the real pipeline, ruff clean. The gaps are specific: the FE/BE contract is hand-mirrored with no response models (OpenAPI schemas are literally `{}`), the DataSourceAdapter is about half nominal, the ops surface bypasses the registry, and `/api/quality` ships a hardcoded number that visibly contradicts the computed one on the same page.
+
+**Why this score:** Above 75 because the seams are mostly real and verified, not asserted: acyclic import graph, a registry that genuinely drives a generic UI drawer, an AI gateway that the analytics layer knows nothing about, pipeline invariants asserted on every build, and ADRs that state their tradeoffs and match the code. Held to 80 rather than 85+ by four concrete defects a serious fintech team would fix before shipping: the largest seam (HTTP) carries no typed contract at all (verified empty OpenAPI schemas), the DataSourceAdapter's ingestion half has zero production consumers so the extensibility claim is unproven, the ops surface bypasses the very registry the architecture is built around, and the honesty-focused Data Quality page displays a hardcoded 28 next to a computed 1. Not below 75 because none of those are structural — each is a bounded fix inside an architecture whose direction of dependency is already correct, and the 413-line insights module is the only real cohesion problem in 2,909 backend lines.
+
+**Strengths observed:**
+
+- Layering is enforced in fact, not just documented: verified acyclic import graph across all 28 backend modules; zarin/ai/* has no dependency on the analytics layer, so gateway.explain() takes only text + evidence dicts (zarin/ai/gateway.py:63)
+- Semantic layer is load-bearing, not nominal — registry.evidence() (zarin/registry.py:82) is the sole producer of drawer payloads, and frontend/src/components/EvidenceDrawer.tsx:78-112 renders any metric generically with zero per-card special-casing; sql_kind="query"|"method" keeps the 'executed SQL' claim honest
+- Deterministic-first AI seam is real: AIProvider Protocol + injection (zarin/ai/provider.py:36), provider=None is the intended offline path, and the grounding guard handles the dangerous edge cases deliberately — thousands separators stripped but the Persian decimal mark preserved so "۲٫۳" can never trace to "23" (zarin/ai/gateway.py:34-53)
+- Pipeline asserts its own grain contract before and after the build (zarin/pipeline.py:46-58, 191-203), and db.py carries a stale-mart schema guard that fails with a rebuild instruction instead of a Binder Error 500 on every endpoint (zarin/db.py:21-39)
+- Minimal dependency surface with no speculative infrastructure: 3 runtime deps (duckdb/fastapi/uvicorn), no Redis/queue/ORM; ADR-0001 argues each rejection against measured numbers rather than taste
+
+### Code quality & maintainability — 82/100
+
+*Lens `code-quality` · confidence high*
+
+I read essentially all of the backend (3,716 Py LOC) line by line and the main frontend modules (2,777 TS/CSS LOC), ran `uv run pytest -q` (56 passed, 1.38s), `uv run ruff check .` (**All checks passed!** — verified), an expanded ruff pass, and probed the live API on :8630. This is genuinely tidy code: modern typing throughout (`from __future__ import annotations`, `X | None`, dataclasses, `Protocol`), TS `strict` with `any` confined to a SpeechRecognition shim, only 4 runtime Python deps, and comments that explain *why* rather than restate *what* (e.g. `api.py:270-273` on lexical containment vs `resolve()` UNC, `insights.py:78` on scenario band vs confidence interval). The real gaps are concentrated in three places: `insights.generate()` is a 181-line, C901=20 function whose structure contradicts CONTRIBUTING's documented extension pattern; the metric registry — billed as the single source of truth — has drifted out of sync with the code it describes, visibly to users; and the frontend has no lint or test gate at all.
+
+**Why this score:** Not 90+: three material gaps a serious fintech team would fix before production — the registry/implementation drift is exactly the class of defect this architecture exists to prevent and it reaches the user's evidence drawer; `insights.generate()` at complexity 20 is the file most likely to be extended and its documented extension pattern describes only 4 of 9 cards; and 2,777 lines of frontend ship with no linter and no tests while the backend has 56. Threshold constants duplicated across config/insights/UI copy and the concentration query written four times (one without `nullif`) show the «one semantic layer» claim isn't enforced by structure. Not 72 or below: `uv run ruff check .` genuinely passes, and even under an expanded `I,B,UP,SIM,C90,ARG,RET` selection only 21 issues appear — isort, pyupgrade, simplify and return-style are all clean, which is rare. Typing is modern and consistent, `any` is confined to one unavoidable browser shim, the test suite is hermetic with mutation-aware fixture rows (conftest.py:65-70 documents a row that exists specifically so a test *can* fail), and the comment quality is well above average — these are the traits that make a codebase cheap to extend, and they are present.
+
+**Strengths observed:**
+
+- Module docstrings state contracts and invariants, not summaries — `insights.py:1-9`, `gateway.py:1-7`, `safe_context.py:1-8`, `db.py:18-21` each tell a new engineer the rule they must not break, and inline comments justify non-obvious choices (`api.py:270`, `insights.py:78-82`, `analytics.py:161-164`, `peers.py:115-117`).
+
+### Data & analytics correctness — 82/100
+
+*Lens `data-correctness` · confidence high*
+
+The analytical core is genuinely strong: I could not find a single double-count, wrong denominator, silent NULL arithmetic, or window-vs-lifetime error in the SQL. Grain is enforced by build-time assertions and verified live (2,062,839 sessions = 2,062,839 distinct session_keys; attempts 1,949,353 + 263,936 NoAttempt rows = 2,213,289 raw rows); the six outcomes partition sessions exactly at both merchant and platform level; success is Verified-only and `recovered` has zero violations globally with a discriminating regression test; LMDI is exact to 2.7e-15 relative error on a 488B IRR delta. The defects are all in the layer that *describes* those correct numbers — and on a payments product that layer is the correctness claim. Most seriously, the copilot prints the PSP card's transaction-count impact as rial ("۱۷۸ ریال تا ۳۵۶ ریال"), the evidence drawer states an opportunity formula the code does not compute, and the insight ranking sorts counts against rial in the same key.
+
+**Why this score:** Not 90+: three live, reproducible label/unit defects sit on the exact surfaces the product stakes its credibility on (the copilot answer and the «این عدد از کجا آمد؟» drawer), plus a self-contradicting anomaly count on the Data Quality page (1 vs 28) and a confidence override that bypasses the documented small-peer-pool guard. A fintech would not ship a recommendation that reads "178 rial opportunity". Not 75 or lower: the engine itself is production-grade — pipeline integrity assertions that fail the build, an exhaustive outcome taxonomy that sums exactly, Verified-only success with a Paid-after-retry trap test, per-merchant customer scoping verified at 0 cross-merchant cards, in-period (not lifetime) repeat with a regression test, exact LMDI and conv-driver identities, benchmark suppression instead of fabrication, and adjusted_fee that is computed but deliberately never rendered. 56 tests pass, ruff clean, AI eval 12/12.
+
+**Strengths observed:**
+
+- Grain discipline is enforced, not asserted in prose: zarin/pipeline.py:46-58 fails the build on duplicate (session_key,try_seq), inconsistent session attributes, or mixed NoAttempt; :191-203 re-checks session count and attempt-row conservation post-build. Verified live against the parquet: 2,062,839 sessions = 2,062,839 distinct session_keys, and attempts+try_seq=0 rows reconcile to the audited 2,213,289 raw rows.
+
+### Statistical methodology rigor — 72/100
+
+*Lens `statistics` · confidence high*
+
+The two hardest math claims verify exactly on live data: LMDI contributions sum to ΔGMV to float precision (relative residual ~1e-15 across M156/M31/M215/M250) and the conversion-driver identity closes to ~1e-17 including the `reversed` term. The opportunity engine is a genuine counterfactual (gap × sessions × recovery-fraction × median ticket of the *same lost outcome*), refuses to sum failed amounts, caps at realized GMV, and is labelled verbatim as «سناریو ... نه بازه اطمینان آماری» — honesty rarely seen at this tier. But several live-verified defects undercut it: the PSP card ships a confounded recommendation (PSP-08 on M250 averages 6.05 tries/attempt vs 1.03 on the "good" rail, i.e. it is the retry rail, yet the card claims 5,366–10,732 recoverable transactions and asserts the weakness "pattern is persistent"), the evidence drawer publishes a formula and caveat that contradict the code that produced the number, and "first half vs second half" compares unequal windows with no normalization and no minimum-window guard on the copilot path.
+
+**Why this score:** Not lower than ~70 because the substantive claims verify: I reproduced LMDI exactness and the conversion identity numerically on real merchants, suppression thresholds are centralized, documented and test-enforced (percentile keys genuinely absent under 5 peers), the estimator is a real counterfactual rather than a sum of failed amounts, and the product explicitly denies that its band is a confidence interval — most work at this tier claims the opposite. Not 75+ because four defects were confirmed live rather than inferred: the PSP card ships a merchant-facing recommendation confounded by attempt-order (6.05 vs 1.03 tries) that its own selection-bias guard misses by 0.5pp; the evidence drawer — the product's auditability mechanism — publishes a formula the code does not use; the "halves" comparison is unequal-length and unguarded on the copilot path at high confidence; and the capped case renders the merchant's entire GMV as an unhedged point estimate ranked first. Not 60-65 because none of these are core-math errors and each has a small, localized fix; the methodology is defensible and mostly well-reasoned, with a handful of gaps a serious fintech team would close before merchant release.
+
+**Strengths observed:**
+
+- LMDI decomposition is mathematically exact and verified live, not merely asserted: Σcontrib − ΔGMV relative residual ≈ 1e-15 on four real merchants (zarin/analytics.py:237-262), correct log-mean L(a,b) with a degeneracy guard; the conversion-driver identity closes to ~1e-17 including the easily-forgotten `reversed` term (analytics.py:264-274), and both are locked by tests (56 pass)
+- Opportunity band is explicitly labelled a scenario, not a CI (insights.py:97), and the p25↔p50 band was deliberately abandoned as «spuriously narrow» with the reasoning left in-code (insights.py:56-58); the recoverable sessions are priced at the median ticket of the *same lost outcome*, not of successful sales
+- Real suppression, enforced and tested: MIN_PEERS=5 removes percentile keys entirely (peers.py:96-108; test asserts `"percentile" not in r`), MIN_SESSIONS_INSIGHT=100 gates friction cards, 2pp gap floor, and peers under 100 in-period sessions are dropped (peers.py:73)
+- Percentile is exact rank over the peer list with no distributional assumption (peers.py:109-110), ties correctly handled in both directions, quoted in the UI as «بهتر از X٪ از N همتا» with a «گروه کوچک — با احتیاط» chip under 8 peers (PeersPage.tsx:59-63)
+- Mix-confounding is actively avoided where it matters: amount-band and PSP comparisons are within-merchant by construction and say so (insights.py:226, analytics.py:152), and the UI never sums card impacts into an additive portfolio headline (InsightCard.tsx renders each card's own interval only)
+
+### Security & privacy — 66/100
+
+*Lens `security` · confidence high*
+
+The deliberate defenses are genuinely good and test-backed: every DuckDB query is parameterized (verified `m=M156' OR 1=1--` → 404), the SPA route decides containment lexically with `os.path.normpath` before any filesystem call and has a raw-ASGI traversal test that bypasses httpx normalization, `safe_context` is allowlist-by-construction plus a recursive banned-key scan, and secrets are env-only with GA4 output key-allowlisted (a test proves `secret_token` is dropped). What is missing is the layer underneath: there is no authentication or authorization anywhere on the payments data, tenant scoping is a client-supplied `?m=` parameter, and `/api/admin/*` is fully open by default (verified live: HTTP 200 with no header). The grounding guard also only constrains numbers, so arbitrary non-numeric model text passes as "grounded". Strong hygiene, absent access control.
+
+**Why this score:** Not lower than 66 because the defenses that exist are deliberate, correct and tested rather than incidental: parameterization is uniform across every query builder I read, the traversal fix reasons explicitly about lexical containment and the Windows UNC/SMB failure mode and is proven by a raw-ASGI test that defeats client-side normalization, safe_context enforces its allowlist twice with a depth-recursive scan, GA4 output is key-allowlisted with a test asserting a planted `secret_token` is dropped, secrets never enter telemetry or responses (verified: /api/admin/ai-ops carries no error text or credentials), and validation of dates/enums/limits/length is present and returns the right codes live (422 on limit=9999, 400 on bad date, 404 on injected merchant key). That is clearly above typical hackathon work. Not higher than 66 because the two largest controls a fintech is judged on are absent: no authentication or authorization on any financial endpoint, with tenant scoping delegated to a client-supplied parameter and a login that is frontend-only, plus an operator surface that is open unless an env var is remembered. Both would block production outright, and the README's \"queries already scoped\" phrasing softens the first. The grounding guard's numeric-only scope and the unvalidated free-text reaching the operator dashboard keep it out of the 70s.
+
+**Strengths observed:**
+
+- Uniform SQL parameterization: every f-string in zarin/analytics.py, peers.py, control.py, api.py interpolates only module constants or whitelisted enums; user values always go through DuckDB `$name` binds. Live probe `?m=M156' OR 1=1--` returns 404, not a 500 or a leak.
+
+### Reliability, error handling & observability — 70/100
+
+*Lens `reliability` · confidence high*
+
+Failure handling inside the analytical and AI paths is genuinely strong: the LLM path falls back to deterministic text on any provider error (tested), thin/absent data is handled explicitly at every branch (peer suppression, low_n, decomposable, MIN_* thresholds), and the Control Center telemetry is honest — I verified live that with no LLM traffic it reports llm_requests=0, latency null, models=[] rather than inventing numbers. The hole is the other half of the lens: I proved by probe that an unhandled 500 is never recorded by obs.middleware, so the "نرخ خطای سرور" KPI and the "نیازمند بررسی" alert on the Performance page are structurally incapable of firing during a real server-error incident, and the ops copilot then answers "نرخ خطا ۰٫۰٪". There is also no logging of any kind in the backend (no `logging` import anywhere in zarin/), and the frontend's bootstrap `/api/meta` fetch has no `.catch`, so the most likely startup failure produces an infinite skeleton with no error text.
+
+**Why this score:** Not higher than 75 because the observability surface — the product's own differentiator — is blind to server errors (proved by probe), has no logging or correlation ids to fall back on, and reports build-time as data freshness; plus the frontend's bootstrap path has a genuine silent failure that leaves an authenticated user staring at an infinite skeleton. Not lower than 65 because everything downstream of those gaps is above typical MVP: the AI failure path is layered and tested, thin-data restraint is systematic rather than ad hoc, telemetry refuses to fabricate (verified live), every page has real loading/error/empty branches with race guards, and the 56-test suite deliberately targets failure modes (400-not-500, 404, 422, traversal, provider error, hallucination). 70 = adequate-to-strong with real gaps a serious team would fix before production.
+
+**Strengths observed:**
+
+- AI path degrades correctly: 20s HTTP timeout, all transport errors converted to RuntimeError (zarin/ai/provider.py:79), gateway catches everything and returns deterministic text with quality_flags=['provider_error'] (zarin/ai/gateway.py:92) — covered by tests test_gateway_provider_error_falls_back / _offline_returns_deterministic.
+- Thin/absent data handled explicitly everywhere rather than crashing or fabricating: peers suppressed below MIN_PEERS with low_n flags (zarin/peers.py:96-117), changes gated on `decomposable` (zarin/analytics.py:254), and every copilot branch has a 'not enough data' Persian answer (zarin/copilot.py:49,64,95,105,118).
+- Telemetry is honest, not decorative: has_data=False with an explanatory note when the ring is empty (zarin/obs.py:43, zarin/ai/telemetry.py:50), fa_num(None) renders '—' not 0 (zarin/fa.py:12), and the live /api/admin/ai-ops confirms nulls instead of invented latency.
+- Uniform frontend loading/error/empty states — every page and every ops view has a `loading` and an `error || !data` branch (Overview.tsx:25-26, OpsPerformance.tsx:11-12, ChangesPage.tsx:44-45, …), and useData/useAdmin guard stale responses with an `alive` flag (ctx.tsx:106-112).
+- Failure modes are tested rather than asserted: 56 passing tests including bad-date→400-not-500, unknown merchant→404, limit→422, path traversal, admin-token guard, hallucination rejection and small-pool suppression; `ruff check .` clean.
+
+### Scalability & performance — 66/100
+
+*Lens `scalability` · confidence high*
+
+The mart layer is genuinely well designed for the KPI path — `merchant_daily` (17,481 rows / 386 KB) makes `period_agg` a ~1 ms lookup regardless of merchant size, and I verified ADR-0001's own claim: warm `/api/overview` for M250 (1,055,912 sessions) is ~105 ms and no merchant endpoint exceeds 0.7 s. Memory is well-behaved (server RSS 204 MB steady over 103 MB of marts; every query is aggregate- or LIMIT-bounded). But three measured facts cap the score: a process-wide RLock in `db.q` serializes every query (8 concurrent `/api/customers?m=M156` → 1.54 s wall, 1.38 s p100 vs 0.16 s solo — near-perfect serialization), the marts have zero merchant clustering so every session-grain query is a full scan of all 2.06 M rows, and `/api/insights` issues 23–25 uncached sequential queries per request. Nothing is compressed on the wire (618 KB JS served raw; gzip would be 177 KB) and there is no code splitting or load test anywhere.
+
+**Why this score:** Not lower than 66 because the fundamentals a serious analytics product needs are actually present and verified, not claimed: a genuine pre-aggregated daily mart that makes the KPI path O(days) instead of O(sessions), bounded memory (204 MB RSS over 103 MB of marts), bounded telemetry rings, caching applied precisely to the two static-and-expensive endpoints, and sub-700 ms warm latency on the 1.05 M-session merchant that matches ADR-0001's own measured claim. Not higher than 66 because the concurrency story fails a trivial load test — 8 parallel requests serialize perfectly behind one global RLock — the marts have zero merchant clustering so every session query pays a full-scan floor (6.2 ms even for a 1-session merchant), the hottest endpoint runs 23–25 uncached queries with visible redundancy, an unauthenticated `/api/quality` recomputes a 108 ms full-attempts aggregate that is a constant, and there is no compression, no code splitting, and no load or latency-budget test in the 56-test suite. The system is fine at 10x merchants and breaks at 100x on scan cost plus the lock — and ADR-0001 names the wrong first bottleneck. That is squarely \"works and is defensible, but has real gaps a serious team would fix\", with several of those gaps being one-line fixes.
+
+**Strengths observed:**
+
+- Correct pre-aggregation where it counts: `merchant_daily` (17,481 rows) backs `period_agg`, `peers.peer_period_rates` and `changes` — measured 1.0 ms vs 11.6 ms for the equivalent sessions scan; peer matching runs entirely off `merchant_stats`, never `sessions`.
+- Measured latency at current scale is honest and matches the docs: M250 (1.05 M sessions) overview ~105 ms, funnel ~150 ms, insights ~277 ms, customers ~375 ms (curl `time_starttransfer` minus the 206 ms Windows loopback connect floor) — ADR-0001's "warm API < 0.7 s on a 1.05M-session merchant" verified true, not marketing.
+- Memory behaviour is genuinely bounded: server RSS 204 MB / private 217 MB after hundreds of queries over 103 MB of Parquet; DuckDB streams the marts, and every endpoint returns aggregates or a `LIMIT`-capped sample (`/api/evidence/sessions` caps at `le=50`), so no per-request materialization risk.
+- Telemetry memory is bounded by construction — `EventLog` uses `deque(maxlen=…)` (obs 8000, AI 5000), and `obs.summary()` over a full 8000-event ring measured ~3 ms.
+- Caching is applied to exactly the two things that are static and expensive (`@lru_cache` on `/api/meta`, which is 51 KB and two window-function queries, and on `/api/admin/ai-eval`) rather than sprinkled everywhere — a deliberate, defensible choice.
+
+### Product quality — 78/100
+
+*Lens `product` · confidence high*
+
+The analytical core is genuinely excellent product work: nine card generators that stay silent when evidence is thin (verified — M97 returns zero cards), counterfactual impact instead of naive loss sums, an honest scenario band explicitly labelled "not a statistical confidence interval", a broken-funnel reframe that caps a 94%-no-attempt merchant's "opportunity" at realized GMV, and actions specific enough to execute ("ask ZarinPal support to shift traffic off PSP-03" with the named gateway and its top three error codes). The evidence drawer — definition, formula, params, the actual SQL, caveats, and drill-through to source session_keys — is the best traceability affordance I have seen at this scale. What is not finished is the loop around that core: cards are terminal (no link to the page their own text names, no dismiss/done/track, no "did it work?"), Overview silently drops cards past the fourth, the Control Center recommends prioritizing specific merchants while offering no merchant list or search, and there is no export, share, or digest anywhere in a product whose own PRODUCT.md defines it as "the thing a merchant opens every week."
+
+**Why this score:** Not 88+: the insight-first thesis is only half-executed as a product. Cards cannot be navigated from, dismissed, or tracked across weeks; the feed is silently capped at four; the Control Center cannot drill to the merchants its own recommendations name; there is no export or digest; and the time model has no week even though the product defines itself as weekly. Those are precisely the gaps a serious team fixes before production. Not 70 or below: the card content itself is materially better than typical BI — counterfactual impact with an explicitly non-CI scenario band, a broken-funnel cap-and-reframe, degenerate-PSP exclusion to avoid a phantom opportunity, genuine restraint verified live (M97 → zero cards), and a traceability drawer that takes every headline number down to source session_keys. The two surfaces have clearly distinct jobs and almost no bloat — nine backend modules and five ops pages with three orphans total. Strong work with a visibly unfinished action loop lands at the low-to-mid end of the 75-89 band.
+
+**Strengths observed:**
+
+- Insight cards are real product output, not metric dumps: Observation → Diagnosis → quantified interval → specific Action → confidence + effort chips + sample n + evidence link, ranked by impact × confidence ÷ effort with alerts forced below opportunities (zarin/insights.py:301-314). Verified live on M156/M18/M250/M31/M215/M33/M275.
+- Restraint is engineered, not accidental: _gap_card returns None below a 2pp peer gap or under 5 peers; M97 (healthy, 77% conv) legitimately yields zero cards and Overview.tsx:78 frames that as good news rather than an error.
+- Impact honesty is unusually disciplined — paid_unverified is labelled "real amount, not an estimate"; peer gaps carry "conservative-to-optimistic scenario, not a statistical CI"; a >50%-loss stage is relabelled "fix the infrastructure first" and capped at realized GMV (insights.py:86-102).
+- The evidence drawer (components/EvidenceDrawer.tsx) exposes metric definition, formula, computation params, the executed SQL or method, caveats, and on-demand source session rows keyed to the raw dataset — every headline number on the merchant surface is one click from its derivation.
+- Two surfaces have genuinely distinct jobs and distinct navigation, chosen pre-login (pages/Login.tsx:10-22, App.tsx:48-51); the Control Center is about the product's own health and says so in its subtitle, and its AI page separates grounding, evidence coverage, and fallback rather than collapsing them into one vanity score.
+
+### Business viability & value proposition — 73/100
+
+*Lens `business` · confidence high*
+
+The core thesis is real and unusually disciplined: Paid-but-Unverified surfaces 116.55B IRR of genuinely settled, non-estimated money across 343 merchants (verified live at /api/admin/platform), and the opportunity engine refuses the "lost revenue = Σ failed amounts" fraud that normally destroys merchant trust — it uses a peer-median counterfactual, caps at realized GMV, labels its band "not a statistical CI", and suppresses cards under a 2pp gap. Evidence lineage down to the running SQL is a real trust asset and the peer benchmark is a genuine ZarinPal-only moat no merchant could self-serve. But viability breaks on coverage and last-mile: I generated cards for all 343 merchants and 126 (37%) get a completely empty dashboard while 193 (56%) get no opportunity at all; the flagship card's recommended action ("enable auto-verify") is wrong for 8,705 of the 8,706 sessions it fires on, which are already verify_type='Automated'; and the product cannot hand a merchant the 912 session keys it tells them to go resolve. Deployable as a pilot to the top ~80 merchants after those fixes; not deployable to the tail or to real merchants at all without tenancy.
+
+**Why this score:** Not 83+: three of the four things an investor buys are compromised — coverage (37% of merchants get a blank page), actionability of the flagship card (its instruction is a no-op for 8,705 of 8,706 affected sessions), and the insight→action last mile (50-row cap, no export, no push). Merchant-side tenancy is absent entirely, which blocks any real-merchant pilot regardless of hosting. Not 63 or below: the value proposition is genuinely differentiated and defensible rather than a repackaged analytics dashboard — Paid-but-Unverified is a real 116.55B IRR platform finding no generic BI tool produces, the counterfactual opportunity math and its suppression rules are the honest version of a claim most products fake, and evidence-to-SQL lineage plus explainable peer matching are exactly what makes a fintech CFO believe a number. A PSP could credibly pilot this on its top ~80 merchants after the verify_type fix and an auth layer, which is the definition of "works and is defensible with real gaps a serious team would fix."
+
+**Strengths observed:**
+
+- Paid-but-Unverified is a defensible, differentiated finding a generic dashboard structurally cannot produce — it is a state-machine leak, not a conversion metric. Live: 912 sessions / 61.8B IRR for M156 (3.2% of its GMV), 116.55B IRR platform-wide across 77 merchants with ≥5 occurrences.
+- Opportunity math is honest enough to survive a merchant's CFO: insights.py:50-132 values recoverable sessions at the median ticket of the SAME loss outcome, spans an explicit 0.5–1.0 recovery-fraction scenario band, caps at realized GMV, and reframes >50% loss as "fix your infrastructure first" instead of selling it as revenue.
+- Restraint is enforced in code, not prose: confidence is hard-capped to "low" below 8 peers (insights.py:96), peer benchmarks are suppressed rather than fabricated (peers.py:9), and the copilot answers "not enough data to decompose" rather than guessing (copilot.py:49).
+- Explainable peer matching (category + ¼–4× daily GMV band + ⅓–3× ticket band, ≥500-session pool, rule shown verbatim in the UI) is the strongest commercial moat here — it requires cross-merchant data only the PSP holds.
+- Ranking is commercially correct: impact × confidence ÷ effort, with alerts forced below opportunities so a zero-impact "sales grew 64%" note can never outrank 61.8B IRR of stuck money (insights.py:301-314).
+
+### UX & usability (non-technical merchant) — 76/100
+
+*Lens `ux` · confidence high*
+
+The merchant surface is genuinely insight-first: the default landing is a chat page with six concrete business questions, and the Overview leads with ranked opportunity cards written as مشاهده / تشخیص / اقدام, so a shop owner can plausibly decide what to do inside 60 seconds (card #1 for M156 literally says "turn on auto-verify / fix the callback / settle these from the ZarinPal panel"). Persian localisation is excellent — fa-IR digits, Jalali dates, compact rial, correct RTL funnel fill origin, reduced-motion and 44px touch targets. The weakness is that the plain-language layer is only half-installed: the 28-entry TIPS dictionary is imported by exactly three files and by no merchant analytics page, so the pages that actually carry the jargon (میانه، کوهورت، پنجک، چارک، واحد درصد، PSP، جلسه) explain nothing, and the chat will silently answer a different question when it doesn't understand yours. Error states leak raw English exception strings into a Persian UI.
+
+**Why this score:** Not 85+: the flagship plain-language layer is unreachable on every merchant analytics page (only 5 of 28 tips wired), the chat can silently answer a question the merchant did not ask with a confidence badge attached, and six data pages dead-end on «Error: overview: 500» with no retry — these are gaps a serious fintech team would fix before shipping to non-technical users. Not 65 or below: the core promise actually lands — chat-first entry, ranked cards with an explicit اقدام line, honest suppression below sample thresholds, strong Persian/RTL/Jalali formatting, real accessibility work (focus trap + restore, reduced motion, coarse-pointer targets), and a merchant genuinely can pick an action off the Overview in under a minute. That combination sits in the upper half of "strong, minor-to-real gaps".
+
+**Strengths observed:**
+
+- Ranked action cards are written for a shop owner, not an analyst: observation/diagnosis/action + effort chip (اقدام سریع/متوسط/پروژه بلندمدت) + confidence chip + sample size, all in one card (InsightCard.tsx:42-53)
+- Chat-first landing with six business-language prompts and fa-IR voice input via Web Speech API with graceful fallback when unsupported (CopilotPage.tsx:7-14, Copilot.tsx:7-33)
+- Honest empty states that refuse rather than fake: peers comparison is suppressed below 5 peers with an explanation (PeersPage.tsx:36-38), amount bands need 30 sessions, concentration needs 20 customers (FunnelPage.tsx:82, CustomersPage.tsx:84)
+- Tooltip content quality where it is wired is outstanding — a consistent یعنی چه؟ / چرا مهم است؟ / چطور تفسیر کنم؟ triad, e.g. the median tip explains why median beats average in one sentence (Tooltip.tsx:8-28)
+- Accessibility basics are real, not decorative: evidence drawer has focus trap, scroll lock and focus restore to the opener (EvidenceDrawer.tsx:30-56); aria-current on nav, aria-live on answers, prefers-reduced-motion honoured (theme.css:434)
+
+### Visual & interaction design, Persian/RTL craft — 76/100
+
+*Lens `design` · confidence medium*
+
+This is a genuinely Persian-first interface, not a translated LTR dashboard: one coherent 436-line token system, CSS logical properties used consistently (border-inline-end, inset-inline-end, text-align:start), deliberate LTR islands for SQL/formulas/phone/OTP/time-axes, Jalali dates via Intl, Persian numerals with ٫/٪, and compact rial using Persian scale words (هزار میلیارد). Brand expression is disciplined — ZarinPal yellow reserved for primary action, active nav and rank badges; blue for links and data bars; ink for the funnel. But the lens's two core criteria both have verified defects: the rich tooltip computes a physical distance-from-right and applies it to a logical inset-inline-end, which mirrors it across the viewport in RTL; the cohort heat map uses an absolute 0–100% ramp so real retention (3–11%) collapses into one indistinguishable pale green; and the waterfall's zero-axis references an undefined token. Merchant and Operations surfaces are also near-identical — the data-workspace hook that was meant to differentiate them is dead code.
+
+**Why this score:** Above 60 clearly: the token layer, logical-property discipline, LTR islands, Jalali/rial/Persian-numeral formatting and the restrained brand use are real craft that most teams skip entirely, and nothing reads template-like — the insight card, evidence drawer and chat-first landing are composed, not bootstrapped. Held below 85 because the defects land precisely in the two things this lens grades hardest: RTL correctness (tooltip mirrored by a logical/physical axis mix; Latin digits leaking into hour and cohort labels; two different thousands separators shipping on the same page) and data-viz quality (a heat map that encodes no signal, an invisible waterfall axis). Not lower than 75 because none of these break the primary reading path — the funnel, distribution bars, percentile marker, trend chart and KPI strips are all correct and correctly mirrored. Docked further for the merchant/ops surfaces being visually indistinguishable despite that being an explicit product intent.
+
+**Strengths observed:**
+
+- Real RTL discipline, not find-and-replace: theme.css uses border-inline-end, inset-inline-end, margin-inline-start, text-align:start throughout; the funnel fill is transform-origin:right so bars grow from the RTL start; the evidence drawer enters from inset-inline-end with a matching translateX.
+- Correct mixed-content handling — deliberate `direction:ltr` islands for the SQL box (.sqlbox), formula box, phone/OTP fields, API path column, cohort grid and 24h heat strip, while the surrounding page stays RTL. The ops latency table renders /api/admin/ai-eval cleanly inside an RTL row.
+- Persian numeric craft: fmt.ts uses Intl fa-IR throughout — Persian digits, ٫ decimal (۶۱٫۸), ٪, Jalali long dates (۱۱ دی ۱۴۰۴), and a compact rial ladder using Persian scale words (هزار میلیارد / میلیارد / میلیون) rather than K/M/B.
+- Restrained, correct brand expression: --brand #ffd500 appears only on primary buttons, the active nav pill (--brand-soft with a 3px inset bar), the rank badge and the trend-chart gradient; --blue-2 carries logo/data bars. The custom ZMark (skewed bar + dot) scales cleanly from 26px to 56px.
+- Considered details most submissions miss: prefers-reduced-motion and pointer:coarse blocks (theme.css:433-436), an explicit cohort contrast comment keeping ≥4.5:1 (charts.tsx:169), tabular-nums .num class, skeleton shimmer loading, and a genuinely well-composed evidence drawer (متریک / فرمول / مشخصات / کوئری / caveats).
+
+### Accessibility & inclusive design — 61/100
+
+*Lens `accessibility` · confidence high*
+
+There is real, deliberate accessibility work here — a correct focus trap with focus restore and scroll lock in the evidence drawer, correct `aria-current`/`aria-pressed`, `lang="fa" dir="rtl"`, a global `prefers-reduced-motion` kill-switch, real `<table>/<thead>/<th>` markup, and a coarse-pointer 44px rule — which puts it well above typical hackathon output on intent. But conformance itself does not hold: I computed the theme.css token values and `--ink-3` (4.03:1 on white, 3.73:1 on `--bg`) and `--ink-4` (2.54:1) are applied to 9.5–12px text across the KPI strips, page subtitles and the entire mobile bottom navigation, the chat composer input has its focus outline explicitly removed in the shipped CSS, and seven zero-size focusable buttons sit in the Overview/Customers tab order. There is no skip link, no `h1` on five of seven merchant pages, and no a11y linting or test of any kind in the build. The result works for mouse users with good vision and degrades sharply for low-vision, keyboard-only and screen-reader users.
+
+**Why this score:** Not 75+: I confirmed multiple unambiguous WCAG 2.1 AA failures on the product's most important surfaces — the mobile bottom nav at 2.35:1 and 9.5px, muted text at 3.7–4.0:1 everywhere, the chat composer's focus outline deleted in the shipped CSS, seven zero-size focusable buttons in the Overview tab order, no skip link, and charts whose text alternatives carry no data. There is also zero automated enforcement: `frontend/package.json` has no ESLint at all (let alone `eslint-plugin-jsx-a11y`) and `tests/` contains no a11y assertion, so nothing prevents regression. Not below 55: this is clearly not accidental accessibility — the drawer's focus trap with restore and scroll lock, correct `aria-current`/`aria-pressed`/`aria-modal`, `lang="fa" dir="rtl"`, logical-property RTL layout throughout, a global reduced-motion rule, a coarse-pointer 44px rule, real `<thead>/<th>` tables, and per-control `aria-label`s on icon buttons and selects are all deliberate and correct. The gap is between good instincts and verified conformance, which lands squarely in "adequate, with real gaps a serious team would fix."
+
+**Strengths observed:**
+
+- EvidenceDrawer.tsx:26-56 — genuinely correct modal handling: `role="dialog" aria-modal="true"` with an accessible name, Escape close, a Tab cycle that also recovers focus when it has escaped the container, `body` scroll lock, and focus restored to the opener on unmount. Better than most production dashboards.
+
+### AI quality, grounding & AI-Ops — 70/100
+
+*Lens `ai-grounding` · confidence high*
+
+The deterministic-first architecture is real and verified: 130 live telemetry events on the running server are 100% source=deterministic, every number in every copilot answer comes from copilot._plan(), and the product is fully correct with zero keys and zero network. But the central claim "the LLM may only rephrase" is only half-enforced: is_grounded() inspects digit runs only, so I demonstrated with a fake provider that invented causality, an empty string and English text all pass and are shown labelled «با کمک هوش مصنوعی» under the note «این پاسخ بر پایه اعداد قطعیِ موتور تحلیلی است». The guard is also unit-blind (ریال→تومان keeps the digits) and its abbreviation rule accepts arbitrary downscale (is_grounded("۱۰","۱۰۰") → True). The eval harness runs with use_llm=False so it never exercises the guard at all, yet the Ops UI reports «ایمنی در نبود داده: ۱۰۰٪». Telemetry itself is honest and the free-model policy is genuine defence-in-depth.
+
+**Why this score:** Not higher than 75: the headline safety claim is only partially delivered — three independently demonstrated guard bypasses (prose hallucination, unit swap, arbitrary downscale) plus empty/English acceptance, and the self-reported eval scores 100% on checks that cannot fail, which a fintech reviewer treats as material in exactly this dimension. Not lower than 65: the deterministic-first pipeline is airtight where it matters most (no key = no model = engine text verbatim, verified across 130 live events), the free-model and safe-context controls are real defence-in-depth with tests, telemetry refuses to fabricate (null percentiles, explicit human-judge dimensions), and the fallback UX honestly labels source, fallback and confidence — clearly above typical MVP work.
+
+**Strengths observed:**
+
+- Deterministic-first is not a slogan: copilot._plan() (zarin/copilot.py:39-131) writes every number and gateway.explain() never raises for provider problems — offline, provider-error and guard-rejection all return engine text verbatim; verified live (130 events, llm_requests=0, cost 0) plus 56 passing tests and clean `ruff check`.
+- Free-model cost policy (zarin/ai/models.py) is correct and non-obvious: ':free' suffix as the only proof, empty allowlist by default, openrouter/auto explicitly banned as billed-at-selected-rate, enforce_free applied at construction AND per request (provider.py:55,58).
+- Evidence-safe context (zarin/ai/safe_context.py) is allowlist-by-construction plus a recursive assert_safe banned-key scan; tests/test_ai.py:51-67 prove card keys, SQL and params cannot reach the model at any nesting depth.
+- Decimal handling in the guard is genuinely careful: 2.3 never traces to 23, and substring 80 does not trace to 61800000000 (gateway.py:43-53, tests/test_ai.py:123-135) — a class of bug most implementations get wrong.
+- Telemetry/eval honesty: latency percentiles return null rather than 0 with no LLM traffic, language_quality and business_usefulness are explicitly None ("human judge"), and the fallback UX exposes source/fallback/confidence chips, an evidence drawer and 👍/👎 feeding telemetry (frontend/src/components/Copilot.tsx:112-128).
+
+### Testing & quality assurance — 70/100
+
+*Lens `testing-qa` · confidence high*
+
+`uv run pytest -q` → 56 passed, 1 warning, 1.31s; `uv run ruff check .` clean; `uv run python -m zarin.ai.eval` → 12/12 cases pass. Measured statement coverage (coverage.py, file written outside the repo): 81% over `zarin/` (1274 stmts, 238 missed). The fixture in tests/conftest.py is genuinely adversarial — S12 exists only so `recovered=Verified-only` can fail, S11 forces the Reversed term, the Jan/Feb split forces in-period vs lifetime repeat — and the grounding-guard and raw-ASGI traversal tests are above-MVP quality. But the suite pins the *pipeline* invariants far better than the *presentation* ones: peer percentile math, LMDI attribution, and 45% of the insights engine are unverified, and there are zero frontend tests over 2,341 LOC.
+
+**Why this score:** Above 60 because the suite targets the genuinely dangerous invariants with discriminating, mutation-hostile assertions rather than smoke tests, runs fast and hermetically, and is backed by a clean linter and a real AI eval harness — that is clearly above typical hackathon work. Held below 75 because a refactor *can* break production behaviour while staying green in at least three demonstrated places: swapping two LMDI factors, flipping `higher_better` on a peer metric, or breaking the PSP selection-bias guard. Not lower, because the untested paths are mostly presentation/ranking rather than the money-grain core, which is well pinned.
+
+**Strengths observed:**
+
+- Fixture is discriminating, not decorative: tests/conftest.py:65-70 adds a Paid-after-retry session on M2 whose sole purpose is to make test_recovered_is_verified_only falsifiable; tests/conftest.py:64 adds a Reversed session so the conversion-driver identity's sixth term cannot be silently dropped. Hermetic too — env vars set and OPENROUTER_API_KEY/GA4 popped before any zarin import (conftest.py:10-17), so the suite is offline and deterministic.
+- Grounding guard is the best-tested code in the repo: tests/test_ai.py:123-135 pins both real holes with negative assertions — digit-substring ("۸۰" ⊄ 61800000000) and decimal rescale (2.3% ≠ 23%, 61.8B ≠ 618B) — using the product's own fa.py formatters so the Persian separators under test are the real ones.
+- tests/test_api.py:49-89 drives the ASGI app directly with an un-normalized raw path because TestClient/httpx normalize `..` away, and includes the Windows UNC probe (`///10.255.255.1/share/x`) that must be rejected lexically before any filesystem call — a genuinely sophisticated security test.
+- Metric-grain invariants are pinned with exact numbers that a wrong implementation would miss: attempts 10 vs sessions 9 (test_metrics.py:11-12), conv = 3/7 not 4/7 so Paid is excluded (test_metrics.py:33), funnel stages exactly {7,6,4,3} (test_metrics.py:57), and the in-period-vs-lifetime repeat regression (test_metrics.py:66-73).
+- A separate, dataset-independent AI eval harness (zarin/ai/eval/cases.py, 12 cases incl. 4 refusal/safety) runs both standalone and through /api/admin/ai-eval, and honestly reports language quality and business usefulness as null rather than auto-scoring them (test_control.py:61).
+
+---
+
+## 6. Priority queue — every critical and high finding
+
+5 critical + 39 high findings, each independently re-verified and confirmed.
+Full detail for these and all 119 findings — observed evidence, impact, recommended fix —
+is in **[EXPERT_REVIEW_ISSUES.md](EXPERT_REVIEW_ISSUES.md)**; machine-readable data in
+[`expert_review_findings.json`](expert_review_findings.json).
+
+| ID | Sev | Issue | Lens | Effort |
+|---|---|---|---|---|
+| [ZB-001](EXPERT_REVIEW_ISSUES.md#zb-001) | CRITICAL | No authn/authz on any merchant data endpoint; tenant scoping is a client-supplied parameter | `security` | large |
+| [ZB-002](EXPERT_REVIEW_ISSUES.md#zb-002) | CRITICAL | Process-wide RLock serializes every DuckDB query — hard concurrency ceiling | `scalability` | small |
+| [ZB-003](EXPERT_REVIEW_ISSUES.md#zb-003) | CRITICAL | 37% of merchants see an empty dashboard; the empty state calls a broken funnel "good news" | `business` | medium |
+| [ZB-004](EXPERT_REVIEW_ISSUES.md#zb-004) | CRITICAL | Grounding guard is digit-only: invented causality and advice pass verbatim | `ai-grounding` | medium |
+| [ZB-005](EXPERT_REVIEW_ISSUES.md#zb-005) | CRITICAL | Peer percentile happy path has zero coverage — only the suppressed branch is tested | `testing-qa` | medium |
+| [ZB-006](EXPERT_REVIEW_ISSUES.md#zb-006) | HIGH | Realized-GMV cap applied to only one of four opportunity generators — a card claims 108% of the merchant's entire sales | `rubric-official` | small |
+| [ZB-007](EXPERT_REVIEW_ISSUES.md#zb-007) | HIGH | Evidence drawer prints two contradictory formulas for the same opportunity number | `rubric-official` | small |
+| [ZB-008](EXPERT_REVIEW_ISSUES.md#zb-008) | HIGH | Chat is the landing surface but its regex router misses questions the engine can already answer | `rubric-official` | medium |
+| [ZB-009](EXPERT_REVIEW_ISSUES.md#zb-009) | HIGH | API contract crosses the biggest seam untyped and hand-mirrored | `architecture` | medium |
+| [ZB-010](EXPERT_REVIEW_ISSUES.md#zb-010) | HIGH | Hardcoded data fact in the API layer contradicts the computed metric on the same page | `architecture` | small |
+| [ZB-011](EXPERT_REVIEW_ISSUES.md#zb-011) | HIGH | Metric registry — the declared single source of truth — has drifted from the code it documents | `code-quality` | small |
+| [ZB-012](EXPERT_REVIEW_ISSUES.md#zb-012) | HIGH | `insights.generate()` is a 181-line C901=20 function whose shape contradicts the documented extension pattern | `code-quality` | medium |
+| [ZB-013](EXPERT_REVIEW_ISSUES.md#zb-013) | HIGH | Copilot formats a transaction count as rial | `data-correctness` | small |
+| [ZB-014](EXPERT_REVIEW_ISSUES.md#zb-014) | HIGH | Evidence drawer states an opportunity formula the code does not compute | `data-correctness` | small |
+| [ZB-015](EXPERT_REVIEW_ISSUES.md#zb-015) | HIGH | Insight ranking sorts transaction counts against rial in the same score | `data-correctness` | small |
+| [ZB-016](EXPERT_REVIEW_ISSUES.md#zb-016) | HIGH | PSP friction card compares non-comparable traffic: the "weak" gateway is the retry rail | `statistics` | medium |
+| [ZB-017](EXPERT_REVIEW_ISSUES.md#zb-017) | HIGH | Evidence drawer publishes a formula and caveat that contradict the estimator that produced the number | `statistics` | small |
+| [ZB-018](EXPERT_REVIEW_ISSUES.md#zb-018) | HIGH | "First half vs second half" compares unequal windows, with no minimum-window guard on the copilot path | `statistics` | small |
+| [ZB-019](EXPERT_REVIEW_ISSUES.md#zb-019) | HIGH | Operator-token gate on /api/admin/* is fail-open by default | `security` | small |
+| [ZB-020](EXPERT_REVIEW_ISSUES.md#zb-020) | HIGH | Grounding guard checks only multi-digit numbers — arbitrary model text passes as "grounded" | `security` | medium |
+| [ZB-021](EXPERT_REVIEW_ISSUES.md#zb-021) | HIGH | Unhandled 500s are invisible to the Control Center's own error metric | `reliability` | small |
+| [ZB-022](EXPERT_REVIEW_ISSUES.md#zb-022) | HIGH | Bootstrap /api/meta failure leaves the merchant workspace in a permanent skeleton | `reliability` | small |
+| [ZB-023](EXPERT_REVIEW_ISSUES.md#zb-023) | HIGH | Marts are unclustered — every merchant query full-scans all 2.06M sessions | `scalability` | small |
+| [ZB-024](EXPERT_REVIEW_ISSUES.md#zb-024) | HIGH | /api/insights issues 23–25 sequential uncached queries, several redundant | `scalability` | medium |
+| [ZB-025](EXPERT_REVIEW_ISSUES.md#zb-025) | HIGH | Full 1.95M-row attempts aggregate on every /api/quality and /api/admin/platform, uncached | `scalability` | small |
+| [ZB-026](EXPERT_REVIEW_ISSUES.md#zb-026) | HIGH | Control Center recommends merchant-level action but offers no merchant drilldown or search | `product` | medium |
+| [ZB-027](EXPERT_REVIEW_ISSUES.md#zb-027) | HIGH | Ranked action cards are terminal: no navigation, no state, no follow-through | `product` | medium |
+| [ZB-028](EXPERT_REVIEW_ISSUES.md#zb-028) | HIGH | Flagship card's headline action is wrong for ~100% of the merchants it fires on | `business` | small |
+| [ZB-029](EXPERT_REVIEW_ISSUES.md#zb-029) | HIGH | 61.8B IRR presented as claimable money with no claimability or expiry framing | `business` | small |
+| [ZB-030](EXPERT_REVIEW_ISSUES.md#zb-030) | HIGH | No tenancy: any merchant's full business data is readable by merchant key | `business` | medium |
+| [ZB-031](EXPERT_REVIEW_ISSUES.md#zb-031) | HIGH | Plain-language tooltip system is not wired into any merchant analytics page | `ux` | small |
+| [ZB-032](EXPERT_REVIEW_ISSUES.md#zb-032) | HIGH | Copilot answers a different question instead of admitting it did not understand | `ux` | small |
+| [ZB-033](EXPERT_REVIEW_ISSUES.md#zb-033) | HIGH | Rich tooltip is positioned by physical-right math but applied to a logical inset — mirrors across the viewport in RTL | `design` | small |
+| [ZB-034](EXPERT_REVIEW_ISSUES.md#zb-034) | HIGH | Cohort heat map uses an absolute 0–100% colour ramp, so real retention data renders as one flat green | `design` | small |
+| [ZB-035](EXPERT_REVIEW_ISSUES.md#zb-035) | HIGH | Body/muted text tokens fail 1.4.3 across every surface; mobile primary nav at 2.35:1 | `accessibility` | small |
+| [ZB-036](EXPERT_REVIEW_ISSUES.md#zb-036) | HIGH | Chat composer input has its focus indicator removed (2.4.7) | `accessibility` | small |
+| [ZB-037](EXPERT_REVIEW_ISSUES.md#zb-037) | HIGH | Seven zero-size, invisible buttons in the tab order on the Overview and Customers KPI strips | `accessibility` | small |
+| [ZB-038](EXPERT_REVIEW_ISSUES.md#zb-038) | HIGH | Abbreviation rule accepts arbitrary downscale (۱۰۰ → ۱۰, ۱۲۰۰ → ۱۲) | `ai-grounding` | small |
+| [ZB-039](EXPERT_REVIEW_ISSUES.md#zb-039) | HIGH | Guard is unit- and metric-blind: same digits, wrong currency or wrong metric passes | `ai-grounding` | medium |
+| [ZB-040](EXPERT_REVIEW_ISSUES.md#zb-040) | HIGH | "Refusal safety 100%" is vacuous — the checks cannot fail and the cases do not refuse | `ai-grounding` | medium |
+| [ZB-041](EXPERT_REVIEW_ISSUES.md#zb-041) | HIGH | LMDI and conversion-driver tests assert closure, not attribution — a factor swap stays green | `testing-qa` | small |
+| [ZB-042](EXPERT_REVIEW_ISSUES.md#zb-042) | HIGH | Insights engine at 55% — six of nine card generators never run, incl. the PSP selection-bias fix | `testing-qa` | medium |
+| [ZB-043](EXPERT_REVIEW_ISSUES.md#zb-043) | HIGH | No frontend tests at all; Persian formatting is duplicated between fa.py and fmt.ts with an observable divergence and no parity test | `testing-qa` | large |
+| [ZB-044](EXPERT_REVIEW_ISSUES.md#zb-044) | HIGH | Ops copilot intent routing is 54% covered and misroutes — verified, with no equivalent to the merchant copilot's ordering regression test | `testing-qa` | small |
+
+Medium and low findings (56 + 19) are documented in the same register.
+
+---
+
+## 7. Final assessment
+
+**Overall: mean 73.4/100 across 15 dimensions; 236/300 on the competition's own rubric.**
+In the panel's calibration that is the top of "adequate" / bottom of "strong": a product whose
+analytical core is genuinely good, whose engineering is tidy, and whose remaining problems are
+concentrated in a few recurring themes rather than scattered randomly.
+
+### What the panel consistently praised
+
+The three highest scores are the analytical and engineering foundations — `code-quality` **82**,
+`data-correctness` **82**, `architecture` **80** — and the praise is specific and independently
+measured, not impressionistic:
+
+- **Grain discipline holds.** The correctness lens could not find a single double-count, wrong
+  denominator, silent NULL arithmetic or window-vs-lifetime error in the SQL, and verified live that
+  2,062,839 sessions = 2,062,839 distinct `session_key`s and that the six outcomes partition sessions
+  exactly at both merchant and platform level.
+- **The hard math is exact.** LMDI contributions sum to ΔGMV to ~1e-15 relative residual across four
+  merchants; the conversion-driver identity closes to ~1e-17 including the `reversed` term.
+- **The layering is real, not decorative.** Every internal import was mapped: the graph is strictly
+  acyclic, with zero upward imports, and the metric registry genuinely is the single source of truth
+  for the merchant surface.
+- **Restraint is implemented.** Peers are suppressed rather than fabricated below the minimum pool;
+  cards stay silent when evidence is thin; the opportunity engine refuses the "lost revenue = Σ failed
+  amounts" fallacy; the scenario band is explicitly labelled as *not* a confidence interval.
+- **Deterministic-first AI is verified.** 130 live telemetry events on the running server were 100%
+  `source=deterministic`, and the product is fully correct with zero keys and zero network.
+- **The Persian-first craft is real.** One coherent token system, CSS logical properties throughout,
+  deliberate LTR islands for SQL/formulas/time-axes, Jalali dates and Persian numerals.
+
+### The one theme that explains most of the serious findings
+
+Across five independent lenses the same failure shape appears: **a guarantee the product states is
+enforced only partially, while the documentation states it unconditionally.** This is the single most
+important result of the review, because it attacks credibility rather than function:
+
+| Stated guarantee | What is actually enforced | Issues |
+|---|---|---|
+| "Opportunity is capped at realized GMV" | Cap exists in one of four generators; a live card claims **109% of the merchant's entire six-month sales** (M21, verified by the integrating engineer) | [ZB-006](EXPERT_REVIEW_ISSUES.md#zb-006) |
+| Evidence drawer shows how a number was computed | For opportunity cards the printed formula and caveat describe an estimator the code no longer uses | [ZB-007](EXPERT_REVIEW_ISSUES.md#zb-007), [ZB-014](EXPERT_REVIEW_ISSUES.md#zb-014), [ZB-017](EXPERT_REVIEW_ISSUES.md#zb-017), [ZB-011](EXPERT_REVIEW_ISSUES.md#zb-011) |
+| "The LLM may only rephrase; it can never change a number" | The guard inspects digit runs only — invented causality, invented advice, wrong units and arbitrary downscaling pass | [ZB-004](EXPERT_REVIEW_ISSUES.md#zb-004), [ZB-020](EXPERT_REVIEW_ISSUES.md#zb-020), [ZB-038](EXPERT_REVIEW_ISSUES.md#zb-038), [ZB-039](EXPERT_REVIEW_ISSUES.md#zb-039) |
+| "Refusal safety 100%" in the AI evaluation | The refusal checks cannot fail as written, and the cases do not actually refuse | [ZB-040](EXPERT_REVIEW_ISSUES.md#zb-040) |
+| Tests pin the dangerous invariants | 81% statement coverage, but the peer-percentile happy path, six of nine card generators and ops-copilot routing are untested | [ZB-005](EXPERT_REVIEW_ISSUES.md#zb-005), [ZB-041](EXPERT_REVIEW_ISSUES.md#zb-041), [ZB-042](EXPERT_REVIEW_ISSUES.md#zb-042), [ZB-044](EXPERT_REVIEW_ISSUES.md#zb-044) |
+
+The fix for this theme is mostly cheap — move one cap into the ranking loop, regenerate the registry
+text from the code that computes it, extend the guard beyond digits (or soften the claim to what is
+actually enforced), and make the eval assertions capable of failing.
+
+### Production-readiness gaps that are honest, but must not be understated
+
+The security (**66**), scalability (**66**) and reliability (**70**) scores reflect deliberate
+hackathon scope, not accidents — but the record documents them plainly: there is **no authentication
+or authorization on any merchant data endpoint** and tenant scoping is a client-supplied `m=`
+parameter ([ZB-001](EXPERT_REVIEW_ISSUES.md#zb-001), [ZB-030](EXPERT_REVIEW_ISSUES.md#zb-030)); a
+process-wide `RLock` serializes every DuckDB query ([ZB-002](EXPERT_REVIEW_ISSUES.md#zb-002)); marts
+are unclustered so each merchant query full-scans 2.06M sessions
+([ZB-023](EXPERT_REVIEW_ISSUES.md#zb-023)). None of these blocks the challenge demo; all of them block
+a real merchant-facing deployment, and the repository should not imply otherwise.
+
+### Accessibility is the weakest dimension
+
+At **61**, `accessibility` is the only dimension below the "adequate" band. The intent is visibly
+there — a correct focus trap with restore, `aria-current`/`aria-pressed`, `lang="fa" dir="rtl"`, a
+reduced-motion kill-switch — but conformance does not hold: computed contrast of the muted/body text
+tokens fails WCAG 1.4.3 across every surface (mobile primary nav at 2.35:1), the chat composer's focus
+indicator is removed, and seven zero-size invisible buttons sit in the tab order
+([ZB-035](EXPERT_REVIEW_ISSUES.md#zb-035)–[ZB-037](EXPERT_REVIEW_ISSUES.md#zb-037)). These are small,
+well-localized fixes with disproportionate value.
+
+### An adjudicated disagreement (worth recording)
+
+Two lenses appeared to contradict each other on merchant coverage: `rubric-official` measured that
+56 of 60 merchants receive at least one insight card, while `business` reported that 37% of merchants
+see an empty dashboard ([ZB-003](EXPERT_REVIEW_ISSUES.md#zb-003)). The integrating engineer measured
+both populations directly rather than picking a side:
+
+```
+top-60 by GMV:                        3/60 empty =  5.0%
+systematic 1-in-5 across full range:  26/69 empty = 37.7%
+```
+
+Both were right. The head of the merchant distribution is well served; the long tail — the merchants
+who most need help — is not, and the empty state currently frames that silence as good news. The
+finding stands, with the nuance that it is a **tail-coverage** problem, not a general one.
+
+### Recommended order of work
+
+1. **Credibility first (small effort, high value):** ZB-006, ZB-007/ZB-014/ZB-017/ZB-011, ZB-013,
+   ZB-015 — stop any number or formula that contradicts itself from reaching a merchant.
+2. **Honesty of the AI claim:** ZB-004/ZB-020/ZB-038/ZB-039 and ZB-040 — either strengthen the guard
+   or narrow the documented claim to "numbers are deterministic; prose is model-generated".
+3. **Test the untested invariants:** ZB-005, ZB-041, ZB-042, ZB-044.
+4. **Accessibility conformance:** ZB-035, ZB-036, ZB-037.
+5. **Tail coverage & follow-through:** ZB-003, ZB-026, ZB-027, ZB-031, ZB-032.
+6. **Production hardening (large, only if this leaves the hackathon):** ZB-001/ZB-030, ZB-002, ZB-023.
+
+**Bottom line.** This is a credible, unusually disciplined analytical product with a real
+differentiator (settled-but-unverified money, surfaced as bankable and traceable) and an engineering
+base that a team could keep building on. It is not yet a production merchant-facing service, and a
+handful of its own stated guarantees are currently stronger in the documentation than in the code.
+Closing that gap — not adding features — is what would move this from "strong hackathon product" to
+"trustworthy".
+
+---
+
+## 8. Limitations of this review
+
+An honest record has to state what it does **not** establish:
+
+- **The reviewers are AI agents.** Every `critical`/`high` finding was independently re-verified by a
+  separate agent with cited evidence (43/43 confirmed, 0 refuted), and the integrating engineer
+  additionally re-confirmed the flagship findings by hand. The 75 `medium`/`low` findings did **not**
+  go through the verification pass and should be treated as credible but unconfirmed.
+- **Scores are calibrated judgement, not measurement.** The counts, coverage, timings and live API
+  values quoted in the register are measured; the 0–100 dimension scores are expert opinion against a
+  shared rubric and would move a few points with a different panel.
+- **No human usability testing.** UX, design and accessibility were assessed from source, computed
+  contrast ratios and screenshots — not from watching a real merchant use the product, and not with a
+  real screen reader.
+- **Single dataset, single machine.** Performance and coverage figures come from the challenge dataset
+  on one developer machine; they indicate shape, not production capacity.
+- **Video and deployment were excluded by request**, so this review is explicitly *not* a
+  production-readiness or release verdict.
+- **Point-in-time.** Everything here describes commit `75de6bb`. Fixes made after that commit are not
+  reflected; re-running the panel is the intended way to update this record.
+
+---
+
+*Generated from the panel's structured output by `pipeline/_gen_review.py`. Raw data:
+[`expert_review_findings.json`](expert_review_findings.json) · Full register:
+[EXPERT_REVIEW_ISSUES.md](EXPERT_REVIEW_ISSUES.md).*
+

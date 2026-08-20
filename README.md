@@ -122,18 +122,55 @@ No secrets are committed; the dataset is git-ignored and absent from history.
 
 ## Testing
 ```bash
-uv run pytest -q                 # 51 tests
+uv run pytest -q                 # 56 tests
 uv run ruff check .              # lint
 cd frontend && npm run build     # tsc (strict) + vite
 uv run python -m zarin.ai.eval   # copilot eval: deterministic / grounding / refusal
 ```
 CI: [.github/workflows/ci.yml](.github/workflows/ci.yml) (Python + frontend jobs).
 
+---
+
+## Independent expert review
+
+This repository carries its own audit. Commit `75de6bb` was evaluated by a panel of **15 specialized
+expert agents** — architecture, code quality, data & analytics correctness, statistical methodology,
+security, reliability, scalability, product, business viability, UX, design, accessibility, AI
+grounding, testing, plus a lens scoring the competition's own 300-point rubric. Every **critical** and
+**high** finding was then re-examined by a **separate verification agent** before being recorded
+(43/43 confirmed, 0 refuted). 58 agents ran in total.
+
+| | |
+|---|---|
+| Mean dimension score | **73.4 / 100** (median 73, range 61–82) |
+| Competition rubric | **236 / 300** (actionability 76/90 · correctness 58/75 · depth 41/60 · UX 36/45 · technical 25/30) |
+| Findings documented | **119** — 5 critical · 39 high · 56 medium · 19 low |
+| Strongest dimensions | code quality **82** · data correctness **82** · architecture **80** |
+| Weakest dimensions | accessibility **61** · security **66** · scalability **66** |
+
+The headline result is a **claim-vs-enforcement gap**: the analytical core is genuinely strong (grain
+discipline verified live, LMDI exact to ~1e-15, acyclic layering, deterministic-first AI), but several
+guarantees are stated unconditionally in the docs while being only partly enforced in code — the
+realized-GMV cap covers one of four opportunity generators, the evidence drawer prints a formula the
+code no longer uses, and the "the LLM may only rephrase" guard inspects digits only. Those, plus the
+absence of authentication and the accessibility conformance gaps, are the work queue.
+
+- 📋 **[docs/EXPERT_REVIEW.md](docs/EXPERT_REVIEW.md)** — the record: method, panel, scores, rubric
+  mapping, per-lens verdicts, priority queue, final assessment and the review's own limitations.
+- 🐞 **[docs/EXPERT_REVIEW_ISSUES.md](docs/EXPERT_REVIEW_ISSUES.md)** — all 119 findings, each with a
+  stable ID (`ZB-001`…`ZB-119`), location, observed evidence, impact, recommended fix and effort.
+- 🧾 **[docs/expert_review_findings.json](docs/expert_review_findings.json)** — the raw structured
+  results, machine-readable (regenerate the documents with `pipeline/gen_expert_review.py`).
+
+*(Excluded from that round by request: the demo video and deployment/hosting/CI-CD — it evaluates the
+software itself, so it is not a production-readiness verdict.)*
+
 ## Documentation
 - **[memory.md](memory.md)** — engineering continuity: invariants, AI rules, gotchas.
 - **[docs/PLATFORM_BOOK.md](docs/PLATFORM_BOOK.md)** — why this exists and why it's built this way.
 - **[docs/ADR/](docs/ADR/)** — stack · deterministic-vs-LLM · OpenRouter free policy · source adapters.
 - **[docs/DEPLOYMENT_SPEC.md](docs/DEPLOYMENT_SPEC.md)** — local + production-shaped deployment.
+- **[docs/EXPERT_REVIEW.md](docs/EXPERT_REVIEW.md)** — 15-agent expert audit: scores, findings, assessment.
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · **[docs/ANALYTICS.md](docs/ANALYTICS.md)** ·
   **[docs/DATA_AUDIT.md](docs/DATA_AUDIT.md)** · **[docs/DESIGN.md](docs/DESIGN.md)** ·
   **[CONTRIBUTING.md](CONTRIBUTING.md)** · **[docs/JURY_REVIEW.md](docs/JURY_REVIEW.md)** ·

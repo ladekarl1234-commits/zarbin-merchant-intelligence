@@ -72,6 +72,16 @@ GA4 is the first future source, via `zarin/sources/ga4.py` (config-gated, inject
 transport, no vendor SDK coupling). **GA4 = web/product signals, NOT financial truth**;
 never row-level joined with payments — only aggregate, time-aligned relationships, no causality.
 
+## Known issue queue (from the expert audit)
+Commit `75de6bb` was audited by a 15-lens expert panel; every critical/high finding was independently
+verified. **Before starting new work, read `docs/EXPERT_REVIEW.md` §6 (priority queue) and pick from
+`docs/EXPERT_REVIEW_ISSUES.md`** — issues have stable IDs (`ZB-001`…`ZB-119`). Highest-value themes:
+the realized-GMV cap covers only one of four opportunity generators (ZB-006); the evidence drawer's
+opportunity formula contradicts the code (ZB-007/014/017); the grounding guard is digit-only so
+invented causality passes (ZB-004/020/038/039); the AI eval's "refusal safety" cannot fail (ZB-040);
+peer-percentile happy path and 6/9 card generators are untested (ZB-005/042); accessibility contrast
+fails WCAG 1.4.3 (ZB-035). Fixing the claim-vs-enforcement gap outranks adding features.
+
 ## Current limitations (be honest)
 - Opportunity band is a scenario range, not a bootstrap CI (labelled as such; low-peer-n flagged).
 - Telemetry store is JSONL + in-memory (hackathon). Prod → durable store/OTel (see ADR-0001).
