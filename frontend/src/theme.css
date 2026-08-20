@@ -405,6 +405,33 @@ input:focus, button:focus-visible, a:focus-visible {
 .dist-val { font-size: var(--fs-s); color: var(--ink); font-weight: 700; white-space: nowrap; }
 @media (max-width: 500px) { .dist-row { grid-template-columns: 96px 1fr auto; } }
 
+/* balanced KPI card grid (used where a bordered single-row strip would orphan a card) */
+.kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 720px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 420px) { .kpi-grid { grid-template-columns: 1fr; } }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l);
+  padding: 16px 18px; box-shadow: var(--shadow-1); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.kpi .k { font-size: 0.74rem; color: var(--ink-3); display: inline-flex; align-items: center; gap: 4px; }
+.kpi .v { font-size: var(--fs-xl); font-weight: 800; letter-spacing: -0.015em; line-height: 1.25; }
+.kpi .u { font-size: 0.72rem; font-weight: 400; color: var(--ink-3); margin-inline-start: 5px; }
+
+/* login: environment entry cards (choose before auth) */
+.entry-list { display: grid; gap: 12px; }
+.entry-card { display: flex; align-items: center; gap: 14px; text-align: start; width: 100%;
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 16px 18px;
+  font: inherit; cursor: pointer; transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform var(--dur) var(--ease); }
+.entry-card:hover { border-color: var(--line-3); box-shadow: var(--shadow-2); }
+.entry-card:active { transform: scale(0.99); }
+.entry-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; }
+.entry-icon svg { width: 22px; height: 22px; }
+.entry-icon.merchant { background: var(--brand-soft); color: #8a6d00; }
+.entry-icon.ops { background: #eef0ff; color: var(--blue); }
+.entry-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.entry-title { font-size: 0.95rem; font-weight: 800; }
+.entry-sub { font-size: 0.76rem; color: var(--ink-3); line-height: 1.5; }
+.entry-arrow { color: var(--ink-4); font-size: 1.1rem; flex-shrink: 0; }
+.entry-card:hover .entry-arrow { color: var(--ink-2); }
+
 @media (pointer: coarse) { .btn, .field, .composer-send, .mic { min-height: 44px; } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

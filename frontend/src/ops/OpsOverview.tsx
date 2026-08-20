@@ -23,18 +23,18 @@ export default function OpsOverview() {
         </p>
       </header>
 
-      <div className="stats" role="list" aria-label="شاخص‌های پلتفرم">
-        <div className="stat" role="listitem"><span className="k">پذیرندگان فعال</span>
+      <div className="kpi-grid" role="list" aria-label="شاخص‌های پلتفرم">
+        <div className="kpi" role="listitem"><span className="k">پذیرندگان فعال</span>
           <div className="v num">{faNum(k.active_merchants)}<span className="u">از {faNum(k.total_merchants)}</span></div></div>
-        <div className="stat" role="listitem"><span className="k">جلسه‌های پرداخت</span>
+        <div className="kpi" role="listitem"><span className="k">جلسه‌های پرداخت</span>
           <div className="v num">{faNum(k.sessions)}</div></div>
-        <div className="stat" role="listitem"><span className="k">فروش موفق کل</span>
+        <div className="kpi" role="listitem"><span className="k">فروش موفق کل</span>
           <div className="v num">{rial(k.gmv, false)}<span className="u">ریال</span></div></div>
-        <div className="stat" role="listitem"><span className="k">نرخ تبدیل کل</span>
+        <div className="kpi" role="listitem"><span className="k">نرخ تبدیل کل</span>
           <div className="v num">{pct(k.conv)}</div></div>
-        <div className="stat" role="listitem"><span className="k">تسویه‌شدهٔ تاییدنشده</span>
+        <div className="kpi" role="listitem"><span className="k">تسویه‌شدهٔ تاییدنشده</span>
           <div className="v num">{rial(k.paid_unverified_amount, false)}<span className="u">ریال</span></div></div>
-        <div className="stat" role="listitem"><span className="k">نجات با تلاش مجدد</span>
+        <div className="kpi" role="listitem"><span className="k">نجات با تلاش مجدد</span>
           <div className="v num">{rial(k.recovered_gmv, false)}<span className="u">ریال</span></div></div>
       </div>
 

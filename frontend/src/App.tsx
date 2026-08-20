@@ -21,6 +21,7 @@ import OpsCopilotPage from "./ops/OpsCopilotPage";
 
 type Icon = (p: { className?: string }) => JSX.Element;
 type Nav = { id?: string; label: string; short?: string; icon?: Icon; header?: boolean; el?: JSX.Element; sub?: string };
+export type WS = "merchant" | "ops";
 
 const MERCHANT: Nav[] = [
   { header: true, label: "دستیار" },
@@ -44,27 +45,23 @@ const OPS: Nav[] = [
   { id: "copilot", label: "دستیار عملیات", short: "دستیار", icon: IconChat, el: <OpsCopilotPage />, sub: "از سلامت محصول بپرس" },
 ];
 
-type WS = "merchant" | "ops";
-
-function useRoute(): [WS, string, (ws: WS, page: string) => void] {
-  const parse = (): [WS, string] => {
-    const ops = location.hash.match(/#\/ops\/([\w-]+)/);
-    if (ops) return ["ops", ops[1]];
-    const m = location.hash.match(/#\/([\w-]+)/);
-    return ["merchant", m?.[1] ?? "copilot"];
-  };
-  const [st, setSt] = useState<[WS, string]>(parse);
+/** Page-only routing. Workspace is fixed by the login session (chosen before auth), never
+ *  derived from the URL — so a merchant URL can never reach the operations workspace. */
+function useRoute(): [string, (page: string) => void] {
+  const parse = () => location.hash.match(/#\/(?:ops\/)?([\w-]+)/)?.[1] ?? "";
+  const [page, setPage] = useState(parse);
   useEffect(() => {
-    const on = () => { setSt(parse()); window.scrollTo(0, 0); };
+    const on = () => { setPage(parse()); window.scrollTo(0, 0); };
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);
-  return [st[0], st[1], (ws, page) => { location.hash = ws === "ops" ? `#/ops/${page}` : `#/${page}`; }];
+  return [page, (p) => { location.hash = `#/${p}`; }];
 }
 
-function Shell({ onLogout }: { onLogout: () => void }) {
+function Shell({ workspace, onLogout }: { workspace: WS; onLogout: () => void }) {
   const { meta, merchant, setMerchant, presetId, setPresetId, presets } = useApp();
-  const [ws, page, go] = useRoute();
+  const ws = workspace;
+  const [page, go] = useRoute();
   const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.innerWidth < 860);
   useEffect(() => {
     const on = () => setNarrow(window.innerWidth < 860);
@@ -92,7 +89,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             {nav.map((n, i) => n.header ? (
               <div key={`h${i}`} className="side-head">{n.label}</div>
             ) : (
-              <button key={n.id} className="side-item" aria-current={n.id === page ? "page" : undefined} onClick={() => go(ws, n.id!)}>
+              <button key={n.id} className="side-item" aria-current={n.id === page ? "page" : undefined} onClick={() => go(n.id!)}>
                 {n.icon && <n.icon />}{n.label}
               </button>
             ))}
@@ -105,9 +102,6 @@ function Shell({ onLogout }: { onLogout: () => void }) {
                 <div className="u-role">{ws === "ops" ? "مرکز کنترل" : `${mkey?.category_title ?? "پذیرنده"}`}</div>
               </div>
             </div>
-            <button className="side-btn switch" onClick={() => go(ws === "ops" ? "merchant" : "ops", ws === "ops" ? "copilot" : "overview")}>
-              {ws === "ops" ? "→ بازگشت به فضای پذیرنده" : "→ مرکز کنترل عملیات"}
-            </button>
             <button className="side-btn" onClick={onLogout}>خروج از حساب</button>
           </div>
         </aside>
@@ -122,12 +116,6 @@ function Shell({ onLogout }: { onLogout: () => void }) {
               <div className="t-sub">{current.sub}</div>
             </div>
             <div className="t-right">
-              {narrow && (
-                <button className="btn" style={{ padding: "6px 10px", fontSize: "0.72rem" }}
-                        onClick={() => go(ws === "ops" ? "merchant" : "ops", ws === "ops" ? "copilot" : "overview")}>
-                  {ws === "ops" ? "فضای پذیرنده" : "مرکز کنترل"}
-                </button>
-              )}
               {ws === "merchant" && meta && (
                 <select className="btn num" value={merchant} onChange={(e) => setMerchant(e.target.value)} aria-label="پذیرنده"
                         style={{ maxWidth: 190 }}>
@@ -146,6 +134,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
                   <button key={p.id} aria-pressed={p.id === presetId} onClick={() => setPresetId(p.id)}>{p.short ?? p.label}</button>
                 ))}
               </div>
+              {narrow && <button className="btn" style={{ padding: "6px 10px", fontSize: "0.72rem" }} onClick={onLogout}>خروج</button>}
             </div>
           </div>
         </header>
@@ -155,7 +144,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
         {narrow && (
           <nav className="bottomnav" aria-label="ناوبری موبایل">
             {items.map((n) => (
-              <button key={n.id} className="bn-item" aria-current={n.id === page ? "page" : undefined} onClick={() => go(ws, n.id!)}>
+              <button key={n.id} className="bn-item" aria-current={n.id === page ? "page" : undefined} onClick={() => go(n.id!)}>
                 {n.icon && <n.icon />}{n.short}
               </button>
             ))}
@@ -169,14 +158,18 @@ function Shell({ onLogout }: { onLogout: () => void }) {
 }
 
 export default function App() {
-  const [authed, setAuthed] = useState(() => {
-    try { return sessionStorage.getItem("zb_auth") === "1"; } catch { return false; }
+  const [session, setSession] = useState<WS | null>(() => {
+    try { const v = sessionStorage.getItem("zb_ws"); return v === "ops" || v === "merchant" ? v : null; } catch { return null; }
   });
-  const login = () => { try { sessionStorage.setItem("zb_auth", "1"); } catch { /* storage blocked */ } setAuthed(true); };
-  const logout = () => { try { sessionStorage.removeItem("zb_auth"); } catch { /* storage blocked */ } setAuthed(false); };
+  const login = (ws: WS) => { try { sessionStorage.setItem("zb_ws", ws); } catch { /* storage blocked */ } setSession(ws); };
+  const logout = () => {
+    try { sessionStorage.removeItem("zb_ws"); } catch { /* storage blocked */ }
+    location.hash = "";
+    setSession(null);
+  };
   return (
     <AppProvider>
-      {authed ? <Shell onLogout={logout} /> : <Login onLogin={login} />}
+      {session ? <Shell workspace={session} onLogout={logout} /> : <Login onLogin={login} />}
     </AppProvider>
   );
 }
