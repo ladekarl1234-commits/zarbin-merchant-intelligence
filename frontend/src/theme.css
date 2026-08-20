@@ -108,8 +108,6 @@ input:focus, button:focus-visible, a:focus-visible {
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .side-btn:hover { background: var(--surface-3); color: var(--ink); }
-.side-btn.switch { color: var(--blue); border-color: #2333e022; }
-.side-btn.switch:hover { background: #eef0ff; color: var(--blue-hover); }
 
 .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .topbar {
