@@ -26,32 +26,36 @@ _SYSTEM_PROMPT = (
     "۴) کوتاه، محترمانه و بدون اصطلاح فنی جواب بده. پاسخ فقط فارسی باشد."
 )
 
-_PERSIAN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
-# every separator that can sit between digits: ASCII , . / and the Persian/Arabic comma
-# (U+060C), decimal (U+066B), thousands (U+066C), plus spaces. Stripping them means
-# "۶۱٫۸"→"618", "۲۳،۸۰۱"→"23801", "۶۱٬۸۰۰٬۰۰۰"→"61800000000".
-_SEP = re.compile(r"(?<=\d)[,./،٫٬  \s](?=\d)")
+# Map Persian/Arabic digits to ASCII, and the Persian decimal mark ٫ (U+066B) to ".".
+_PERSIAN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩٫", "01234567890123456789.")
+# Strip ONLY thousands groupers between digits: ASCII comma, Persian comma (U+060C),
+# Arabic thousands (U+066C), and whitespace. The DECIMAL mark is deliberately preserved, so
+# "۲٫۳" stays "2.3" (≠ "23") — conflating them would let an LLM turn 2.3% into 23% and pass.
+_THOUSANDS = re.compile(r"(?<=\d)[,،٬\s](?=\d)")
 
 
 def _digit_runs(text: str) -> list[str]:
-    ascii_text = _SEP.sub("", text.translate(_PERSIAN_DIGITS))
-    return [r for r in re.findall(r"\d+", ascii_text) if len(r) >= 2]
+    t = _THOUSANDS.sub("", text.translate(_PERSIAN_DIGITS))
+    # a run is an integer or a decimal; keep those with ≥2 significant digits (skip ordinals)
+    return [r for r in re.findall(r"\d+(?:\.\d+)?", t) if sum(c.isdigit() for c in r) >= 2]
 
 
 def _traces_to(x: str, det: list[str]) -> bool:
-    """A number `x` traces to a deterministic run `d` iff it is that run, OR it is the
-    significant-digit prefix of a longer run whose remainder is all zeros (an
-    order-of-magnitude abbreviation, e.g. "618" ⇒ "61800000000"). Fail-closed:
-    an arbitrary substring like "80" inside "61800000000" does NOT trace."""
+    """`x` traces to a deterministic run iff it equals one, OR (integers only) it is the
+    significant-digit prefix of a longer integer run whose remainder is all zeros — an
+    order-of-magnitude abbreviation ("618" ⇐ "61800000000"). Decimals must match EXACTLY:
+    "2.3" never traces to "23", and a substring "80" never traces to "61800000000"."""
     for d in det:
-        if d.startswith(x) and set(d[len(x):]) <= {"0"}:
+        if x == d:
+            return True
+        if "." not in x and "." not in d and d.startswith(x) and set(d[len(x):]) <= {"0"}:
             return True
     return False
 
 
 def is_grounded(llm_text: str, deterministic_text: str) -> bool:
     """Every multi-digit number in the LLM answer must trace to the deterministic text.
-    Prevents the model presenting an invented number as engine truth."""
+    Prevents the model presenting an invented (or mis-scaled) number as engine truth."""
     det = _digit_runs(deterministic_text)
     return all(_traces_to(x, det) for x in _digit_runs(llm_text))
 

@@ -1,6 +1,7 @@
 """FastAPI app: /api/* JSON endpoints + static frontend."""
 from __future__ import annotations
 
+import hmac
 import os
 from datetime import date
 from functools import lru_cache
@@ -32,7 +33,7 @@ def _check_merchant(m: str) -> None:
 
 def _admin_guard(x_admin_token: str | None = Header(default=None)) -> None:
     """Operator-token gate for /api/admin/*. Enforced only when ZARIN_ADMIN_TOKEN is set."""
-    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
+    if ADMIN_TOKEN and not hmac.compare_digest(x_admin_token or "", ADMIN_TOKEN):
         raise HTTPException(401, "operator token required for the Control Center API")
 
 

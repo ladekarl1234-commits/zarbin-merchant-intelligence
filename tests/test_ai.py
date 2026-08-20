@@ -11,8 +11,11 @@ from zarin import copilot
 from zarin.ai import gateway, models, telemetry
 from zarin.ai import safe_context as sc
 from zarin.ai.provider import Completion
+from zarin.fa import fa_money, fa_num, fa_pct
 
-DET = "فروش موفق ۶۱٬۸۰۰٬۰۰۰٬۰۰۰ ریال از ۱۲۳ پرداخت بود"
+# DET is built from the SAME formatters the product uses, so its separators (Persian decimal
+# ٫ / thousands ،) are exactly what the grounding guard must handle. Runs: 61.8, 23801, 49.7.
+DET = f"فروش موفق {fa_money(61_800_000_000)} از {fa_num(23801)} پرداخت، نرخ تبدیل {fa_pct(0.497)} بود"
 
 
 class FakeProvider:
@@ -68,7 +71,7 @@ def test_gateway_uses_llm_when_grounded():
     telemetry.reset()
     r = gateway.explain(question="q", merchant_scope="M1", intent="overview",
                         deterministic_answer_fa=DET, evidence=[{"metric_id": "gmv"}],
-                        provider=FakeProvider("حدود ۶۱٫۸ میلیارد ریال از ۱۲۳ پرداخت داشتی"))
+                        provider=FakeProvider(f"حدود {fa_money(61_800_000_000)} از {fa_num(23801)} پرداخت داشتی"))
     assert r.source == "llm" and r.grounded and not r.fallback
     assert r.cost_usd == 0.0 and r.total_tokens == 15
 
@@ -102,7 +105,7 @@ def test_telemetry_summary_reflects_events():
     telemetry.reset()
     gateway.explain(question="q", merchant_scope="M1", intent="overview",
                     deterministic_answer_fa=DET, evidence=[{"metric_id": "gmv"}],
-                    provider=FakeProvider("۶۱٫۸ میلیارد ریال"))
+                    provider=FakeProvider(f"{fa_money(61_800_000_000)} فروش داشتی"))
     s = telemetry.summary()
     assert s["has_data"] and s["total"] == 1 and s["llm_requests"] == 1
     assert s["grounded_rate"] == 1.0 and s["cost_usd_total"] == 0.0
@@ -117,15 +120,19 @@ def test_copilot_answer_numbers_are_deterministic_even_with_bad_llm():
     assert "۸۸۸۸۸۸" not in d["answer_fa"] and "۷۷۷" not in d["answer_fa"]
 
 
-def test_grounding_guard_rejects_digit_substrings_of_a_large_number():
-    """The substring hole: a fabricated number whose digits merely APPEAR inside a large
-    computed figure must NOT pass as grounded. Only the figure, or its zero-padded
-    order-of-magnitude abbreviation, traces. DET → 61800000000 and 123."""
-    assert not gateway.is_grounded("نرخ تبدیل ۸۰ درصد بود", DET)   # 80 ⊂ 61800000000 — fabricated
-    assert not gateway.is_grounded("۱۸ مشتری جدید داشتی", DET)      # 18 ⊂ … — fabricated
-    assert not gateway.is_grounded("رشد ۱۲ برابری", DET)           # 12 ⊂ … — fabricated
-    assert gateway.is_grounded("حدود ۶۱٫۸ میلیارد ریال از ۱۲۳ پرداخت", DET)  # legit abbreviation
-    assert gateway.is_grounded("۶۱٬۸۰۰٬۰۰۰٬۰۰۰ ریال", DET)         # the figure itself
+def test_grounding_guard_rejects_digit_substrings_and_rescaled_numbers():
+    """Two holes the guard must close:
+    (a) a fabricated number whose digits merely APPEAR inside a large figure (substring), and
+    (b) a rescaled number that drops/moves a decimal (2.3% → 23%, 61.8B → 618B)."""
+    big = fa_num(61_800_000_000)                     # → run "61800000000"
+    assert not gateway.is_grounded("نرخ تبدیل ۸۰ درصد", big)   # 80 ⊂ 61800000000 — rejected
+    assert not gateway.is_grounded("۱۸ مشتری جدید", big)       # 18 ⊂ … — rejected
+    assert gateway.is_grounded("۶۱۸ میلیارد", big)            # order-of-magnitude abbreviation — ok
+    assert gateway.is_grounded(big, big)                     # exact — ok
+    # decimal must not be conflated with its un-pointed digits
+    assert not gateway.is_grounded("نرخ تبدیل ۲۳ درصد بود", f"نرخ تبدیل {fa_pct(0.023)} بود")  # 23 ≠ 2.3
+    assert not gateway.is_grounded("۶۱۸ میلیارد ریال", fa_money(61_800_000_000))               # 618 ≠ 61.8
+    assert gateway.is_grounded(fa_pct(0.023), f"نرخ تبدیل {fa_pct(0.023)} بود")                # exact decimal — ok
 
 
 def test_recovery_question_routes_to_recovery_not_friction():
