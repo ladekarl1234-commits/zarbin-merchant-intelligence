@@ -1,13 +1,15 @@
 # Expert Panel Review — full issue register
 
-All **119 findings** from the 15-lens expert panel on commit `75de6bb`, most
-severe first, each with a stable ID so it can be tracked and fixed individually.
+All **120 findings** on commit `75de6bb` — 119 from the 15-lens expert
+panel plus 1 (`ZB-120`) found later while auditing the published record — most severe
+first, each with a stable ID so it can be tracked and fixed individually. Every entry carries its
+`source` implicitly via its lens: `record-verification` marks the addendum.
 `Verification` is the independent second-agent verdict; that pass covered 43 of the
-44 critical/high findings (capped at four per lens — ZB-044 was missed) and no
+44 critical/high panel findings (capped at four per lens — ZB-044 was missed) and no
 medium/low findings. See [EXPERT_REVIEW.md](EXPERT_REVIEW.md) for the process, scores and
-overall assessment, and §9 there for [ZB-120](EXPERT_REVIEW.md#zb-120), found later.
+overall assessment.
 
-**Counts:** 5 critical · 39 high · 56 medium · 19 low
+**Counts (panel):** 5 critical · 39 high · 56 medium · 19 low **· plus ZB-120 (high)**
 
 ---
 
@@ -619,12 +621,23 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-044 · Ops copilot intent routing is 54% covered and misroutes — verified, with no equivalent to the merchant copilot's ordering regression test
 
-**Lens:** `testing-qa` · **Severity:** HIGH · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `testing-qa` · **Severity:** HIGH · **Effort:** small · **Verification:** not verified (missed by the per-lens cap of four verifications)
 
 - **Where:** zarin/ops_copilot.py:33-111; tests/test_control.py:68-80
 - **Observed:** 46 of 99 statements uncovered (lines 36-43, 46-52, 55-60, 64-70, 83-92, 106, 115-123). Eight first-match-wins regexes; tests exercise only `system` and `sources` plus one loose ai probe. Verified in-process: `ops_copilot._plan('هزینه سرور بالا رفته چرا؟')` → intent `ai_cost` (a server-cost question routed to AI-model spend), and `_plan('چند درصد پاسخ ها مستند بوده و هزینه چقدر شده؟')` → `ai_cost`, swallowing the `ai_grounded` intent. Cause: the bare `|هزینه` alternative at ops_copilot.py:45 matches any question containing the word and sits above ai_model/ai_grounded/ai_health. The merchant copilot has a dedicated guard for exactly this class of bug (tests/test_ai.py:138-145, recovery must not be swallowed by friction); the ops copilot has none, and `_attention` (114-123) is never invoked.
 - **Impact:** An operator asking about grounding rate or infrastructure cost gets an unrelated AI-spend answer with 'high' confidence and mismatched evidence. Adding or broadening any ops regex can silently capture a sibling intent.
 - **Recommended fix:** Parametrize a routing table test over all eight ops intents (one representative question each, plus two compound questions asserting the more specific intent wins) mirroring test_ai.py:138, and anchor the cost regex so it requires an AI/model qualifier.
+
+<a id="zb-120"></a>
+
+### ZB-120 · `high_value_friction` is non-deterministic — the same query returns different money
+
+**Lens:** `record-verification` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED (measured directly, then reproduced independently by a second agent)
+
+- **Where:** zarin/insights.py:209 — `ntile(5) OVER (ORDER BY amount)`
+- **Observed:** Five identical calls to generate('M21','2026-01-01','2026-06-30') returned four distinct values for high_value_friction.impact_high: 4,813,687,678 / 4,763,212,124 / 4,829,335,319 / 4,763,212,124 / 4,712,497,933. An independent auditor reproduced it separately: six calls, five distinct values, spanning 4,645,773,572–4,798,040,037 (106.2–109.7% of the merchant's realized GMV of 4,373,353,280). `ntile(5) OVER (ORDER BY amount)` has no tiebreaker, so rows with equal amount — constant in payments, where prices are round — land in different quintiles on different runs under DuckDB's parallel execution, changing n_top, conv_top and avg_lost_amount.
+- **Impact:** Contradicts the product's central promise — 'the same query, always the same answer' (ADR-0002) — on the very surface built to prove it. A merchant reopening the card, or a judge re-running the evidence drawer, can see a different amount with no explanation, and every downstream figure (ranking position, copilot answer text) becomes irreproducible. Blast radius exceeds the card: it also flips the empty/non-empty verdict for at least one merchant, perturbing the coverage figures this record itself publishes (126 vs 127 of 343 across runs).
+- **Recommended fix:** Add a deterministic tiebreaker — `ntile(5) OVER (ORDER BY amount, session_key)` — and a test asserting two consecutive generate() calls return identical impact_high. Audit every other window function and any ORDER BY lacking a unique tiebreaker for the same class of bug.
 
 ## MEDIUM severity
 
@@ -632,7 +645,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-045 · Data-quality page shows 1 anomaly next to a hardcoded claim of 28 for what reads as the same anomaly
 
-**Lens:** `rubric-official` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `rubric-official` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:243-246 (computed) vs zarin/api.py:256 (rules_fa prose); rendered adjacent in frontend/src/pages/QualityPage.tsx:52 and :61
 - **Observed:** /api/quality returns anomalies.verified_wo_ok_try = 1, rendered as «۱ جلسه Verified بدون تلاش موفق ثبت‌شده». The rules list directly below it renders the hardcoded «۲۸ جلسه Verified بدون تلاش Verified». I reproduced both against the marts: no-OK-try = 1, no-Verified-try = 28 (Paid counts as OK in the computed query). Both are correct under their own definitions; neither definition is stated.
@@ -643,7 +656,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-046 · Five dataset dimensions are carried into the marts and used by zero analytics
 
-**Lens:** `rubric-official` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `rubric-official` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/pipeline.py:82 (win_bank), :98 (dow), :105-106 (issuer_bank_code, init_time_ms), :72 (verify_type) — no reference in zarin/analytics.py, insights.py, peers.py or any frontend page
 - **Observed:** Grep across zarin/ and frontend/src/ finds these columns only in pipeline.py and the one-off pipeline/audit*.py scripts. issuer_bank_code exists on every attempt row and is audited (pipeline/audit.py:80 shows per-bank success counts), but no insight, funnel breakdown or benchmark segments by it. init_time_ms (gateway init latency) is likewise materialized and unused; dow is computed on every session and never grouped by.
@@ -654,7 +667,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-047 · Peer gaps produce rial figures with no significance test; the "uncertainty" band is a hardcoded judgement constant
 
-**Lens:** `rubric-official` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `rubric-official` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/insights.py:66 (2pp threshold), :80-82 (recovery_fraction 0.5/0.75/1.0), zarin/peers.py:109-117 (percentile by raw rank)
 - **Observed:** _gap_card fires on any gap ≥ 2pp with ≥5 peers and no test of whether that gap is distinguishable from peer dispersion. M156's inbank_gap fires on 5 peers (confidence "low") and still prints 98.2B–196.4B IRR. The band width comes entirely from the fixed [0.5, 0.75, 1.0] constants, so it conveys no information about peer variance or sample size. Peer percentile is exact rank, which is correct, but n=5 makes it coarse (the UI does warn via the low_n chip).
@@ -665,7 +678,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-048 · Actions are per-kind templates that ignore what sibling cards already computed
 
-**Lens:** `rubric-official` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `rubric-official` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/insights.py:175 (inbank action_fa), :167 (no_attempt action_fa) vs :350 (_psp_card action_fa)
 - **Observed:** Every merchant with an inbank_gap receives the identical sentence «با پشتیبانی زرین‌پال درباره درگاه/PSP جایگزین صحبت کنید» — including M156, whose psp_friction card in the same response already identifies PSP-03 at 20.5% vs PSP-04 at 59.4% and lists its top three error codes. Only the numbers in observation_fa vary between merchants; diagnosis_fa and action_fa are constants per kind.
@@ -676,7 +689,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-049 · DataSourceAdapter is half a nominal abstraction — the ingestion half has no production consumer
 
-**Lens:** `architecture` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `architecture` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/sources/base.py:32 (metrics), zarin/sources/ga4.py:47, zarin/control.py:110-116
 - **Observed:** Grepped every call site: `adapter.metrics(f,t)` is invoked only from tests/test_sources.py:12,26 — never from production code. `control.sources()` calls only `.status()`. `registry()` constructs `GA4Adapter()` with no `fetch_fn`, so even a fully configured GA4 reports status="error", "no GA4 transport wired". `control.py:116` hardcodes `"cross_source_insights": []`, so the 68 lines of `sources/insights.py` are unreachable from the API.
@@ -687,7 +700,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-050 · Admin auth seam exists only on the server; the ops UI can never satisfy it
 
-**Lens:** `architecture` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `architecture` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:34-37 (_admin_guard) vs frontend/src/ctx.tsx:78-95 (useAdmin)
 - **Observed:** `_admin_guard` enforces `X-Admin-Token` via hmac.compare_digest when ZARIN_ADMIN_TOKEN is set. `useAdmin` calls `get(path, ...)` and `api.ts:164` issues a bare `fetch` with no headers argument — I grepped the whole frontend and no file references X-Admin-Token or any token. docs/DEPLOYMENT_SPEC.md:86 acknowledges it ("the ops UI must send…").
@@ -698,7 +711,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-051 · insights.py is the god module: 9 hand-built card dicts with an implicit, drifting contract
 
-**Lens:** `architecture` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `architecture` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/insights.py:135-315 (generate)
 - **Observed:** 413 lines, the largest module in the codebase. `generate()` inlines nine card literals with ~20 duplicated keys each. The card contract is implicit and inconsistent: only `_gap_card` emits `impact_mid` (line 112), only PSP emits `impact_is_count` (line 353), only alerts emit `risk_gmv` (line 284) — and the ranking at line 303-314 depends on `card_type` being set correctly, patched by a `setdefault` at line 304. Also `from .peers import _quantile` (line 16) imports a private helper across a module boundary, and `from .db import q` is re-imported inside functions at lines 320 and 370 despite `q1` already being imported at line 14 (no cycle exists — I checked the whole graph).
@@ -709,7 +722,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-052 · Ops surface bypasses the metric registry with hand-written evidence payloads
 
-**Lens:** `architecture` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `architecture` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/ops_copilot.py:24-29 (_ev)
 - **Observed:** `_ev()` hand-constructs a dict shaped like `registry.evidence()` output — same keys, `metric_id: "ops"` which is not in REGISTRY — with name/definition/formula written inline per answer. `control.py:80-98` (_platform_insights) likewise hand-writes cards with no registry reference. registry.py:6 states "Nothing is hand-written per UI card."
@@ -720,7 +733,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-053 · Analytical thresholds live as inline magic numbers, contradicting config.py's «One source of truth», and are re-hardcoded in UI copy
 
-**Lens:** `code-quality` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `code-quality` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/config.py:1 / zarin/insights.py:28-32,66,80-82,90,187,218,247,274,329,334,342 / frontend/src/pages/FunnelPage.tsx:82,112 / frontend/src/components/InsightCard.tsx:49
 - **Observed:** config.py's docstring says «Central configuration: paths, thresholds, constants. One source of truth», and holds 5 thresholds. But `insights.py` hardcodes the 2pp gap floor (`gap_mid < 0.02`), the recovery band (`0.5/0.75/1.0`), the broken-funnel cut (`mine > 0.5`), the confidence ladder (`2000`/`500`/`8`/`5`), the recovery gap floor (`0.03`), the high-value gap (`0.05`), PSP attempt floor (`200`), success floor (`30`), concentration cut (`0.4`), «top 5» customers, and the 27-day window. Separately, `FunnelPage.tsx:82` states «حداقل ۳۰ جلسه» and `:112` «حداقل ۳۰ تلاش» (duplicating `MIN_SEGMENT_N=30`), and `InsightCard.tsx:49` gates the uncertainty chip on `card.n_peers < 8` (duplicating `PREFERRED_PEERS=8`, also hardcoded at `insights.py:96,104`).
@@ -731,7 +744,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-054 · Top-5 concentration is implemented four times with divergent null handling
 
-**Lens:** `code-quality` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `code-quality` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/analytics.py:182-187, zarin/insights.py:268-273, zarin/control.py:42-47, zarin/api.py:240-242
 - **Observed:** Four near-identical `row_number() OVER (ORDER BY gmv DESC)` + `sum(...) FILTER (WHERE rk<=5)` CTEs. Three guard the denominator with `nullif(sum(...),0)`; `api.py:242` writes `sum(gmv) FILTER (WHERE rk<=5)/sum(gmv)` with no `nullif`. `control.py:45` adds `NULLS LAST` the others omit, and the result key differs (`top5_share` in analytics, `top5` in the other three) — the frontend type `Customers.concentration.top5_share` vs `Quality.concentration.top5` reflects the split.
@@ -742,7 +755,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-055 · Chart colors bypass the design tokens and have already drifted
 
-**Lens:** `code-quality` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `code-quality` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/components/charts.tsx:4-5,19,21,25 vs frontend/src/theme.css:11,15,19
 - **Observed:** `charts.tsx` hardcodes `INK = "#1c1c22"`, `YELLOW = "#ffd900"`, and `stroke="#e4e4e7"` (×3). theme.css defines `--ink: #16161d`, `--brand: #ffd500`, `--line: #e7e7ea`. These are three *different* values, not aliases — the chart palette has already diverged from the system it is supposed to match. Elsewhere the same file correctly uses `var(--good)`, `var(--ink-3)`, `var(--surface-2)` (lines 71, 112, 167).
@@ -753,7 +766,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-056 · No lint or test gate on 2,777 lines of frontend; `eslint-disable` comments reference a linter that isn't installed
 
-**Lens:** `code-quality` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `code-quality` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/package.json:8-12 (scripts/devDependencies), frontend/src/ctx.tsx:92,112, frontend/src/components/EvidenceDrawer.tsx:23, frontend/src/components/Copilot.tsx:10
 - **Observed:** `frontend/package.json` has no eslint, no vitest, no test script; `build` is `tsc --noEmit && vite build`. Yet four files carry `// eslint-disable-next-line react-hooks/exhaustive-deps` and `@typescript-eslint/no-explicit-any` directives — inert comments for a tool that is not in the tree (no `.eslintrc*`, confirmed by `ls frontend/`). tsconfig is `strict: true` + `noUnusedLocals` but omits `noUncheckedIndexedAccess`, so patterns like `items[0]`/`items[items.length-1]` (EvidenceDrawer.tsx:37) type as non-optional.
@@ -764,7 +777,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-057 · Data Quality page contradicts itself on the known-anomaly count (1 vs 28)
 
-**Lens:** `data-correctness` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `data-correctness` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:243-246 (`verified_wo_ok_try`) and api.py:256 (rules_fa), rendered together in frontend/src/pages/QualityPage.tsx:52 and :61
 - **Observed:** GET /api/quality returns anomalies.verified_wo_ok_try = 1, because the SQL filters `sum(ok::int)=0` where ok = try_status IN ('Verified','Paid'). The rules list on the same card hard-codes «۲۸ جلسه Verified بدون تلاش Verified», and docs/DATA_AUDIT.md:61,79 audits exactly 28. Direct query confirms 28 Verified sessions have no try_status='Verified' row, carrying 43,815,600 IRR — precisely the session-vs-attempt GMV reconciliation gap that pipeline.py:204-205 attributes to those 28. Secondary: DATA_AUDIT.md:79 claims the payer card stays null for these; that holds for only 1 of the 28 (the other 27 have a Paid try that supplies a card).
@@ -775,7 +788,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-058 · Broken-funnel branch overrides the documented small-peer-pool confidence cap
 
-**Lens:** `data-correctness` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `data-correctness` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/insights.py:96-101 (`conf = "low" if n_peers < 8` … then `if broken: conf = "high"`)
 - **Observed:** Live GET /api/insights?m=M265: the top card is no_attempt_gap with confidence="high", n_peers=5, broken=true, capped=true, impact 4,355,020,000 IRR. GET /api/peers?m=M265 shows the group is level="category" with n=5 — the scale/ticket comparability rules were dropped entirely. docs/ANALYTICS.md:75-76 states that with fewer than 8 peers confidence is capped at «پایین».
@@ -786,7 +799,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-059 · Peer pool includes structurally dead merchants, so the "peer median" is not a comparable baseline
 
-**Lens:** `statistics` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `statistics` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/peers.py:17 (POOL_SQL), peers.py:64-74; merchant_stats probe
 - **Observed:** POOL_SQL filters only `sessions >= 500`. Of the 81 merchants in the pool, 6 have no_attempt_rate > 0.5 and 4 exceed 0.8 — including M91 at exactly 1.000 (3,393 sessions, zero payment attempts ever) and M144 at 0.983. M156's peer group falls back to level="category" with exactly 5 peers, one of which is M265 at 0.944; its peer values are [0.044, 0.059, 0.093, 0.122, 0.944]. Dropping the dead merchant moves the median from 0.093 to 0.076. This contradicts insights.py:326-329, which excludes degenerate PSP rails with a written selection-bias rationale.
@@ -797,7 +810,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-060 · Realized-GMV cap collapses the honest band into a point estimate equal to the merchant's entire GMV, at max confidence weight
 
-**Lens:** `statistics` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `statistics` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/insights.py:88-100, 307; live /api/insights?m=M265
 - **Observed:** When capped, `hi = realized` and `lo, mid = min(lo, hi), min(mid, hi)`, collapsing all three. Live M265 returns impact_low == impact_high == 4,355,020,000 (its whole 6-month realized GMV) with capped=true, broken=true, and confidence forced to "high" (insights.py:100). InsightCard.tsx:15 sees impact_high === impact_low, drops the interval, and renders one unhedged number. Score = 4.355e9 × CONF_W[high]/EFFORT_W[medium] = 2.90e9 — guaranteed rank 1.
@@ -808,7 +821,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-061 · Card trigger thresholds are fixed constants untethered from sampling error, with no multiple-comparison control
 
-**Lens:** `statistics` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `statistics` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/insights.py:66 (2pp), :187 (3pp), :218 (5pp), :247 (5pp), :274 (0.4), :334 (10pp); zarin/config.py:42
 - **Observed:** MIN_SESSIONS_INSIGHT=100 admits a merchant into gap-card generation; at n=100 and p≈0.3 the SE of a rate is ~4.6pp, so the 2pp trigger sits well inside sampling noise. No standard error, z-test, chi-square or bootstrap exists anywhere in zarin/. `generate()` evaluates ~9 card conditions per merchant-period with no family-wise adjustment. The `_conf` label (insights.py:27-32) is a pure sample-size lookup that ignores peer dispersion entirely, even though p25/p75 are already computed in peers.benchmarks.
@@ -819,7 +832,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-062 · repeat_gap converts a share gap into incremental transactions — an identity error
 
-**Lens:** `statistics` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `statistics` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/insights.py:238-265
 - **Observed:** `extra_txns = (p50 − mine_share) * stats["cust_txns"]` where mine_share = repeat_txns/cust_txns. Peer median and own value are shares of the same total, so holding cust_txns fixed and raising the repeat share reallocates transactions from new to repeat customers rather than adding any. The result is priced at median_ticket and presented as «برآورد فروش بالقوه از رسیدن به میانه همتایان».
@@ -830,7 +843,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-063 · Unauthenticated free-text fields are persisted and rendered in the Control Center
 
-**Lens:** `security` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `security` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:146-159 (`surface` param on /api/copilot and /api/copilot/feedback, `intent` on feedback) → zarin/ai/telemetry.py:23-34 → surfaced at telemetry.py:84
 - **Observed:** `surface` and `intent` have no enum validation. Probes: `GET /api/copilot?m=M156&surface=EVIL` → 200, and `/api/admin/ai-ops` then shows `{"surface":"EVIL", ...}` in its `recent` list. `POST /api/copilot/feedback?intent=<img src=x onerror=alert(1)>&surface=INJECTED` → 200 and is appended to data/telemetry/ai_feedback.jsonl. Both endpoints are unauthenticated and unrate-limited.
@@ -841,7 +854,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-064 · Unauthenticated endpoint proxies to an external LLM using the operator's API key, with no rate limit
 
-**Lens:** `security` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `security` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:145-151 (/api/copilot) → zarin/ai/provider.py:57-80 (OpenRouter call with `Authorization: Bearer {self.api_key}`)
 - **Observed:** No auth dependency on /api/copilot and no rate-limiting middleware anywhere (`app.middleware` at api.py:21 is telemetry only; grep for CORS/add_middleware returns no matches). With OPENROUTER_API_KEY set, each request spends the operator's quota; MAX_QUESTION_LEN=500 and AI_MAX_TOKENS=600 bound one call's size but not the call rate.
@@ -852,7 +865,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-065 · Demo login gate claims an SMS was sent and is not disclosed as cosmetic in the UI
 
-**Lens:** `security` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `security` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/pages/Login.tsx:83-95
 - **Observed:** Step "otp" renders «کد ۵ رقمی پیامک‌شده به 0912 345 6789 را وارد کنید» and the form submits `onLogin(target)` unconditionally — any code, including none, logs in. The honest disclosure exists only in a source comment (Login.tsx:10-12) and README.md:144; nothing on screen tells a viewer no code was sent and nothing is verified.
@@ -863,7 +876,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-066 · No application logging anywhere in the backend — nothing to diagnose an incident with
 
-**Lens:** `reliability` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `reliability` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/ (whole package); zarin/__main__.py:26
 - **Observed:** Scanned every zarin/**/*.py for `import logging`, `logger`, `traceback`, `exception_handler`: zero matches; only three `print()` calls in pipeline/__main__/eval. uvicorn runs with log_level="warning" so access logs are off; an ASGI traceback on stderr is the only trace of a 500, with no request id, no merchant/params context, and no persistence. Nothing correlates an ai_events.jsonl row to the HTTP request that produced it.
@@ -874,7 +887,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-067 · Unknown /api/* paths return 200 text/html, masking contract drift and polluting telemetry
 
-**Lens:** `reliability` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `reliability` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:267-276 (SPA catch-all) — verified live
 - **Observed:** `curl -s -o /dev/null -w "%{http_code} %{content_type}" http://localhost:8630/api/doesnotexist` → `200 text/html`. The catch-all `@app.get("/{path:path}")` is not excluded for the /api prefix, so a mistyped or removed endpoint serves index.html. obs.middleware then records that path with status 200, counting it toward success and throughput.
@@ -885,7 +898,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-068 · Data-source «تازگی داده» reports the parquet build time, not the newest data
 
-**Lens:** `reliability` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `reliability` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/sources/zarinpal.py:20 → Ops «منابع داده» card (OpsSources.tsx:46-50)
 - **Observed:** `freshness = datetime.fromtimestamp(marts.stat().st_mtime)`. Live: /api/admin/sources reports freshness 2026-08-20 while /api/meta reports the data range ends 2026-06-30 — a ~7-week gap presented to the operator as data freshness. There is also no staleness threshold: `status` is 'ok' whenever the file merely exists.
@@ -896,7 +909,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-069 · No React error boundary — a render exception blanks the whole SPA
 
-**Lens:** `reliability` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `reliability` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/App.tsx:160-175 (and main.tsx)
 - **Observed:** Grep for ErrorBoundary/componentDidCatch/window.onerror/unhandledrejection across frontend/src: no matches. Pages index into fetched shapes directly (e.g. Overview.tsx:27 `ov.data.kpis`, OpsPerformance.tsx:22 `d.latency_ms!`, Copilot.tsx:113 `t.a!.answer_fa`), and TypeScript's non-null assertions are erased at runtime.
@@ -907,7 +920,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-070 · No response compression anywhere — 618 KB JS and 51 KB JSON served raw
 
-**Lens:** `scalability` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `scalability` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:20 (app construction — no `GZipMiddleware`; grep for GZip/gzip across zarin/ returns 0 hits)
 - **Observed:** `curl -H 'Accept-Encoding: gzip, br' /assets/index-Bx9Uu9tu.js` returns `content-length: 618105` with no `content-encoding`; `gzip -c` on the same file is 176,904 bytes (3.5x). `/api/meta` with `Accept-Encoding: gzip` returns 51,778 bytes uncompressed. Static mounts do send etag/last-modified, so repeat loads are 304s.
@@ -918,7 +931,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-071 · Single 618 KB bundle: no code splitting, merchant users download the whole Control Center
 
-**Lens:** `scalability` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `scalability` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/App.tsx / frontend/vite.config.ts — no `React.lazy`, `Suspense` or dynamic `import()` anywhere under frontend/src (grep returns 0 hits)
 - **Observed:** `zarin/static/assets/` contains exactly one JS chunk, `index-Bx9Uu9tu.js` at 618,105 bytes, bundling react-dom, all of recharts, all 7 merchant pages and all 5 `ops/` pages. Alongside it are 9 Vazirmatn woff2 weights totalling 459 KB (all 9 `@font-face` rules are emitted by `vazirmatn/Vazirmatn-font-face.css`, imported unconditionally at theme.css:3).
@@ -929,7 +942,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-072 · Blocking 20s LLM call inside a sync endpoint can exhaust the shared threadpool
 
-**Lens:** `scalability` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `scalability` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:146 (`def ask(...)` — sync) → zarin/ai/gateway.py:91 → zarin/ai/provider.py:77 (`urllib.request.urlopen(req, timeout=self.timeout)`, `OPENROUTER_TIMEOUT` default 20s)
 - **Observed:** Every route in api.py is a sync `def`, so all of them share the anyio threadpool (Starlette default 40 workers). The copilot path holds one of those workers for up to 20 s of blocking network I/O. `default_provider()` is called per request (gateway.py:68-69) and `urllib` opens a fresh TLS connection each time — no pooling, no keep-alive, and no cap on in-flight LLM calls.
@@ -940,7 +953,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-073 · Overview silently truncates the ranked feed to four cards with no way to see the rest
 
-**Lens:** `product` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `product` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/pages/Overview.tsx:82
 - **Observed:** `ins.data.cards.slice(0, 4)` is the only place InsightCard is rendered anywhere in the frontend (grep confirms). Live /api/insights?m=M250 returns 5 cards (inbank_gap, high_value_friction, no_attempt_gap, psp_friction, gmv_change); the fifth is unreachable in the UI. There is no "show all", no count, no indication that more exist.
@@ -951,7 +964,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-074 · Time model contradicts the stated weekly job; the default landing has no period-over-period deltas at all
 
-**Lens:** `product` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `product` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/ctx.tsx:43-61 (presets) and zarin/analytics.py via /api/overview
 - **Observed:** PRODUCT.md:6 defines the product as "محصولی که پذیرنده هر هفته باز می‌کند" and the top chat prompt is "این هفته روی چه تمرکز کنم؟" (CopilotPage.tsx:8), but the only presets are all-6-months / 90d / 30d — no week, no custom range. The default preset is "all", which sets no cf/ct; live `curl /api/overview?m=M156` returns `previous: None`, so Overview's <Delta> (Overview.tsx:9) and the chat glance deltas all render nothing on first load.
@@ -962,7 +975,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-075 · Copilot covers seven regex intents, keeps no conversation memory, and answers unmatched questions with an unrelated KPI summary
 
-**Lens:** `product` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `product` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/copilot.py:39-131 (_plan); frontend/src/components/Copilot.tsx:56-67 (ask sends only the current question)
 - **Observed:** Seven regex branches then a catch-all. Live probes: "آیا مشتریان موبایلی بیشتر شکست می‌خورند؟", "قیمت محصولاتم را افزایش بدهم؟", "بهترین شهر برای فروش من کجاست؟" and the follow-up "خب چرا؟" all return intent=fallback with the same generic GMV/conv/customers paragraph. `ask` posts only `q` — no turn history — so no follow-up can resolve against the previous answer. Live /api/admin/ai-ops shows fallback is the single most-used intent (29 of 91).
@@ -973,7 +986,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-076 · No export, share, or digest anywhere in either surface
 
-**Lens:** `product` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `product` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/* (whole app); zarin/api.py (no report/export endpoint)
 - **Observed:** Grep for CSV/download/print/email/share across frontend/src returns only the TypeScript `export` keyword and unrelated matters — no download link, no print stylesheet, no report endpoint, no scheduled digest, no notification. The evidence drawer shows up to 50 sample sessions (api.py:218) with no way to take them anywhere.
@@ -984,7 +997,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-077 · Merchant "کیفیت داده" page is dataset-global and ignores the merchant and period controls still shown above it
 
-**Lens:** `product` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `product` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/pages/QualityPage.tsx:16 and zarin/api.py:237-238
 - **Observed:** `get<Quality>("quality", {})` sends no merchant and no dates; `def quality():` takes no arguments. The page then shows platform-wide outcome mix and "۵ پذیرنده برتر {top5} از کل فروش موفق دیتاست را می‌سازند" (QualityPage.tsx:45) — a market-concentration statistic about other merchants — while the topbar still renders the merchant selector and the 6m/90d/30d segmented control (App.tsx:119-136), neither of which affects anything on the page.
@@ -995,7 +1008,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-078 · Insight-to-action last mile is missing: the product cannot hand over the list it tells you to act on
 
-**Lens:** `business` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `business` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:216-232 (/api/evidence/sessions, `limit: int = Query(12, ge=1, le=50)`) vs insights.py:153 action «این پرداخت‌ها را از پیشخوان زرین‌پال تعیین تکلیف نمایید»
 - **Observed:** Live call returns total=912 for M156 but at most 50 rows, ordered by amount. A repo-wide grep for download/CSV/export/webhook/SMS/email across frontend/src and zarin/*.py found no export, no scheduled digest, no notification channel, and no deep link into the ZarinPal panel.
@@ -1006,7 +1019,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-079 · "Payment Rescue" is a retrospective measurement sold as a capability
 
-**Lens:** `business` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `business` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** README.md "The major innovations" table, row **Payment Rescue**; zarin/analytics.py funnel().recovery; insights.py:191-205 (recovery_gap card)
 - **Observed:** The funnel reports recovery that already happened (M156: 691 of 21,818 first-fail sessions, 3.2%, 40.6B IRR — docs/screenshots/rd-funnel.png; platform-wide 39,658 sessions / 157.5B IRR via /api/admin/platform). The recovery_gap card's action is «دکمه پرداخت مجدد را نمایش دهید» — work the merchant must build in their own checkout. Nothing in the codebase retries, re-routes, or nudges a payer.
@@ -1017,7 +1030,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-080 · Control Center recommends a triage action it provides no way to perform, and half of it monitors Zarbin rather than ZarinPal
 
-**Lens:** `business` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `business` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/control.py:86 (platform insight action «پذیرندگان دارای بیشترین مبلغ تاییدنشده را … در اولویت بگذارید») and control.py:101-106 (performance/ai_ops = obs.summary / ai_telemetry.summary)
 - **Observed:** The API route list in api.py contains no merchant-ranking or worklist endpoint; /api/admin/platform returns only aggregate KPIs, category bars and 2-3 static rule-based insight strings. /api/admin/performance returns Zarbin's own p50/p95 endpoint latency and /api/admin/ai-ops returns Zarbin's own token/cost telemetry (currently llm_requests=0). Meanwhile the concentration finding is available and unexploited: 53% of all platform paid_unverified value sits in one merchant (M156, 61.8B of 116.55B).
@@ -1028,7 +1041,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-081 · Speculative opportunity estimate is displayed in the same slot and weight as real money
 
-**Lens:** `ux` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `ux` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/components/InsightCard.tsx:32-39; visible in docs/screenshots/rd-overview.png (card 2)
 - **Observed:** Card 1 shows «۶۱٫۸ میلیارد» — real settled-but-unverified money (impact_label_fa: «مبلغ واقعی در انتظار تعیین تکلیف (برآورد نیست)»). Card 2 shows «۱۴۷٫۳ میلیارد» in the identical .amount style — the midpoint of a 98.2–196.4 scenario range, carried by an «اطمینان پایین» chip and «مقایسه با ۵ همتا — نامطمئن». The disclaimer that separates them is rendered at var(--fs-xs) in --ink-3 and reads «برآورد فرصت (سناریوی محافظه‌کارانه تا خوش‌بینانه، نه بازه اطمینان آماری)» — the qualifier a merchant needs is written in the statistics vocabulary they do not have.
@@ -1039,7 +1052,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-082 · Customers page shows self-contradictory figures side by side
 
-**Lens:** `ux` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `ux` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/pages/CustomersPage.tsx:32-51; docs/screenshots/rd-customers.png
 - **Observed:** Live /api/customers?m=M156 returns customers=23801, new_customers=23801, repeat_customers=4228. The UI therefore renders «مشتریان این دوره ۲۳,۸۰۱ / ۲۳,۸۰۱ مشتری جدید» immediately beside «سهم تراکنش مشتریان تکراری ۳۵٫۸٪ / ۱۷٫۸٪ از مشتریان». Everyone is new and 17.8% are returning, on the same row.
@@ -1050,7 +1063,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-083 · Data-fetch failures show raw English exception text and offer no retry
 
-**Lens:** `ux` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `ux` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/ctx.tsx:90 and :110 (`error: String(e)`), rendered at Overview.tsx:26, FunnelPage.tsx:19, CustomersPage.tsx:11, PeersPage.tsx:18, ChangesPage.tsx:45, QualityPage.tsx:17
 - **Observed:** api.ts:165 throws `new Error("overview: 500")`; ctx stores String(e) and the pages pass it straight into <Empty body={...}>, so the merchant sees «خطا در دریافت داده / Error: overview: 500» in an otherwise fully Persian RTL UI. None of these six error branches renders a retry control — the only retry in the app is inside the evidence sample loader (EvidenceDrawer.tsx:117).
@@ -1061,7 +1074,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-084 · The signature «این عدد از کجا آمد؟» drawer is written for an analyst, not a merchant
 
-**Lens:** `ux` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `ux` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/components/EvidenceDrawer.tsx:83-106; docs/screenshots/desk-evidence.png
 - **Observed:** The drawer's body order is متریک → فرمول (LTR monospace, e.g. `count(sessions where outcome = paid_unverified)`) → پارامترها (raw keys m/f/t) → «کوئری اجراشده» with a full SELECT statement. Line 90 renders computed_at as the raw ISO string «2026-08-20T05:19:00+00:00» — Gregorian and un-localised, while every other date in the app goes through faDate/Jalali. The definition text itself carries English identifiers («settled_at ثبت شده»، «هرگز Verify نکرده»).
@@ -1072,7 +1085,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-085 · Rial-only amounts with no Toman equivalent and no on-screen currency note
 
-**Lens:** `ux` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `ux` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/fmt.ts:11-21 (rial); Overview.tsx:45,60; meta.notes.currency is fetched but rendered nowhere on merchant pages
 - **Observed:** Every amount renders as e.g. «۱٫۹۵ هزار میلیارد ریال» / «۴۱٫۴ میلیون ریال». /api/meta returns notes.currency = «همه مبالغ به ریال است.», but grep shows meta.notes is only consumed for notes.customer (CustomersPage.tsx:25) — the currency note never appears on Overview, Funnel or Changes. There is no Toman toggle anywhere in the codebase.
@@ -1083,7 +1096,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-086 · Waterfall zero-axis divider references an undefined CSS variable and renders invisible
 
-**Lens:** `design` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `design` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/components/charts.tsx:116 (Waterfall); «سهم هر عامل در تغییر فروش» on the what-changed page
 - **Observed:** `background: "var(--line-strong)"` — grepping frontend/src for `line-strong` returns exactly this one hit; theme.css defines only --line, --line-2, --line-3. With no fallback the 1px div paints transparent. docs/screenshots/desk-changes.png shows the three bars floating around an unmarked centre with no visible axis.
@@ -1094,7 +1107,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-087 · Latin digits leak into a Persian-first UI in three places, while the Persian-digit helper sits unused
 
-**Lens:** `design` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `design` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/components/charts.tsx:71 and :138; frontend/src/components/EvidenceDrawer.tsx:90, :99; frontend/src/fmt.ts:57
 - **Observed:** HourHeat renders `{h}` (0…23) and its title attribute `ساعت ${h}` as raw JS numbers; CohortGrid renders headers as `+${k}` → "+1 +2 +3 +4 +5", plainly Latin in rd-customers.png next to Persian cell values (۱۱٪) and Persian row labels (دی ۰۴). EvidenceDrawer prints `ev.computed_at` raw — desk-evidence.png shows «زمان محاسبه  2026-08-20T05:19:00+00:00» directly beneath a correctly Jalali-rendered «دوره  ۱۱ دی ۱۴۰۴ تا ۹ تیر ۱۴۰۵» — and param values raw (f 2026-01-01). fmt.ts:57 exports HOURS_FA, a ready-made Persian 0–23 array, which no file imports.
@@ -1105,7 +1118,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-088 · Backend and frontend ship two different Persian thousands separators, both visible on one page
 
-**Lens:** `design` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `design` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/fa.py:4 vs frontend/src/fmt.ts:2; both rendered on the Ops Overview screen
 - **Observed:** fa.py:4 is `str.maketrans("0123456789,.", "۰۱۲۳۴۵۶۷۸۹،٫")` — it maps the group separator to U+060C ARABIC COMMA. Live probe of /api/admin/platform returns body_fa "۸،۷۰۶ پرداخت در بانک تسویه شده". A node probe of the frontend's `new Intl.NumberFormat('fa-IR').format(23801)` returns "۲۳٬۸۰۱" — U+066C ARABIC THOUSANDS SEPARATOR. OpsOverview.tsx renders KPI numbers with the frontend formatter (U+066C) and insight `body_fa` verbatim (U+060C) inside the same card stack.
@@ -1116,7 +1129,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-089 · Merchant and Operations surfaces are visually indistinguishable; the differentiation hook is dead code
 
-**Lens:** `design` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `design` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/App.tsx:78 (`data-workspace={ws}`) vs frontend/src/theme.css — no rule matches it anywhere; compare docs/screenshots/rd-overview.png with rd-ops.png
 - **Observed:** grep for `data-workspace` in theme.css returns zero matches. Side by side, the two surfaces share the same --bg, same 248px sidebar, same --brand-soft yellow active pill with the same inset bar, same --r-l card radius, same --shadow-1, same type scale, same topbar segmented control. The only ops-specific styling is padding: .ops-panel/.ops-card at 14/16px vs .card content at 18–20px — a density delta invisible without an A/B comparison.
@@ -1127,7 +1140,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-090 · No skip link past the repeated sidebar; no h1 on five of seven merchant pages
 
-**Lens:** `accessibility` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `accessibility` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/App.tsx:80-108 (`aside.sidebar` + `nav.side-nav`) and App.tsx:142 (`<main className="main" id="main">`); pages FunnelPage.tsx, PeersPage.tsx, CustomersPage.tsx, ChangesPage.tsx, QualityPage.tsx
 - **Observed:** `main` carries `id="main"` but nothing in App.tsx or index.html renders an anchor to it — I grepped the whole `frontend/src` tree for a skip/bypass link and found none. The 7-item sidebar nav plus topbar controls are re-rendered on every route. Separately, only Overview.tsx:34 and the ops pages render an `<h1>`; Funnel/Peers/Customers/Changes/Quality begin at `<h2>` via `ui.tsx:38-46 Section`, and CopilotPage's `<h1>` (Copilot.tsx:80) exists only while `turns.length === 0` and disappears once the user asks anything. The page name shown in the topbar (App.tsx:115 `.t-title`) is a plain `<div>`, so it is not in the heading tree at all.
@@ -1138,7 +1151,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-091 · Rich tooltips are not hoverable or dismissible, and their content is unlikely to reach a screen reader
 
-**Lens:** `accessibility` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `accessibility` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/components/Tooltip.tsx:56-77 (`Term`); CSS `.tip-pop { pointer-events: none }` theme.css:372; `.term > .lbl` theme.css:368
 - **Observed:** The popup sets `pointer-events:none`, so a user who magnifies the page cannot move the pointer onto the tooltip to read it. `Escape` is bound only via `onKeyDown` on the trigger span (Tooltip.tsx:62), so a mouse/hover user has no way to dismiss the overlay without moving the pointer. The trigger is a `<span role="button" tabIndex={0}>` with no Enter/Space handler — `onClick` on a span does not fire from the keyboard — and `aria-describedby={box ? popId : undefined}` is applied only *after* `onFocus` sets state, so the description does not exist at the moment focus is computed and will typically not be announced. `aria-label={`توضیح: ${rich?.title}`}` also replaces the visible term text as the accessible name. The dashed affordance `border-bottom: 1px dashed var(--line-3)` is #d8d9de on white = 1.41:1, effectively invisible.
@@ -1149,7 +1162,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-092 · Charts and the hour heatmap expose no data to assistive technology
 
-**Lens:** `accessibility` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `accessibility` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/components/charts.tsx:10 (`TrendChart` `role="img" aria-label="روند روزانه فروش موفق"`), :62-74 (`HourHeat`), :44 and :110 (`role="cell" aria-hidden` inside `role="table"`)
 - **Observed:** `TrendChart` wraps the entire Recharts SVG in `role="img"` with a label that names the chart but conveys none of its values, and there is no adjacent table or summary. `HourHeat` puts all 24 hours' data in `title` attributes (charts.tsx:68) *inside* a `role="img"` container, so the values are both hidden from AT by the img role and unreachable by keyboard (`title` requires hover). In `FunnelViz` and `Waterfall` the bar `<div role="cell" aria-hidden>` sits inside `role="row"` within `role="table"`, so rows advertise a cell count that AT is then told to ignore — an invalid ARIA table structure. `CohortGrid` (charts.tsx:127-177) is a CSS grid of plain `<div>`s with no table or grid roles at all, so row/column relationships are lost entirely.
@@ -1160,7 +1173,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-093 · Copilot answers are announced unreliably; pending state and route changes are silent
 
-**Lens:** `accessibility` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `accessibility` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/components/Copilot.tsx:112 (`<div className="bubble bubble-a num" aria-live="polite">`), :110 (pending bubble), :61/66 (`scrollIntoView`); frontend/src/App.tsx:50-59 (`useRoute`)
 - **Observed:** The `aria-live="polite"` attribute is on the answer bubble itself, which is created in the same render as its content. Live regions must be present in the DOM before content is injected to be reliably announced by NVDA/JAWS/VoiceOver; a newly inserted node carrying `aria-live` is generally not announced. The pending bubble "در حال محاسبه از داده‌های شما" (Copilot.tsx:110) has no live region and no `aria-busy`, so there is no perceivable feedback at all during the request. On route change, `useRoute` only calls `window.scrollTo(0,0)` — focus stays on the sidebar button and nothing announces that the page content changed. The login flow (Login.tsx:22 `choose`) swaps the entire card with no focus move, dropping focus to `<body>`.
@@ -1171,7 +1184,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-094 · OTP entry is hostile to paste, autofill and motor impairment; input borders fail non-text contrast
 
-**Lens:** `accessibility` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `accessibility` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/pages/Login.tsx:87-93 (five `.otp-box` inputs) and :77 (phone input); theme.css:156-166 (`.field`, `.otp-box` border `#e0e0e5`), :324 (`.composer form` border)
 - **Observed:** The five OTP boxes have `maxLength={1}` and a `setDigit` handler that takes `v.replace(/\D/g,"").slice(-1)` — pasting or SMS-autofilling a five-digit code puts one digit in one box and discards the rest. There is no `autoComplete="one-time-code"` on any box, no `type="tel"` on the phone field (only `inputMode`), no grouping element with an accessible name around the five boxes (only per-box `aria-label={`رقم ${i+1}`}`), and no `aria-describedby` linking them to the "کد ۵ رقمی پیامک‌شده به …" instruction at Login.tsx:84. Border colours: `#e0e0e5` on `--surface` #fff = 1.32:1 and `--line` #e7e7ea = 1.23:1 — the only thing that identifies a field or the `.seg` period control as an interactive component.
@@ -1182,7 +1195,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-095 · Eval harness never exercises the grounding guard; grounding_quality is tautological
 
-**Lens:** `ai-grounding` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `ai-grounding` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/ai/eval/runner.py:18 (use_llm=False) and :48 (grounding_quality = len(evidence) >= 1)
 - **Observed:** Every case runs deterministic-only, so no LLM output is ever scored. grounding_ok is just evidence_count>=1, and every branch of copilot._plan() appends at least one evidence dict before returning — the check cannot fail, hence the fixed 100%. The guard's only adversarial coverage is 7 numeric assertions in tests/test_ai.py:123-135.
@@ -1193,7 +1206,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-096 · No out-of-scope branch: 41% of live questions fall through to a generic sales summary
 
-**Lens:** `ai-grounding` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `ai-grounding` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/copilot.py:124-131 (terminal fallback branch)
 - **Observed:** Live /api/admin/ai-ops intent histogram: fallback 53 of 130 events, the largest bucket. Verified fall-throughs include «نرخ تبدیل من چند است؟» (a metric the engine holds), «how is my conversion rate?», «سلام», and a prompt-injection string — all answered with the same GMV/conversion/customer summary at confidence=medium.
@@ -1204,7 +1217,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-097 · Empty or non-Persian LLM output is accepted and displayed
 
-**Lens:** `ai-grounding` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `ai-grounding` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/ai/gateway.py:99-119 (no non-empty / language check before constructing the LLM AIResponse)
 - **Observed:** Fake provider returning "" produced source=llm, grounded=True, answer_fa='' (blank chat bubble); returning "Sales fine." produced source=llm with English text, despite system-prompt rule ۴ «پاسخ فقط فارسی باشد». is_grounded returns True for both because neither contains digit runs.
@@ -1215,7 +1228,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-098 · Five endpoints have no HTTP-level happy-path test; the admin guard is spot-checked on one route only
 
-**Lens:** `testing-qa` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `testing-qa` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:107-111 (/api/insights), 121-125 (/api/customers), 128-132 (/api/peers), 135-142 (/api/changes success), 237-247 (/api/quality); tests/test_control.py:88-93
 - **Observed:** Coverage misses api.py:109-111, 123-125, 130-132, 141-142, 239-247 — i.e. those route bodies never execute. The underlying analytics functions are called directly in test_metrics.py, so the HTTP wiring (`_check_merchant`, `_dates`, `_valid_date` normalization) on those five routes is unverified; /api/changes is only reached via its 400 path. For auth, test_admin_guard_enforced_when_token_set asserts 401/200/401 on `/api/admin/performance` alone, relying on all eight admin routes sharing `dependencies=_ADMIN` (api.py:165) by convention rather than by assertion.
@@ -1226,7 +1239,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-099 · The path-traversal test can pass vacuously — silent `return` instead of skip, and an empty body satisfies every assertion
 
-**Lens:** `testing-qa` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `testing-qa` · **Severity:** MEDIUM · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** tests/test_api.py:75-89
 - **Observed:** `if not (STATIC_DIR / 'index.html').exists(): return` — a bare return, so on a checkout without a built SPA the repo's most security-relevant test reports PASS rather than SKIP. (Here `zarin/static/index.html` does exist, so it currently runs.) The final assertion also accepts `content == b''`, meaning a route regression that returns an empty 200 body passes all four checks.
@@ -1237,7 +1250,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-100 · No coverage or mutation gate; OpenRouter transport and telemetry restart-recovery are untested
 
-**Lens:** `testing-qa` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `testing-qa` · **Severity:** MEDIUM · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** pyproject.toml:15-19 (dev deps: pytest, httpx, ruff only); zarin/ai/provider.py:49-87, 101-104; zarin/store.py:29-42
 - **Observed:** No pytest-cov, no coverage threshold, no mutation testing configured — coverage had to be measured with an ad-hoc `--with coverage` run. provider.py is 52% covered: the HTTP request build, response parsing, timeout and error handling in the real OpenRouter path (49-87) and `default_provider()` (101-104) never execute; conftest.py:14-15 claims 'the key-present and transport paths are covered via explicit injection' but injection only exercises the FakeProvider/BoomProvider protocol, not this code. store.py:32-42 (reload of persisted JSONL telemetry on startup, including the JSONDecodeError skip) is also unexercised, so restart recovery of the AI-ops cost/telemetry data is unverified.
@@ -1250,7 +1263,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-101 · 2,777 lines of strict TypeScript with no test at all
 
-**Lens:** `rubric-official` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `rubric-official` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/ (25 files); tests/ contains only Python (tests/test_api.py, test_metrics.py, test_insights_peers.py, test_ai.py, test_control.py, test_sources.py)
 - **Observed:** The backend has 56 targeted tests covering grain, LMDI exactness and the grounding guard's digit-substring attacks. The frontend has none — including ChangesPage.tsx:22-32, which re-derives the period midpoint in JS and must stay byte-identical to zarin/insights._change_alert:380 for the page and the insight card to quote the same split (the code comment says so explicitly, nothing enforces it).
@@ -1261,7 +1274,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-102 · Two parallel copilot planners with divergent internal contracts
 
-**Lens:** `architecture` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `architecture` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/copilot.py:39 (_plan → _Plan) vs zarin/ops_copilot.py:32 (_plan → 4-tuple)
 - **Observed:** Both implement the identical pattern (regex intent chain → deterministic Persian text + refs + confidence → gateway.explain) but one returns a `_Plan` class with __slots__ and the other an unnamed 4-tuple. Both are linear if/regex chains with order dependencies that already required a comment to defend (copilot.py:72-73: recovery must be matched before friction).
@@ -1272,7 +1285,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-103 · Quality gates are thin on the frontend and permissive on the backend
 
-**Lens:** `architecture` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `architecture` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/package.json (no lint deps), [tool.ruff] in pyproject.toml
 - **Observed:** No eslint config or dependency exists anywhere in frontend/, yet frontend/src/ctx.tsx:92,112 and EvidenceDrawer.tsx:23 carry `// eslint-disable-next-line react-hooks/exhaustive-deps` directives that nothing enforces. Zero frontend tests (no *.test.* files). `[tool.ruff]` sets only line-length and target-version, so `ruff check` runs the default E4/E7/E9/F subset — no import sorting, bugbear, or upgrade rules. No Python type checker despite TS being strict. Residue this misses: a no-op ternary at Overview.tsx:14 (`${good ? "" : ""}`) and dead arithmetic at peers.py:90 (`- me["first_try_ok"] - 0`).
@@ -1283,7 +1296,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-104 · Assorted dead code and leftover expressions that no configured gate catches
 
-**Lens:** `code-quality` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `code-quality` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/pages/Overview.tsx:14, frontend/src/components/ui.tsx:15-16, frontend/src/fmt.ts:57, zarin/peers.py:90, zarin/registry.py:26-77
 - **Observed:** `Overview.tsx:14` — `className={\`d num ${good ? "" : ""}\`}`, a ternary with two empty branches. `IconMore` (ui.tsx:15), `IconSearch` (ui.tsx:16) and `HOURS_FA` (fmt.ts:57) each have exactly one occurrence in `frontend/src` — their own definition. `peers.py:90` — `fp = me["attempted"] - me["first_try_ok"] - 0`. Eight of the 22 `Metric(...)` entries (`sessions`, `verified`, `attempt_rate`, `failed_bank_rate`, `recovered`, `repeat_customer_share`, `repeat_gmv_share`, `fee_index`) are never passed to `evidence()` anywhere and no endpoint exposes the registry wholesale.
@@ -1294,7 +1307,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-105 · Convention inconsistencies a new engineer must absorb before extending either copilot
 
-**Lens:** `code-quality` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `code-quality` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/ops_copilot.py:32 vs zarin/copilot.py:32-37; zarin/peers.py:36,40,44; zarin/analytics.py:17 / insights.py:23 / peers.py:132; zarin/insights.py:320,370,376 and analytics.py:215
 - **Observed:** `copilot._plan` returns a `_Plan` class with `__slots__`; the sibling `ops_copilot._plan` returns a bare 4-tuple `(text, intent, refs, conf)` for the identical concept. `peers.py:36,40,44` build peer SQL via `POOL_SQL.split('WHERE')[1]` — string surgery on a query to reuse its predicate, which breaks silently if `POOL_SQL` ever gains a second `WHERE`. The `f"{f} تا {t}"` period formatter exists three times as `_period` (analytics.py:17), `_fmt_period` (insights.py:23) and `_p` (peers.py:132). Function-body imports appear in four places (`insights.py:320,370,376`, `analytics.py:215`) where only `peers.py:87` has a genuine cycle to avoid. `insights.py:369` names a module-level helper `__peer_repeat` with a double underscore.
@@ -1305,7 +1318,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-106 · Overview's verified-count KPI opens the GMV metric's evidence drawer
 
-**Lens:** `data-correctness` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `data-correctness` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/pages/Overview.tsx:49 (KPI «پرداخت موفق»)
 - **Observed:** The tile displays `faNum(k.verified)` — a count of Verified sessions — but passes `ov.data.evidence.gmv` to EvBtn. The drawer therefore shows name «فروش موفق (GMV)», formula `sum(amount | outcome = verified)` and the caveat «مبالغ به ریال است.» for a number that is not an amount. A correct Metric("verified") exists at registry.py:29-30 and is never used anywhere.
@@ -1316,7 +1329,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-107 · Same concentration statistic suppressed at two different sample floors
 
-**Lens:** `data-correctness` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `data-correctness` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/pages/CustomersPage.tsx:75 (`n >= 20`) vs zarin/insights.py:274 and zarin/analytics.py:221 (MIN_CUSTOMERS_RETENTION = 50)
 - **Observed:** The Customers page renders the top-5 concentration figure once the period has ≥20 paying customers, with the empty-state text «با کمتر از ۲۰ مشتری، عدد تمرکز گمراه‌کننده است». The concentration *alert* card and the page-level `low_n` flag both use 50 (config.py:43).
@@ -1327,7 +1340,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-108 · Cohort retention cells render percentages with no per-cohort sample floor, contradicting the documented MIN_SEGMENT_N rule
 
-**Lens:** `statistics` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `statistics` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/components/charts.tsx:159-172 (FragmentRow); zarin/analytics.py:197-208
 - **Observed:** Live: M60 (59 customers, page-level low_n false) yields cohort cells such as 2026-02 k=4 → active 1 / cohort_size 10, rendered as «۱۰٪»; M233 shows 1/21 → «۵٪». docs/ANALYTICS.md §7 states MIN_SEGMENT_N=30 means «زیر آن: نرخ هیچ سگمنتی نقل نمی‌شود», but no floor is applied per cohort — only the page-wide MIN_CUSTOMERS_RETENTION=50 gate. Separately, `first_month` is derived entirely from the 6-month window, so every pre-existing customer active in 2026-01 is booked as a new January cohort member (left truncation) with no flag; docs also claim concentration is hidden below 20 customers while the code uses 50.
@@ -1338,7 +1351,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-109 · Evidence drawer returns the exact executed SQL and bind parameters to unauthenticated clients
 
-**Lens:** `security` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `security` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/registry.py:100-102 (`"sql": sql.strip(), "params": params`), surfaced in every /api/overview, /api/funnel, /api/insights, /api/peers response; typed at frontend/src/api.ts:5
 - **Observed:** `curl '.../api/overview?m=M156'` returns evidence objects carrying the literal query text and its parameters; zarin/peers.py:61 additionally returns `where_sql` with the peer-selection predicate. Queries are parameterized, so this is disclosure rather than injection.
@@ -1349,7 +1362,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-110 · Non-ASCII X-Admin-Token header raises TypeError → 500 instead of 401
 
-**Lens:** `security` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `security` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/api.py:36 (`hmac.compare_digest(x_admin_token or "", ADMIN_TOKEN)`)
 - **Observed:** Verified in isolation: `hmac.compare_digest('Ã','s3cret')` raises `TypeError: comparing strings with non-ASCII characters is not supported`. Starlette decodes headers as latin-1, so any byte ≥0x80 in the header produces a non-ASCII str. Reachable only when ZARIN_ADMIN_TOKEN is set, so it could not be probed against the running server (token unset there).
@@ -1360,7 +1373,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-111 · Telemetry write failures are swallowed with no counter, and the event log never rotates
 
-**Lens:** `reliability` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `reliability` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/store.py:54-55, zarin/store.py:29-42
 - **Observed:** `except OSError: pass  # telemetry must never break the request path` — correct priority, but nothing counts the drop, so a full disk or permission change stops the durable audit trail while the in-memory ring keeps the Control Center looking healthy. `_warm()` also reads the entire ai_events.jsonl at import (currently 48KB, append-only, no rotation) and silently `continue`s past corrupt lines with no count of what was skipped.
@@ -1371,7 +1384,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-112 · Single global DuckDB lock with no query timeout — one slow query stalls the observability surface too
 
-**Lens:** `reliability` · **Severity:** LOW · **Effort:** medium · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `reliability` · **Severity:** LOW · **Effort:** medium · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/db.py:14,63-66
 - **Observed:** Every query serializes on a process-wide RLock held for the full `execute` + `fetchall`; there is no per-thread `con.cursor()` and no timeout. Measured live: 4 sequential /api/insights = 1.51s vs 4 parallel = 0.85s (a single call ≈0.38s), i.e. real contention, only partial overlap between the multiple queries each request issues. Documented as "thread-safe (RLock)" in docs/ARCHITECTURE.md:16, with the OLAP migration path in ADR-0001 — an acknowledged ceiling, not an accident.
@@ -1382,7 +1395,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-113 · JSONL telemetry grows without bound and is fully re-parsed at every startup
 
-**Lens:** `scalability` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `scalability` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/store.py:29-42 (`EventLog._warm`) and :44-56 (`add`)
 - **Observed:** `_warm()` reads and `json.loads` every line of `data/telemetry/ai_events.jsonl` on import purely to fill a `deque(maxlen=5000)`. No rotation, truncation or retention exists in the codebase. Current file: 48,316 bytes / 128 events ≈ 378 B/event. `add()` re-opens the file for append on every single event while holding the lock.
@@ -1393,7 +1406,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-114 · Three orphan surfaces: cross-source insights are dead code, the OpsAI intent panel is unreachable in the default config, and the dormant-customer panel names a segment it cannot list
 
-**Lens:** `product` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `product` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/control.py:116; frontend/src/ops/OpsAI.tsx:81; frontend/src/pages/CustomersPage.tsx:88-96
 - **Observed:** control.py:116 hardcodes `"cross_source_insights": []` unconditionally — `zarin/sources/insights.py::cross_source` is exercised only by tests/test_sources.py and is never called from any production path, so OpsSources.tsx:61-75 renders a section that can never populate even with GA4 connected. OpsAI.tsx:81 gates the intent-distribution panel on `d.models.length > 0`; live /api/admin/ai-ops returns `models: []` with 13 populated intents, so in the default offline mode the highest-value ops signal (fallback = 29/91) is computed and then never displayed. CustomersPage's dormant panel prints a count and total GMV, calls them "بهترین هدف برای کمپین بازگشت", and offers no list, filter, or export.
@@ -1404,7 +1417,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-115 · Chat-first landing over-promises relative to a 7-intent regex router; the flagship metric is not askable
 
-**Lens:** `business` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `business` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/copilot.py:39-131 (_plan) — 7 regex intents, then a generic overview fallback at line 124
 - **Observed:** Called _plan() directly (curl mangles Persian on this shell): «چقدر پرداخت تایید نشده دارم؟» → intent=fallback, «کدام بانک بیشترین خطا را دارد؟» → fallback (issuer_bank_code exists in the attempts mart and is unused by the copilot), «بهترین محصولم چیست؟» → fallback. Live /api/admin/ai-ops shows fallback as the largest intent: 29 of 92 recorded requests. The landing page (docs/screenshots/rd-chat.png) presents an open Persian prompt plus a microphone.
@@ -1415,7 +1428,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-116 · Login accepts empty input and implies a real SMS; the documented login screenshot no longer matches the code
 
-**Lens:** `ux` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `ux` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/pages/Login.tsx:75-100; docs/screenshots/rd-login.png
 - **Observed:** The phone form submits with an empty field (line 75 has no validation) and the OTP form calls onLogin unconditionally (line 83) even with all five boxes blank. Line 85 then tells the user «کد ۵ رقمی پیامک‌شده به 0912 345 6789 را وارد کنید» using the hard-coded placeholder from line 20 when no number was typed, and line 80 states «با حساب زرین‌پال خود وارد شوید» — with no demo notice anywhere. Separately, rd-login.png shows a single phone screen with a role hint («بسته به نقش حساب شما، پس از ورود به فضای مناسب هدایت می‌شوید») and two chips, whereas the shipped Login.tsx opens on a choose-your-workspace step (:32-59).
@@ -1426,7 +1439,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-117 · KPI strip values lose their shared baseline whenever a value wraps or a tile has no footer line
 
-**Lens:** `design` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `design` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/theme.css:212-228 (.stats / .stat); visible in rd-overview.png, rd-customers.png, rd-mobile.png
 - **Observed:** .stat is a flex column with justify-content:space-between, so the .v position depends on whether .k wraps and whether a .d/.foot line exists. rd-overview.png: «۱٫۹۵ هزار میلیارد» wraps to two lines and sits ~29px above the four single-line neighbours in the same strip. rd-customers.png: the four values land on two different baselines (۲۳,۸۰۱ and ۳۵٫۸٪ vs ۴۰٫۶٪ and ۲۸) because tiles 3 and 4 carry no sub-line. rd-mobile.png repeats it in the 2×2 glance grid.
@@ -1437,7 +1450,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-118 · Bottom of the type scale is too small for Persian, and the topbar merchant selector truncates mid-word
 
-**Lens:** `design` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `design` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** frontend/src/theme.css:142 (.bn-item 9.5px), :84/:339 (0.68rem), :48 chip fontSize 9; frontend/src/App.tsx:120-121 (select maxWidth 190)
 - **Observed:** The mobile bottom nav labels are 9.5px — in rd-mobile.png «مشتری/مشابه/تغییر» are visibly at the legibility floor. Several other roles sit at 0.68rem (~10.9px): .side-brand .sub, .composer-note, .login-foot; CustomersPage.tsx:48 overrides a chip to 9px inline. Separately, the native `<select>` is capped at maxWidth:190px, so every rd-* screenshot's topbar shows "M156 — بیشترین فروش مو" cut mid-word with no ellipsis affordance.
@@ -1448,7 +1461,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-119 · Legitimate roundings rejected; no cache or quota on the outbound LLM path
 
-**Lens:** `ai-grounding` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (verification pass covered critical/high only)
+**Lens:** `ai-grounding` · **Severity:** LOW · **Effort:** small · **Verification:** not verified (the pass covered critical/high only)
 
 - **Where:** zarin/ai/gateway.py:43-53 (false rejection); zarin/api.py:145-151 (/api/copilot — only MAX_QUESTION_LEN=500 applies)
 - **Observed:** is_grounded('نرخ تبدیل حدود ۵۴ درصد بود', det containing ۵۴٫۵٪) → False: a natural "about 54%" rephrase is discarded, the behaviour ADR-0002:33 acknowledges. Separately /api/copilot has no per-merchant rate limit, no dedupe/cache of identical questions and no daily budget — each call is one outbound provider request. Unverified: with no key on this server (llm_requests=0 of 130 events) the guard's real-world accept/reject rate could not be measured.

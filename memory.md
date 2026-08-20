@@ -76,7 +76,7 @@ never row-level joined with payments — only aggregate, time-aligned relationsh
 Commit `75de6bb` was audited by a 15-lens expert panel; 43 of the 44 critical/high findings were
 independently verified (ZB-044 was missed by the per-lens cap). **Before starting new work, read
 `docs/EXPERT_REVIEW.md` §6 (priority queue) and pick from `docs/EXPERT_REVIEW_ISSUES.md`** — issues
-have stable IDs (`ZB-001`…`ZB-119`, plus `ZB-120` in §9). Fix **ZB-120 first**: `ntile(5) OVER (ORDER
+have stable IDs (`ZB-001`…`ZB-120`). Fix **ZB-120 first**: `ntile(5) OVER (ORDER
 BY amount)` in `insights.py:209` has no tiebreaker, so `high_value_friction` returns a *different*
 impact figure on identical calls — it breaks the determinism claim on the surface built to prove it.
 Other high-value themes:

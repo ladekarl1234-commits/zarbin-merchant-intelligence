@@ -5,6 +5,12 @@
   "agents_total": 58,
   "verification_agents": 43
  },
+ "counts": {
+  "panel_findings": 119,
+  "addendum_findings": 1,
+  "total": 120,
+  "note": "stats below describe the PANEL's findings only; ZB-120 was found later, while auditing the published record, and carries source='record-verification'"
+ },
  "stats": {
   "n_lenses": 15,
   "mean": 73.4,
@@ -260,6 +266,7 @@
   {
    "id": "ZB-001",
    "lens": "security",
+   "source": "panel",
    "severity": "critical",
    "title": "No authn/authz on any merchant data endpoint; tenant scoping is a client-supplied parameter",
    "location": "zarin/api.py:97-234 (all /api/* merchant routes); frontend/src/ctx.tsx:29-40 (merchant picker); frontend/src/pages/Login.tsx:83",
@@ -274,6 +281,7 @@
   {
    "id": "ZB-002",
    "lens": "scalability",
+   "source": "panel",
    "severity": "critical",
    "title": "Process-wide RLock serializes every DuckDB query — hard concurrency ceiling",
    "location": "zarin/db.py:14,63 (`_lock = threading.RLock()`, `with _lock:` in `q()`)",
@@ -288,6 +296,7 @@
   {
    "id": "ZB-003",
    "lens": "business",
+   "source": "panel",
    "severity": "critical",
    "title": "37% of merchants see an empty dashboard; the empty state calls a broken funnel \"good news\"",
    "location": "zarin/insights.py:135 (generate) + frontend/src/pages/Overview.tsx:77-80 (Empty state)",
@@ -302,6 +311,7 @@
   {
    "id": "ZB-004",
    "lens": "ai-grounding",
+   "source": "panel",
    "severity": "critical",
    "title": "Grounding guard is digit-only: invented causality and advice pass verbatim",
    "location": "zarin/ai/gateway.py:56-60 (is_grounded), :99 (only gate before returning LLM text)",
@@ -316,6 +326,7 @@
   {
    "id": "ZB-005",
    "lens": "testing-qa",
+   "source": "panel",
    "severity": "critical",
    "title": "Peer percentile happy path has zero coverage — only the suppressed branch is tested",
    "location": "zarin/peers.py:100-118 (and 52-54); tests/test_insights_peers.py:13-19",
@@ -330,6 +341,7 @@
   {
    "id": "ZB-006",
    "lens": "rubric-official",
+   "source": "panel",
    "severity": "high",
    "title": "Realized-GMV cap applied to only one of four opportunity generators — a card claims 108% of the merchant's entire sales",
    "location": "zarin/insights.py:220-221 (high_value_friction); same gap at :190 (recovery_gap) and :256 (repeat_gap); cap lives only at :86-93 inside _gap_card",
@@ -344,6 +356,7 @@
   {
    "id": "ZB-007",
    "lens": "rubric-official",
+   "source": "panel",
    "severity": "high",
    "title": "Evidence drawer prints two contradictory formulas for the same opportunity number",
    "location": "zarin/registry.py:74-76 (Metric \"opportunity\"), rendered by frontend/src/components/EvidenceDrawer.tsx; README.md \"Opportunity Engine\" row repeats it",
@@ -358,6 +371,7 @@
   {
    "id": "ZB-008",
    "lens": "rubric-official",
+   "source": "panel",
    "severity": "high",
    "title": "Chat is the landing surface but its regex router misses questions the engine can already answer",
    "location": "zarin/copilot.py:39-131 (_plan); landing page frontend/src/pages/CopilotPage.tsx (docs/screenshots/rd-chat.png)",
@@ -372,6 +386,7 @@
   {
    "id": "ZB-009",
    "lens": "architecture",
+   "source": "panel",
    "severity": "high",
    "title": "API contract crosses the biggest seam untyped and hand-mirrored",
    "location": "frontend/src/api.ts:1-158 and zarin/api.py (all routes)",
@@ -386,6 +401,7 @@
   {
    "id": "ZB-010",
    "lens": "architecture",
+   "source": "panel",
    "severity": "high",
    "title": "Hardcoded data fact in the API layer contradicts the computed metric on the same page",
    "location": "zarin/api.py:256 (rules_fa) vs zarin/api.py:243-246 (anomalies)",
@@ -400,6 +416,7 @@
   {
    "id": "ZB-011",
    "lens": "code-quality",
+   "source": "panel",
    "severity": "high",
    "title": "Metric registry — the declared single source of truth — has drifted from the code it documents",
    "location": "zarin/registry.py:74-76 vs zarin/insights.py:50-131",
@@ -414,6 +431,7 @@
   {
    "id": "ZB-012",
    "lens": "code-quality",
+   "source": "panel",
    "severity": "high",
    "title": "`insights.generate()` is a 181-line C901=20 function whose shape contradicts the documented extension pattern",
    "location": "zarin/insights.py:135-315",
@@ -428,6 +446,7 @@
   {
    "id": "ZB-013",
    "lens": "data-correctness",
+   "source": "panel",
    "severity": "high",
    "title": "Copilot formats a transaction count as rial",
    "location": "zarin/copilot.py:120 (GET /api/copilot, intent=priorities)",
@@ -442,6 +461,7 @@
   {
    "id": "ZB-014",
    "lens": "data-correctness",
+   "source": "panel",
    "severity": "high",
    "title": "Evidence drawer states an opportunity formula the code does not compute",
    "location": "zarin/registry.py:74-76 (Metric \"opportunity\"), rendered by frontend/src/components/EvidenceDrawer.tsx:83-84,110",
@@ -456,6 +476,7 @@
   {
    "id": "ZB-015",
    "lens": "data-correctness",
+   "source": "panel",
    "severity": "high",
    "title": "Insight ranking sorts transaction counts against rial in the same score",
    "location": "zarin/insights.py:306-314 (score = impact_high × conf ÷ effort); sort key at :310-314",
@@ -470,6 +491,7 @@
   {
    "id": "ZB-016",
    "lens": "statistics",
+   "source": "panel",
    "severity": "high",
    "title": "PSP friction card compares non-comparable traffic: the \"weak\" gateway is the retry rail",
    "location": "zarin/insights.py:318-366 (_psp_card); live /api/insights?m=M250",
@@ -484,6 +506,7 @@
   {
    "id": "ZB-017",
    "lens": "statistics",
+   "source": "panel",
    "severity": "high",
    "title": "Evidence drawer publishes a formula and caveat that contradict the estimator that produced the number",
    "location": "zarin/registry.py:74-76 (Metric \"opportunity\"); rendered at frontend/src/components/EvidenceDrawer.tsx:84,110",
@@ -498,6 +521,7 @@
   {
    "id": "ZB-018",
    "lens": "statistics",
+   "source": "panel",
    "severity": "high",
    "title": "\"First half vs second half\" compares unequal windows, with no minimum-window guard on the copilot path",
    "location": "zarin/insights.py:375-381 (_change_alert), zarin/copilot.py:43-47, frontend/src/pages/ChangesPage.tsx:22-32,86",
@@ -512,6 +536,7 @@
   {
    "id": "ZB-019",
    "lens": "security",
+   "source": "panel",
    "severity": "high",
    "title": "Operator-token gate on /api/admin/* is fail-open by default",
    "location": "zarin/api.py:34-37 (`_admin_guard`), zarin/config.py:20 (`ADMIN_TOKEN = os.environ.get(..., \"\")`)",
@@ -526,6 +551,7 @@
   {
    "id": "ZB-020",
    "lens": "security",
+   "source": "panel",
    "severity": "high",
    "title": "Grounding guard checks only multi-digit numbers — arbitrary model text passes as \"grounded\"",
    "location": "zarin/ai/gateway.py:37-60 (`_digit_runs` / `is_grounded`), rendered at frontend/src/components/Copilot.tsx:113",
@@ -540,6 +566,7 @@
   {
    "id": "ZB-021",
    "lens": "reliability",
+   "source": "panel",
    "severity": "high",
    "title": "Unhandled 500s are invisible to the Control Center's own error metric",
    "location": "zarin/obs.py:23-29 (middleware) → /api/admin/performance, Ops «کارایی» page",
@@ -554,6 +581,7 @@
   {
    "id": "ZB-022",
    "lens": "reliability",
+   "source": "panel",
    "severity": "high",
    "title": "Bootstrap /api/meta failure leaves the merchant workspace in a permanent skeleton",
    "location": "frontend/src/ctx.tsx:35-41",
@@ -568,6 +596,7 @@
   {
    "id": "ZB-023",
    "lens": "scalability",
+   "source": "panel",
    "severity": "high",
    "title": "Marts are unclustered — every merchant query full-scans all 2.06M sessions",
    "location": "zarin/pipeline.py:207 (`COPY {name} TO ... (FORMAT PARQUET)` with no ORDER BY)",
@@ -582,6 +611,7 @@
   {
    "id": "ZB-024",
    "lens": "scalability",
+   "source": "panel",
    "severity": "high",
    "title": "/api/insights issues 23–25 sequential uncached queries, several redundant",
    "location": "zarin/insights.py:135 `generate()` (verified by instrumenting `db.q`/`db.q1`)",
@@ -596,6 +626,7 @@
   {
    "id": "ZB-025",
    "lens": "scalability",
+   "source": "panel",
    "severity": "high",
    "title": "Full 1.95M-row attempts aggregate on every /api/quality and /api/admin/platform, uncached",
    "location": "zarin/api.py:243-246 (`/api/quality` anomalies) and zarin/control.py:63-67 (`admin_platform` anomalies)",
@@ -610,6 +641,7 @@
   {
    "id": "ZB-026",
    "lens": "product",
+   "source": "panel",
    "severity": "high",
    "title": "Control Center recommends merchant-level action but offers no merchant drilldown or search",
    "location": "zarin/control.py:80-98 (_platform_insights) + frontend/src/ops/* (all five pages)",
@@ -624,6 +656,7 @@
   {
    "id": "ZB-027",
    "lens": "product",
+   "source": "panel",
    "severity": "high",
    "title": "Ranked action cards are terminal: no navigation, no state, no follow-through",
    "location": "frontend/src/components/InsightCard.tsx:24-60; frontend/src/pages/Overview.tsx:76-85",
@@ -638,6 +671,7 @@
   {
    "id": "ZB-028",
    "lens": "business",
+   "source": "panel",
    "severity": "high",
    "title": "Flagship card's headline action is wrong for ~100% of the merchants it fires on",
    "location": "zarin/insights.py:152-153 (paid_unverified diagnosis_fa / action_fa)",
@@ -652,6 +686,7 @@
   {
    "id": "ZB-029",
    "lens": "business",
+   "source": "panel",
    "severity": "high",
    "title": "61.8B IRR presented as claimable money with no claimability or expiry framing",
    "location": "zarin/insights.py:154-156, impact_label_fa «مبلغ واقعی در انتظار تعیین تکلیف (برآورد نیست)», confidence \"high\"",
@@ -666,6 +701,7 @@
   {
    "id": "ZB-030",
    "lens": "business",
+   "source": "panel",
    "severity": "high",
    "title": "No tenancy: any merchant's full business data is readable by merchant key",
    "location": "zarin/api.py — merchant routes (/api/overview, /api/insights, /api/customers …) carry no auth dependency; only /api/admin/* have `dependencies=_ADMIN` (api.py:165). Login is client-side only (frontend/src/pages/Login.tsx: the OTP step advances via setStep with no backend call).",
@@ -680,6 +716,7 @@
   {
    "id": "ZB-031",
    "lens": "ux",
+   "source": "panel",
    "severity": "high",
    "title": "Plain-language tooltip system is not wired into any merchant analytics page",
    "location": "frontend/src/components/Tooltip.tsx:7-29 (TIPS) vs frontend/src/pages/{Overview,FunnelPage,CustomersPage,PeersPage,ChangesPage,QualityPage}.tsx",
@@ -694,6 +731,7 @@
   {
    "id": "ZB-032",
    "lens": "ux",
+   "source": "panel",
    "severity": "high",
    "title": "Copilot answers a different question instead of admitting it did not understand",
    "location": "zarin/copilot.py:127-131 (fallback plan) rendered by frontend/src/components/Copilot.tsx:112-120",
@@ -708,6 +746,7 @@
   {
    "id": "ZB-033",
    "lens": "design",
+   "source": "panel",
    "severity": "high",
    "title": "Rich tooltip is positioned by physical-right math but applied to a logical inset — mirrors across the viewport in RTL",
    "location": "frontend/src/components/Tooltip.tsx:31-36, 64 (used on every KPI label, funnel chip and ops metric)",
@@ -722,6 +761,7 @@
   {
    "id": "ZB-034",
    "lens": "design",
+   "source": "panel",
    "severity": "high",
    "title": "Cohort heat map uses an absolute 0–100% colour ramp, so real retention data renders as one flat green",
    "location": "frontend/src/components/charts.tsx:167 (CohortGrid); visible in docs/screenshots/rd-customers.png, «بازگشت مشتریان (کوهورت ماهانه)»",
@@ -736,6 +776,7 @@
   {
    "id": "ZB-035",
    "lens": "accessibility",
+   "source": "panel",
    "severity": "high",
    "title": "Body/muted text tokens fail 1.4.3 across every surface; mobile primary nav at 2.35:1",
    "location": "frontend/src/theme.css:13-14 (`--ink-3:#7c7e8a`, `--ink-4:#a0a2ac`); consumers at theme.css:86 `.side-head`, :121 `.topbar .t-sub`, :142 `.bn-item`, :196 `.section > .sub`, :218 `.stat .k`, :295 `.glance .gk`, :339 `.composer-note`, :389 `.footer-note`, :429 `.entry-sub`; `.chip-good` theme.css:200",
@@ -750,6 +791,7 @@
   {
    "id": "ZB-036",
    "lens": "accessibility",
+   "source": "panel",
    "severity": "high",
    "title": "Chat composer input has its focus indicator removed (2.4.7)",
    "location": "frontend/src/theme.css:326-327 `.composer input { … outline: none; }` — confirmed in shipped CSS `/assets/index-ki_7A9bP.css`",
@@ -764,6 +806,7 @@
   {
    "id": "ZB-037",
    "lens": "accessibility",
+   "source": "panel",
    "severity": "high",
    "title": "Seven zero-size, invisible buttons in the tab order on the Overview and Customers KPI strips",
    "location": "frontend/src/pages/Overview.tsx:44,49,54,59,63 and frontend/src/pages/CustomersPage.tsx:34,39 — `<EvBtn … label=\"\" />`; renderer at frontend/src/components/ui.tsx:49-57",
@@ -778,6 +821,7 @@
   {
    "id": "ZB-038",
    "lens": "ai-grounding",
+   "source": "panel",
    "severity": "high",
    "title": "Abbreviation rule accepts arbitrary downscale (۱۰۰ → ۱۰, ۱۲۰۰ → ۱۲)",
    "location": "zarin/ai/gateway.py:51 (d.startswith(x) and set(d[len(x):]) <= {\"0\"})",
@@ -792,6 +836,7 @@
   {
    "id": "ZB-039",
    "lens": "ai-grounding",
+   "source": "panel",
    "severity": "high",
    "title": "Guard is unit- and metric-blind: same digits, wrong currency or wrong metric passes",
    "location": "zarin/ai/gateway.py:43-60",
@@ -806,6 +851,7 @@
   {
    "id": "ZB-040",
    "lens": "ai-grounding",
+   "source": "panel",
    "severity": "high",
    "title": "\"Refusal safety 100%\" is vacuous — the checks cannot fail and the cases do not refuse",
    "location": "zarin/ai/eval/runner.py:22 (no_forbidden), zarin/ai/eval/cases.py:37-40, surfaced as «ایمنی در نبود داده» in frontend/src/ops/OpsAI.tsx:72",
@@ -820,6 +866,7 @@
   {
    "id": "ZB-041",
    "lens": "testing-qa",
+   "source": "panel",
    "severity": "high",
    "title": "LMDI and conversion-driver tests assert closure, not attribution — a factor swap stays green",
    "location": "tests/test_metrics.py:81-94; zarin/analytics.py:236-242",
@@ -834,6 +881,7 @@
   {
    "id": "ZB-042",
    "lens": "testing-qa",
+   "source": "panel",
    "severity": "high",
    "title": "Insights engine at 55% — six of nine card generators never run, incl. the PSP selection-bias fix",
    "location": "zarin/insights.py:164-222, 241-250, 275-288, 292-294, 320-343, 370-386",
@@ -848,6 +896,7 @@
   {
    "id": "ZB-043",
    "lens": "testing-qa",
+   "source": "panel",
    "severity": "high",
    "title": "No frontend tests at all; Persian formatting is duplicated between fa.py and fmt.ts with an observable divergence and no parity test",
    "location": "frontend/package.json (no test script/runner); frontend/src/fmt.ts:23-26 vs zarin/fa.py:35-38",
@@ -862,6 +911,7 @@
   {
    "id": "ZB-044",
    "lens": "testing-qa",
+   "source": "panel",
    "severity": "high",
    "title": "Ops copilot intent routing is 54% covered and misroutes — verified, with no equivalent to the merchant copilot's ordering regression test",
    "location": "zarin/ops_copilot.py:33-111; tests/test_control.py:68-80",
@@ -869,13 +919,14 @@
    "impact": "An operator asking about grounding rate or infrastructure cost gets an unrelated AI-spend answer with 'high' confidence and mismatched evidence. Adding or broadening any ops regex can silently capture a sibling intent.",
    "recommendation": "Parametrize a routing table test over all eight ops intents (one representative question each, plus two compound questions asserting the more specific intent wins) mirroring test_ai.py:138, and anchor the cost regex so it requires an AI/model qualifier.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (missed by the per-lens cap of four verifications)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-045",
    "lens": "rubric-official",
+   "source": "panel",
    "severity": "medium",
    "title": "Data-quality page shows 1 anomaly next to a hardcoded claim of 28 for what reads as the same anomaly",
    "location": "zarin/api.py:243-246 (computed) vs zarin/api.py:256 (rules_fa prose); rendered adjacent in frontend/src/pages/QualityPage.tsx:52 and :61",
@@ -883,13 +934,14 @@
    "impact": "On the page whose entire purpose is analytical honesty, two different numbers for a similarly-worded anomaly appear inches apart, one of them a literal string that will drift from the data on any dataset change.",
    "recommendation": "Compute both counts in the anomalies query with distinct labels («بدون هیچ تلاش موفق» vs «بدون تلاش Verified») and delete the hardcoded 28 from rules_fa.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-046",
    "lens": "rubric-official",
+   "source": "panel",
    "severity": "medium",
    "title": "Five dataset dimensions are carried into the marts and used by zero analytics",
    "location": "zarin/pipeline.py:82 (win_bank), :98 (dow), :105-106 (issuer_bank_code, init_time_ms), :72 (verify_type) — no reference in zarin/analytics.py, insights.py, peers.py or any frontend page",
@@ -897,13 +949,14 @@
    "impact": "Costs the depth criterion directly. Issuer-bank × PSP failure segmentation (\"cards from bank X fail 3× more on your worst gateway\") and init-latency → abandonment are the two most actionable relationships this schema supports, and both are absent — while the copilot fallback proves merchants will ask the day-of-week question.",
    "recommendation": "Add one segmentation card following the _psp_card pattern: per issuer_bank_code within-merchant ok_rate with the same degenerate-rail guard, naming the worst bank and its top switch_response_codes. It reuses existing SQL shape and adds a genuinely new lever.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-047",
    "lens": "rubric-official",
+   "source": "panel",
    "severity": "medium",
    "title": "Peer gaps produce rial figures with no significance test; the \"uncertainty\" band is a hardcoded judgement constant",
    "location": "zarin/insights.py:66 (2pp threshold), :80-82 (recovery_fraction 0.5/0.75/1.0), zarin/peers.py:109-117 (percentile by raw rank)",
@@ -911,13 +964,14 @@
    "impact": "The rubric asks for \"uncertainty where relevant\". The product is honest that the band is a scenario, not a CI — but that means no card carries statistical uncertainty at all, and a thin-peer gap and a 22-peer gap produce visually identical claims apart from a chip.",
    "recommendation": "Gate the card on the gap exceeding peer IQR or a bootstrap CI of the peer median rather than a flat 2pp, and widen the recovery-fraction band as n_peers falls so the interval visibly reflects evidence strength.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-048",
    "lens": "rubric-official",
+   "source": "panel",
    "severity": "medium",
    "title": "Actions are per-kind templates that ignore what sibling cards already computed",
    "location": "zarin/insights.py:175 (inbank action_fa), :167 (no_attempt action_fa) vs :350 (_psp_card action_fa)",
@@ -925,13 +979,14 @@
    "impact": "Weakens the \"concrete thing the merchant can do\" half of the top criterion. The strongest evidence the engine produced is available but not wired into the recommendation the merchant actually reads.",
    "recommendation": "When _psp_card fires, interpolate the named worst gateway into the inbank_gap action (\"ask ZarinPal to shift traffic away from PSP-03\"); similarly reference the amount band or hour bucket when those generators fire alongside.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-049",
    "lens": "architecture",
+   "source": "panel",
    "severity": "medium",
    "title": "DataSourceAdapter is half a nominal abstraction — the ingestion half has no production consumer",
    "location": "zarin/sources/base.py:32 (metrics), zarin/sources/ga4.py:47, zarin/control.py:110-116",
@@ -939,13 +994,14 @@
    "impact": "ADR-0004 claims \"Adding Shopify = one adapter file; the engine and UI generalize\", but today the interface only feeds a status panel. A second real source would have to invent the wiring from `metrics()` into the semantic layer from scratch, so the abstraction is not yet proof that the seam works — it is a shape without a consumer.",
    "recommendation": "Either wire it end-to-end for one window (call `.metrics(f,t)` on connected adapters in `control.sources()` and feed the pair into `cross_source()`, so the path is exercised), or drop `metrics()` and `sources/insights.py` and keep the honest status registry. Half-wired is the worst of both.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-050",
    "lens": "architecture",
+   "source": "panel",
    "severity": "medium",
    "title": "Admin auth seam exists only on the server; the ops UI can never satisfy it",
    "location": "zarin/api.py:34-37 (_admin_guard) vs frontend/src/ctx.tsx:78-95 (useAdmin)",
@@ -953,13 +1009,14 @@
    "impact": "Setting the token makes every Control Center page 401 and the surface unusable; leaving it unset leaves /api/admin/* fully open. The dual-surface separation is therefore purely client-side (a sessionStorage flag in App.tsx:161 plus a data-workspace attribute) with no server-side notion of surface — the security seam is one-sided, so in practice it is always in the open configuration.",
    "recommendation": "Have Login capture the operator token for the ops path, keep it in the AppProvider, and add an optional headers argument to `get()` that `useAdmin` populates. ~15 lines and the existing guard becomes usable.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-051",
    "lens": "architecture",
+   "source": "panel",
    "severity": "medium",
    "title": "insights.py is the god module: 9 hand-built card dicts with an implicit, drifting contract",
    "location": "zarin/insights.py:135-315 (generate)",
@@ -967,13 +1024,14 @@
    "impact": "Adding the tenth insight means copying ~25 lines and remembering an undocumented key set; the frontend (api.ts:29-36) already carries five optional fields to absorb the variance. This is where feature growth will actually land, and it is the least structured part of the backend.",
    "recommendation": "Introduce a frozen `Card` dataclass with the full field set and a `to_dict()`, so each generator returns a typed object and the ranking reads declared fields. Promote `_quantile` to a shared helper (it is used by two modules), and hoist the deferred `from .db import q`.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-052",
    "lens": "architecture",
+   "source": "panel",
    "severity": "medium",
    "title": "Ops surface bypasses the metric registry with hand-written evidence payloads",
    "location": "zarin/ops_copilot.py:24-29 (_ev)",
@@ -981,13 +1039,14 @@
    "impact": "The single-source-of-truth guarantee holds for the merchant surface but not the operations surface. Ops metric definitions (fallback rate, grounded rate, cost per request) live as prose inside the copilot planner, so they can drift from what OpsAI.tsx labels the same numbers, and none of them get caveats or the drawer's traceability treatment.",
    "recommendation": "Add the ~8 platform/telemetry metrics to REGISTRY with grain=\"platform\" and have ops_copilot call `evidence()` with sql_kind=\"method\". Deletes _ev() and makes the claim in registry.py true for both surfaces.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-053",
    "lens": "code-quality",
+   "source": "panel",
    "severity": "medium",
    "title": "Analytical thresholds live as inline magic numbers, contradicting config.py's «One source of truth», and are re-hardcoded in UI copy",
    "location": "zarin/config.py:1 / zarin/insights.py:28-32,66,80-82,90,187,218,247,274,329,334,342 / frontend/src/pages/FunnelPage.tsx:82,112 / frontend/src/components/InsightCard.tsx:49",
@@ -995,13 +1054,14 @@
    "impact": "Tuning any threshold requires finding every literal across three layers; the UI copy will silently state a number the backend no longer uses, which in a product whose whole pitch is auditable numbers is a correctness-of-claim bug, not just style.",
    "recommendation": "Move the insight thresholds into config.py next to the existing `MIN_*` block; expose `MIN_SEGMENT_N`/`PREFERRED_PEERS` through `/api/meta` (or the existing `low_n`/`n_peers` flags) so the frontend renders the server's number instead of a literal.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-054",
    "lens": "code-quality",
+   "source": "panel",
    "severity": "medium",
    "title": "Top-5 concentration is implemented four times with divergent null handling",
    "location": "zarin/analytics.py:182-187, zarin/insights.py:268-273, zarin/control.py:42-47, zarin/api.py:240-242",
@@ -1009,13 +1069,14 @@
    "impact": "The same business concept has four definitions in a codebase whose README claims one shared semantic layer; the `api.py` copy will divide by zero/NULL on an empty window, and a future fix to the metric will land in one to three of the four sites.",
    "recommendation": "Extract one `concentration_top5(where_sql, params)` helper in `analytics.py` (or the registry module) and call it from all four sites, returning a single key name.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-055",
    "lens": "code-quality",
+   "source": "panel",
    "severity": "medium",
    "title": "Chart colors bypass the design tokens and have already drifted",
    "location": "frontend/src/components/charts.tsx:4-5,19,21,25 vs frontend/src/theme.css:11,15,19",
@@ -1023,13 +1084,14 @@
    "impact": "Charts render slightly off-brand today and will not follow any future token change; the mixed convention inside a single file means a maintainer cannot tell which mechanism is authoritative. (Related: ~150 inline `style={{…}}` objects across 18 tsx files carry raw pixel magic numbers — `minWidth: 84`, `width: 70`, `fontSize: 9` — alongside a 436-line token system.)",
    "recommendation": "Read the three values once via `getComputedStyle(document.documentElement).getPropertyValue('--brand')` (or export them from a single `tokens.ts` that theme.css and charts share) and delete the literals.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-056",
    "lens": "code-quality",
+   "source": "panel",
    "severity": "medium",
    "title": "No lint or test gate on 2,777 lines of frontend; `eslint-disable` comments reference a linter that isn't installed",
    "location": "frontend/package.json:8-12 (scripts/devDependencies), frontend/src/ctx.tsx:92,112, frontend/src/components/EvidenceDrawer.tsx:23, frontend/src/components/Copilot.tsx:10",
@@ -1037,13 +1099,14 @@
    "impact": "The hook-dependency suppressions in `ctx.tsx:92,112` are exactly the pattern that needs a linter to stay honest (the `key = JSON.stringify(...)` trick is correct today but nothing enforces it); the backend has 56 hermetic tests while the UI has zero automated checks beyond type-checking.",
    "recommendation": "Add eslint + `eslint-plugin-react-hooks` and a `lint` script (the disables then become meaningful), and enable `noUncheckedIndexedAccess`; a handful of vitest tests on `fmt.ts` (`rial`, `pct`, `deltaPct`) would cover the highest-risk pure logic cheaply.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-057",
    "lens": "data-correctness",
+   "source": "panel",
    "severity": "medium",
    "title": "Data Quality page contradicts itself on the known-anomaly count (1 vs 28)",
    "location": "zarin/api.py:243-246 (`verified_wo_ok_try`) and api.py:256 (rules_fa), rendered together in frontend/src/pages/QualityPage.tsx:52 and :61",
@@ -1051,13 +1114,14 @@
    "impact": "On the one page whose whole purpose is «بدون ترمیم پنهان، بدون عدد ساختگی», two numbers for the same anomaly appear four lines apart, and the surfaced one undercounts the real anomaly 28×. It also silently hides the 43.8M IRR of GMV that has no attempt-level backing.",
    "recommendation": "Change the subquery to `HAVING sum((try_status='Verified')::int)=0` so the reported count matches the audit and the GMV gap, or rename the field/label to 'no settled attempt' and add a second counter for the 28. Either way derive the rules_fa number from the query instead of hard-coding it.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-058",
    "lens": "data-correctness",
+   "source": "panel",
    "severity": "medium",
    "title": "Broken-funnel branch overrides the documented small-peer-pool confidence cap",
    "location": "zarin/insights.py:96-101 (`conf = \"low\" if n_peers < 8` … then `if broken: conf = \"high\"`)",
@@ -1065,13 +1129,14 @@
    "impact": "A rial estimate whose only baseline is a 5-merchant category median is chipped 'high confidence', and CONF_W['high']=1.0 vs 0.35 inflates its ranking score ~2.9×. The 'this stage is broken' judgement is high-confidence (it comes from the merchant's own 94% NoAttempt rate), but the number displayed next to the chip is not.",
    "recommendation": "Split the two claims: keep the broken-funnel reframing and its urgency, but leave `confidence` bound by the peer-pool rule, or add a separate `severity` field for the broken flag so confidence keeps describing the estimate. The n_peers<8 warning chip already renders (InsightCard.tsx:49-51), so only the chip and the score weight need fixing.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-059",
    "lens": "statistics",
+   "source": "panel",
    "severity": "medium",
    "title": "Peer pool includes structurally dead merchants, so the \"peer median\" is not a comparable baseline",
    "location": "zarin/peers.py:17 (POOL_SQL), peers.py:64-74; merchant_stats probe",
@@ -1079,13 +1144,14 @@
    "impact": "At the MIN_PEERS floor of 5, one dead-integration merchant shifts the median a full rank position and can flip the 2pp card trigger either way — suppressing a real opportunity or manufacturing one. The advertised baseline (\"what a comparable business achieves\") is contaminated by businesses that are not transacting at all.",
    "recommendation": "Apply the PSP degeneracy rule to the peer pool (e.g. require verified/sessions above a floor, or no_attempt_rate ≤ 0.6) and document it in docs/ANALYTICS.md §3; alternatively use a trimmed median and expose the peer values in the evidence drawer so contamination is visible.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-060",
    "lens": "statistics",
+   "source": "panel",
    "severity": "medium",
    "title": "Realized-GMV cap collapses the honest band into a point estimate equal to the merchant's entire GMV, at max confidence weight",
    "location": "zarin/insights.py:88-100, 307; live /api/insights?m=M265",
@@ -1093,13 +1159,14 @@
    "impact": "The least-reliable estimate in the system — a broken funnel where essentially none of the gap is recoverable — is displayed as a point figure equal to total sales and ranked above every well-evidenced card. Confidence-in-the-problem is being fed into a formula that means confidence-in-the-estimate.",
    "recommendation": "For `broken` cards emit no rial impact (impact_low/high = 0, as the alert cards do) and rank them by a separate risk magnitude; keep confidence=\"high\" as a problem flag only, not as CONF_W input.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-061",
    "lens": "statistics",
+   "source": "panel",
    "severity": "medium",
    "title": "Card trigger thresholds are fixed constants untethered from sampling error, with no multiple-comparison control",
    "location": "zarin/insights.py:66 (2pp), :187 (3pp), :218 (5pp), :247 (5pp), :274 (0.4), :334 (10pp); zarin/config.py:42",
@@ -1107,13 +1174,14 @@
    "impact": "At the low end of the allowed range the engine emits a confidently-worded, rial-denominated recommendation from a difference indistinguishable from noise, and the confidence chip cannot flag it because it is not derived from any variance. Uncertainty is asserted (three-level chip, scenario band) but never quantified from the data.",
    "recommendation": "Gate emission on gap > k·SE(own rate) with SE = sqrt(p(1−p)/n) in addition to the fixed pp floor; scale the scenario band by observed peer dispersion (p25..p75) rather than the fixed [0.5, 0.75, 1.0]; state the multiple-comparison exposure in docs/ANALYTICS.md §7.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-062",
    "lens": "statistics",
+   "source": "panel",
    "severity": "medium",
    "title": "repeat_gap converts a share gap into incremental transactions — an identity error",
    "location": "zarin/insights.py:238-265",
@@ -1121,13 +1189,14 @@
    "impact": "The card's rial figure is not incremental revenue under any coherent counterfactual — it is the size of a mix shift priced as new sales. Confidence \"low\" and effort \"hard\" limit ranking damage, but the number itself estimates nothing.",
    "recommendation": "Anchor the counterfactual on customers rather than transaction share: extra_txns = (peer repeat-txns-per-customer − own) × customers × ticket; or drop the rial figure and present it as a positioning gap with no monetary impact.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-063",
    "lens": "security",
+   "source": "panel",
    "severity": "medium",
    "title": "Unauthenticated free-text fields are persisted and rendered in the Control Center",
    "location": "zarin/api.py:146-159 (`surface` param on /api/copilot and /api/copilot/feedback, `intent` on feedback) → zarin/ai/telemetry.py:23-34 → surfaced at telemetry.py:84",
@@ -1135,13 +1204,14 @@
    "impact": "Any anonymous client can pollute the operator's AI-Ops dashboard and the durable JSONL audit trail with attacker-chosen labels, skewing the intent/feedback aggregates that the Control Center presents as ground truth, and growing the log without bound.",
    "recommendation": "Validate with a Literal/Enum: `surface: Literal[\"merchant\",\"ops\"]` and constrain `intent` to the known plan intents (FastAPI returns 422 automatically); reject unknown values instead of recording them.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-064",
    "lens": "security",
+   "source": "panel",
    "severity": "medium",
    "title": "Unauthenticated endpoint proxies to an external LLM using the operator's API key, with no rate limit",
    "location": "zarin/api.py:145-151 (/api/copilot) → zarin/ai/provider.py:57-80 (OpenRouter call with `Authorization: Bearer {self.api_key}`)",
@@ -1149,13 +1219,14 @@
    "impact": "Quota exhaustion / denial of the AI feature, and the operator's key is effectively lent to anonymous callers as a text-generation proxy. The free-model policy (zarin/ai/models.enforce_free) caps the dollar cost at $0, which is a real mitigation, but not the rate-limit one.",
    "recommendation": "Put /api/copilot behind the same session gate as the merchant data, and add a simple per-IP token bucket in the existing obs middleware (a deque of timestamps is enough) before the provider is constructed.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-065",
    "lens": "security",
+   "source": "panel",
    "severity": "medium",
    "title": "Demo login gate claims an SMS was sent and is not disclosed as cosmetic in the UI",
    "location": "frontend/src/pages/Login.tsx:83-95",
@@ -1163,13 +1234,14 @@
    "impact": "A demo or screenshot reads as a working phone/OTP authentication flow for a payments product. That misrepresents the security posture to a reviewer, and the same screen would be mistaken for real auth by anyone deploying it.",
    "recommendation": "Add one line of muted text under the OTP boxes: «نسخه نمایشی — احراز هویت واقعی متصل نیست؛ هر کدی وارد شود ورود انجام می‌شود.» Costs nothing and makes the honest claim visible where the claim is made.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-066",
    "lens": "reliability",
+   "source": "panel",
    "severity": "medium",
    "title": "No application logging anywhere in the backend — nothing to diagnose an incident with",
    "location": "zarin/ (whole package); zarin/__main__.py:26",
@@ -1177,13 +1249,14 @@
    "impact": "When the Performance page does show a slow or failing endpoint, there is no artifact to go to next — no error log, no correlation id, no persisted trace. Post-hoc diagnosis of anything that happened before the terminal scrolled is impossible.",
    "recommendation": "One `logging` config + a request-id generated in obs.middleware, echoed in a response header and stamped into both the obs event and the ai_events row; log exceptions at ERROR with that id.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-067",
    "lens": "reliability",
+   "source": "panel",
    "severity": "medium",
    "title": "Unknown /api/* paths return 200 text/html, masking contract drift and polluting telemetry",
    "location": "zarin/api.py:267-276 (SPA catch-all) — verified live",
@@ -1191,13 +1264,14 @@
    "impact": "A frontend/backend version skew surfaces to the user as an opaque JSON parse error (api.ts:166 `res.json()` on HTML) instead of a 404, and the Control Center reports the broken path as 100% healthy. Silent failure with a plausible screen.",
    "recommendation": "Return a JSON 404 for any unmatched path starting with `/api/` before falling through to index.html; add a test asserting /api/nope is 404 JSON.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-068",
    "lens": "reliability",
+   "source": "panel",
    "severity": "medium",
    "title": "Data-source «تازگی داده» reports the parquet build time, not the newest data",
    "location": "zarin/sources/zarinpal.py:20 → Ops «منابع داده» card (OpsSources.tsx:46-50)",
@@ -1205,13 +1279,14 @@
    "impact": "A pipeline that keeps running but stops ingesting (or ingests an empty delta) rewrites the file and the Control Center reports fresh, connected, ok — exactly the stale-data incident this view exists to catch. Same shape in GA4: status() returns connected/ok without ever calling the transport (ga4.py:54-58), though that path is unreachable today since fetch_fn is None.",
    "recommendation": "Report `max(d)` from the sessions mart as freshness (build time can be a second field), and degrade status to a warning past a configured lag threshold.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-069",
    "lens": "reliability",
+   "source": "panel",
    "severity": "medium",
    "title": "No React error boundary — a render exception blanks the whole SPA",
    "location": "frontend/src/App.tsx:160-175 (and main.tsx)",
@@ -1219,13 +1294,14 @@
    "impact": "Any unexpected payload shape or chart-library throw unmounts the entire tree to a white page with no message and no recovery path — worse than the per-page Empty states the code otherwise does well. No client-side error is reported anywhere either.",
    "recommendation": "One error boundary around <main> rendering the existing <Empty> component plus a reload action; optionally POST caught errors to a telemetry endpoint so client failures reach AI-Ops-style visibility.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-070",
    "lens": "scalability",
+   "source": "panel",
    "severity": "medium",
    "title": "No response compression anywhere — 618 KB JS and 51 KB JSON served raw",
    "location": "zarin/api.py:20 (app construction — no `GZipMiddleware`; grep for GZip/gzip across zarin/ returns 0 hits)",
@@ -1233,13 +1309,14 @@
    "impact": "~440 KB of avoidable transfer on every cold load and ~44 KB on every `/api/meta` — significant on the Iranian mobile connections this Persian-first product targets, and it scales with every new user rather than being amortized.",
    "recommendation": "`app.add_middleware(GZipMiddleware, minimum_size=1000)` — one line, already available in the installed Starlette. Optionally pre-compress the static assets at build time.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-071",
    "lens": "scalability",
+   "source": "panel",
    "severity": "medium",
    "title": "Single 618 KB bundle: no code splitting, merchant users download the whole Control Center",
    "location": "frontend/src/App.tsx / frontend/vite.config.ts — no `React.lazy`, `Suspense` or dynamic `import()` anywhere under frontend/src (grep returns 0 hits)",
@@ -1247,13 +1324,14 @@
    "impact": "A merchant who never opens the Control Center still parses and executes its code; the environment is chosen *before* login, so the split is trivially available. Bundle parse/execute cost is the dominant first-paint term on mid-range mobile.",
    "recommendation": "`const Ops = lazy(() => import('./ops/OpsApp'))` behind the pre-login environment choice, and split recharts into its own chunk via `build.rollupOptions.output.manualChunks`. Drop the unused Vazirmatn weights to the 3–4 the design actually uses.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-072",
    "lens": "scalability",
+   "source": "panel",
    "severity": "medium",
    "title": "Blocking 20s LLM call inside a sync endpoint can exhaust the shared threadpool",
    "location": "zarin/api.py:146 (`def ask(...)` — sync) → zarin/ai/gateway.py:91 → zarin/ai/provider.py:77 (`urllib.request.urlopen(req, timeout=self.timeout)`, `OPENROUTER_TIMEOUT` default 20s)",
@@ -1261,13 +1339,14 @@
    "impact": "40 concurrent slow/hanging copilot requests stall the entire API — including deterministic merchant endpoints that never touch the LLM. Because the analytics endpoints are also sync and lock-serialized, the failure mode is total, not partial.",
    "recommendation": "Make `/api/copilot` `async def` and do the provider call with an async HTTP client (or `run_in_threadpool` with a dedicated bounded executor + `asyncio.Semaphore` cap), reuse one connection pool across calls, and lower the timeout well below the shared-threadpool budget.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-073",
    "lens": "product",
+   "source": "panel",
    "severity": "medium",
    "title": "Overview silently truncates the ranked feed to four cards with no way to see the rest",
    "location": "frontend/src/pages/Overview.tsx:82",
@@ -1275,13 +1354,14 @@
    "impact": "For any merchant with five or more findings, real recommendations — including the gmv_change alert, the only card that explains a sales swing — are invisible with no affordance suggesting they exist. The user cannot distinguish \"four is all there is\" from \"four is all we showed you.\"",
    "recommendation": "Render all cards, or keep four above the fold behind a \"N فرصت دیگر\" expander. One-line change plus a counter.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-074",
    "lens": "product",
+   "source": "panel",
    "severity": "medium",
    "title": "Time model contradicts the stated weekly job; the default landing has no period-over-period deltas at all",
    "location": "frontend/src/ctx.tsx:43-61 (presets) and zarin/analytics.py via /api/overview",
@@ -1289,13 +1369,14 @@
    "impact": "The default first screen of a \"what changed\" product shows five absolute numbers with zero change indicators. The weekly cadence the product claims is not expressible, and a merchant cannot ask the obvious \"this month vs last month\" or \"vs the same week last year\" question anywhere in the UI even though /api/changes already accepts arbitrary f1/t1/f2/t2 (api.py:135-142).",
    "recommendation": "Add a 7-day preset and a custom range picker (native <input type=\"date\">), default to 30d rather than all, and always send cf/ct so deltas are present on the landing.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-075",
    "lens": "product",
+   "source": "panel",
    "severity": "medium",
    "title": "Copilot covers seven regex intents, keeps no conversation memory, and answers unmatched questions with an unrelated KPI summary",
    "location": "zarin/copilot.py:39-131 (_plan); frontend/src/components/Copilot.tsx:56-67 (ask sends only the current question)",
@@ -1303,13 +1384,14 @@
    "impact": "On a chat-first landing, roughly a third of real questions get a confident-looking answer to a question the user did not ask. It never hallucinates numbers (the grounding discipline holds), but it also never says \"I can't answer that\" — the worst failure mode for trust in a chat surface, because a miss is indistinguishable from a hit.",
    "recommendation": "Emit an explicit no-coverage response when no branch matches (\"این را هنوز نمی‌توانم پاسخ دهم — می‌توانم درباره …\") instead of falling through to the summary, and pass the previous turn's intent so pronoun follow-ups resolve.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-076",
    "lens": "product",
+   "source": "panel",
    "severity": "medium",
    "title": "No export, share, or digest anywhere in either surface",
    "location": "frontend/src/* (whole app); zarin/api.py (no report/export endpoint)",
@@ -1317,13 +1399,14 @@
    "impact": "A merchant who finds the 912 unverified payments cannot hand the list to their developer or accountant, and cannot be told about them without logging in. For a product positioned as a weekly habit, there is no mechanism that creates the weekly return — the merchant must remember on their own.",
    "recommendation": "Ship CSV on the evidence drawer's session sample and a print-friendly Overview first; a weekly email/SMS digest of the top three cards is the highest-leverage retention feature and reuses copilot's \"priorities\" intent verbatim.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-077",
    "lens": "product",
+   "source": "panel",
    "severity": "medium",
    "title": "Merchant \"کیفیت داده\" page is dataset-global and ignores the merchant and period controls still shown above it",
    "location": "frontend/src/pages/QualityPage.tsx:16 and zarin/api.py:237-238",
@@ -1331,13 +1414,14 @@
    "impact": "A merchant opening \"data quality\" under the \"شفافیت\" section reasonably expects the quality of their own data (their unknown-card share, their missing response codes, their coverage gaps) and instead gets platform statistics plus two controls that appear broken. It also surfaces cross-merchant aggregate information on a single-tenant surface.",
    "recommendation": "Scope /api/quality by m and the selected window for the merchant surface, keep the methodology rules list as-is, and move the platform outcome mix and top-5 concentration to the Control Center where they belong; or hide the merchant/period controls on pages that ignore them.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-078",
    "lens": "business",
+   "source": "panel",
    "severity": "medium",
    "title": "Insight-to-action last mile is missing: the product cannot hand over the list it tells you to act on",
    "location": "zarin/api.py:216-232 (/api/evidence/sessions, `limit: int = Query(12, ge=1, le=50)`) vs insights.py:153 action «این پرداخت‌ها را از پیشخوان زرین‌پال تعیین تکلیف نمایید»",
@@ -1345,13 +1429,14 @@
    "impact": "The merchant is told 61.8B IRR is sitting there and given no way to get the 912 identifiers, hand them to finance, or trigger anything. Value stays theoretical, and the \"open it weekly\" habit the product is designed around has no push channel to establish it.",
    "recommendation": "Add a full CSV export for the sessions behind any card (session_key, date, amount, PSP, settled_at) and a deep link to the ZarinPal panel filtered to Paid status. A weekly SMS/email digest of the top card is the cheapest available retention lever.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-079",
    "lens": "business",
+   "source": "panel",
    "severity": "medium",
    "title": "\"Payment Rescue\" is a retrospective measurement sold as a capability",
    "location": "README.md \"The major innovations\" table, row **Payment Rescue**; zarin/analytics.py funnel().recovery; insights.py:191-205 (recovery_gap card)",
@@ -1359,13 +1444,14 @@
    "impact": "Positioning it beside Paid-but-Unverified as a co-equal \"major innovation\" invites a PSP reviewer to discover the gap and discount the whole innovation list. It also gives away the strongest monetization play: retry-on-failure belongs in ZarinPal's own checkout, where the PSP captures the recovered volume rather than reporting on it.",
    "recommendation": "Reframe Payment Rescue as measurement (\"we quantify the rescue you already get and the gap to your peers\"), and pitch native retry in ZarinPal checkout as the derived roadmap item — that is the version with a revenue-share story attached.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-080",
    "lens": "business",
+   "source": "panel",
    "severity": "medium",
    "title": "Control Center recommends a triage action it provides no way to perform, and half of it monitors Zarbin rather than ZarinPal",
    "location": "zarin/control.py:86 (platform insight action «پذیرندگان دارای بیشترین مبلغ تاییدنشده را … در اولویت بگذارید») and control.py:101-106 (performance/ai_ops = obs.summary / ai_telemetry.summary)",
@@ -1373,13 +1459,14 @@
    "impact": "For a PSP ops team the surface is thin: it tells them a problem exists platform-wide but not which of 343 merchants to phone, and two of four pages are product self-monitoring rather than payment operations. The highest-ROI internal use case — a ranked merchant call-list worth 116B IRR of stuck settlement — is one query away and absent.",
    "recommendation": "Add /api/admin/merchants ranked by recoverable value (paid_unverified_amount, peer-gap opportunity, no-attempt severity) with the same evidence drawer, as the Control Center's landing view. It converts the internal surface from a status page into a revenue-recovery worklist and is the strongest argument for ZarinPal funding the product internally.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-081",
    "lens": "ux",
+   "source": "panel",
    "severity": "medium",
    "title": "Speculative opportunity estimate is displayed in the same slot and weight as real money",
    "location": "frontend/src/components/InsightCard.tsx:32-39; visible in docs/screenshots/rd-overview.png (card 2)",
@@ -1387,13 +1474,14 @@
    "impact": "The largest number on the merchant's home screen is a low-confidence guess that looks exactly like the one number on the page that is guaranteed real cash. A shop owner scanning for 10 seconds ranks the guess first.",
    "recommendation": "Give estimate cards a visually distinct amount treatment (outlined/greyed with a «برآورد» prefix badge) reserved from the solid treatment used for actual money, and rewrite the label to «اگر به سطح همتایان برسید، حدوداً … بیشتر می‌فروشید — این یک تخمین است، نه پول موجود».",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-082",
    "lens": "ux",
+   "source": "panel",
    "severity": "medium",
    "title": "Customers page shows self-contradictory figures side by side",
    "location": "frontend/src/pages/CustomersPage.tsx:32-51; docs/screenshots/rd-customers.png",
@@ -1401,13 +1489,14 @@
    "impact": "A merchant reading two adjacent tiles gets a flat contradiction with no reconciliation. The cause (the selected window is the entire dataset, so first-purchase == in-period for everyone) is invisible in the UI, so the natural conclusion is that the numbers are wrong — which poisons trust in the rest of the page.",
    "recommendation": "Suppress or annotate the «مشتری جدید» sub-line when new_customers === customers, e.g. «همه مشتریان در این بازه اولین خریدشان را داشتند چون بازه انتخابی کل تاریخچه است».",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-083",
    "lens": "ux",
+   "source": "panel",
    "severity": "medium",
    "title": "Data-fetch failures show raw English exception text and offer no retry",
    "location": "frontend/src/ctx.tsx:90 and :110 (`error: String(e)`), rendered at Overview.tsx:26, FunnelPage.tsx:19, CustomersPage.tsx:11, PeersPage.tsx:18, ChangesPage.tsx:45, QualityPage.tsx:17",
@@ -1415,13 +1504,14 @@
    "impact": "On any backend hiccup the merchant is dead-ended with an English stack-ish string and must know to reload the browser. This is the single most likely first-run failure a non-technical user will meet.",
    "recommendation": "Map the error to one Persian sentence («ارتباط با سرور برقرار نشد») and add a «تلاش دوباره» button that re-runs the fetch; keep the raw string behind the console or a small «جزئیات فنی» disclosure.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-084",
    "lens": "ux",
+   "source": "panel",
    "severity": "medium",
    "title": "The signature «این عدد از کجا آمد؟» drawer is written for an analyst, not a merchant",
    "location": "frontend/src/components/EvidenceDrawer.tsx:83-106; docs/screenshots/desk-evidence.png",
@@ -1429,13 +1519,14 @@
    "impact": "The affordance meant to make every number traceable in language a merchant understands is dominated by SQL and English column names. A shop owner opens it once, sees code, and stops using the feature that carries the product's trust story.",
    "recommendation": "Lead the drawer with a one-paragraph «به زبان ساده» restatement and the sample-session table, and collapse فرمول/پارامترها/کوئری behind a «جزئیات فنی» toggle. Run computed_at through faDate.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-085",
    "lens": "ux",
+   "source": "panel",
    "severity": "medium",
    "title": "Rial-only amounts with no Toman equivalent and no on-screen currency note",
    "location": "frontend/src/fmt.ts:11-21 (rial); Overview.tsx:45,60; meta.notes.currency is fetched but rendered nowhere on merchant pages",
@@ -1443,13 +1534,14 @@
    "impact": "Iranian shop owners transact and think in تومان. «هزار میلیارد ریال» is the hardest available format for the target user to hold in their head, and a factor-of-ten misread of the headline sales figure is the likely failure mode. Nothing on screen even states the unit convention.",
    "recommendation": "Add a ریال/تومان toggle in the topbar next to the period segment (a one-line divide-by-10 in fmt.rial), persisted in sessionStorage; default to تومان for the merchant workspace and keep ریال for Ops.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-086",
    "lens": "design",
+   "source": "panel",
    "severity": "medium",
    "title": "Waterfall zero-axis divider references an undefined CSS variable and renders invisible",
    "location": "frontend/src/components/charts.tsx:116 (Waterfall); «سهم هر عامل در تغییر فروش» on the what-changed page",
@@ -1457,13 +1549,14 @@
    "impact": "A waterfall's whole readability depends on the ±0 reference line: without it the reader cannot tell where positive stops and negative starts, and the −۴۷٫۸ میلیارد conversion bar loses its anchor. The chart still reads by colour, but the geometry is unmoored.",
    "recommendation": "Change to `var(--line-3)`. Longer term, add a build-time check (or a CSS-var lint) for `var(--x)` names not defined in theme.css — this is the only such leak but it shipped silently.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-087",
    "lens": "design",
+   "source": "panel",
    "severity": "medium",
    "title": "Latin digits leak into a Persian-first UI in three places, while the Persian-digit helper sits unused",
    "location": "frontend/src/components/charts.tsx:71 and :138; frontend/src/components/EvidenceDrawer.tsx:90, :99; frontend/src/fmt.ts:57",
@@ -1471,13 +1564,14 @@
    "impact": "Inconsistent digit systems inside the same grid and the same definition list. The evidence drawer is the product's transparency centrepiece, and it is where the Persian localisation visibly stops — a Gregorian UTC ISO timestamp under a Persian label is the most jarring instance.",
    "recommendation": "Use the existing HOURS_FA for hour labels, `+${faNum(k)}` for cohort headers, and faDate()/an Intl fa-IR dateTime format for computed_at (keep the ISO string in a title attribute for copy/debug). Same for date-valued params.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-088",
    "lens": "design",
+   "source": "panel",
    "severity": "medium",
    "title": "Backend and frontend ship two different Persian thousands separators, both visible on one page",
    "location": "zarin/fa.py:4 vs frontend/src/fmt.ts:2; both rendered on the Ops Overview screen",
@@ -1485,13 +1579,14 @@
    "impact": "Two visually different glyphs for the same function within one viewport. U+060C is a sentence comma, not a digit-group separator; using it inside numerals is typographically wrong in Persian and breaks the tabular-nums rhythm the .num class establishes.",
    "recommendation": "Change fa.py's translation table to map \",\" → \"٬\" (U+066C) so server-rendered Persian numerals match the client, and add one assertion in tests/ pinning the separator codepoint.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-089",
    "lens": "design",
+   "source": "panel",
    "severity": "medium",
    "title": "Merchant and Operations surfaces are visually indistinguishable; the differentiation hook is dead code",
    "location": "frontend/src/App.tsx:78 (`data-workspace={ws}`) vs frontend/src/theme.css — no rule matches it anywhere; compare docs/screenshots/rd-overview.png with rd-ops.png",
@@ -1499,13 +1594,14 @@
    "impact": "The product's stated model — a calm merchant surface vs a denser internal control centre — is not expressed visually. Nothing on screen signals \"you are in an internal tool\", which for an internal ops surface is both an orientation and a safety cue, and it costs the design its most legible strategic idea.",
    "recommendation": "Use the existing data-workspace attribute: under [data-workspace=\"ops\"] shift the accent from --brand to --blue-2 for the active nav and rank badges, drop --bg a step cooler, tighten --fs and section margin-block, and reduce card radius one notch. That is a ~15-line token override, not a second design system.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-090",
    "lens": "accessibility",
+   "source": "panel",
    "severity": "medium",
    "title": "No skip link past the repeated sidebar; no h1 on five of seven merchant pages",
    "location": "frontend/src/App.tsx:80-108 (`aside.sidebar` + `nav.side-nav`) and App.tsx:142 (`<main className=\"main\" id=\"main\">`); pages FunnelPage.tsx, PeersPage.tsx, CustomersPage.tsx, ChangesPage.tsx, QualityPage.tsx",
@@ -1513,13 +1609,14 @@
    "impact": "Fails WCAG 2.1 A 2.4.1 Bypass Blocks — a keyboard or switch user must traverse the sidebar, merchant `<select>` and four period buttons before reaching content on every navigation. The missing/vanishing `h1` breaks the standard screen-reader \"jump to h1\" orientation move and leaves five pages with no top-level heading (1.3.1 / 2.4.6).",
    "recommendation": "Add a visually-hidden-until-focused `<a href=\"#main\">پرش به محتوا</a>` as the first child of `.app`, and promote App.tsx:115 `.t-title` to `<h1>` (dropping the per-page `h1` on Overview/ops to `h2`) so every route has exactly one, stable, top-level heading.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-091",
    "lens": "accessibility",
+   "source": "panel",
    "severity": "medium",
    "title": "Rich tooltips are not hoverable or dismissible, and their content is unlikely to reach a screen reader",
    "location": "frontend/src/components/Tooltip.tsx:56-77 (`Term`); CSS `.tip-pop { pointer-events: none }` theme.css:372; `.term > .lbl` theme.css:368",
@@ -1527,13 +1624,14 @@
    "impact": "Fails WCAG 2.1 AA 1.4.13 Content on Hover or Focus (not hoverable, not dismissible) and A 2.5.3 Label in Name (the name \"توضیح: …\" does not contain the visible label). The three-part plain-language explanations — the mechanism that makes the product understandable to non-analysts — are in practice unavailable to screen-reader users and to magnifier users.",
    "recommendation": "Drop `pointer-events:none` and keep the tooltip open on tooltip hover; bind Escape on `document` while open; render the tooltip text in a persistent visually-hidden `<span id={popId}>` so `aria-describedby` is stable and always resolvable; use a real `<button>` with `aria-describedby` and keep the visible label inside it (move \"توضیح\" into visually-hidden text). Darken the dashed underline to ≥3:1.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-092",
    "lens": "accessibility",
+   "source": "panel",
    "severity": "medium",
    "title": "Charts and the hour heatmap expose no data to assistive technology",
    "location": "frontend/src/components/charts.tsx:10 (`TrendChart` `role=\"img\" aria-label=\"روند روزانه فروش موفق\"`), :62-74 (`HourHeat`), :44 and :110 (`role=\"cell\" aria-hidden` inside `role=\"table\"`)",
@@ -1541,13 +1639,14 @@
    "impact": "Fails WCAG 2.1 A 1.1.1 Non-text Content (the text alternative does not convey equivalent information) and 1.3.1 Info and Relationships for the cohort grid and the malformed ARIA tables. A blind merchant can read the KPI numbers but cannot obtain the daily trend, the hourly distribution, or any cohort retention value — the analysis the product exists to deliver.",
    "recommendation": "Give each chart a visually-hidden data table (or a `<details>` \"مشاهده به صورت جدول\") generated from the same array; replace the ARIA-table `div`s in FunnelViz/Waterfall with real `<table>` markup (the codebase already uses `.tbl` correctly elsewhere) and drop the `aria-hidden` cells; render CohortGrid as a `<table>` with `<th scope=\"row\">` month headers.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-093",
    "lens": "accessibility",
+   "source": "panel",
    "severity": "medium",
    "title": "Copilot answers are announced unreliably; pending state and route changes are silent",
    "location": "frontend/src/components/Copilot.tsx:112 (`<div className=\"bubble bubble-a num\" aria-live=\"polite\">`), :110 (pending bubble), :61/66 (`scrollIntoView`); frontend/src/App.tsx:50-59 (`useRoute`)",
@@ -1555,13 +1654,14 @@
    "impact": "Fails WCAG 2.1 AA 4.1.3 Status Messages for the assistant's answers and its loading state, and A 2.4.3 Focus Order at the login step transition. A screen-reader user asks a question and hears nothing — neither that work is in progress nor that an answer arrived — and must hunt for it manually.",
    "recommendation": "Render one persistent `<div aria-live=\"polite\" aria-atomic=\"false\">` wrapper around `.chat` at mount and let bubbles appear inside it; set `aria-busy` on that wrapper while pending. On route change, move focus to the `<main>` (`tabIndex={-1}`) and announce the new page title in a persistent live region. In `Login.choose`, focus the phone `<input>` after the step transition.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-094",
    "lens": "accessibility",
+   "source": "panel",
    "severity": "medium",
    "title": "OTP entry is hostile to paste, autofill and motor impairment; input borders fail non-text contrast",
    "location": "frontend/src/pages/Login.tsx:87-93 (five `.otp-box` inputs) and :77 (phone input); theme.css:156-166 (`.field`, `.otp-box` border `#e0e0e5`), :324 (`.composer form` border)",
@@ -1569,13 +1669,14 @@
    "impact": "Fails WCAG 2.1 AA 1.4.11 Non-text Contrast (UI component boundaries need ≥3:1) and A 1.3.5 Identify Input Purpose (no `autocomplete` on the phone/OTP fields). The split-box OTP with no paste distribution is a well-known barrier for users with motor impairments, dyslexia and screen-magnifier users, and it is the mandatory gate to the entire product.",
    "recommendation": "Add `autoComplete=\"one-time-code\"` and an `onPaste` handler that distributes digits across the boxes (or replace the five boxes with one `<input inputMode=\"numeric\" autoComplete=\"one-time-code\" maxLength={5}>`); wrap them in a `<fieldset>` with a `<legend>` and point `aria-describedby` at the instruction paragraph; add `autoComplete=\"tel\"` to the phone field; darken `--line`/field borders to ≥3:1 against their background.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-095",
    "lens": "ai-grounding",
+   "source": "panel",
    "severity": "medium",
    "title": "Eval harness never exercises the grounding guard; grounding_quality is tautological",
    "location": "zarin/ai/eval/runner.py:18 (use_llm=False) and :48 (grounding_quality = len(evidence) >= 1)",
@@ -1583,13 +1684,14 @@
    "impact": "The harness measures regex intent routing, not AI quality, while README.md:46 and OpsAI.tsx:65-76 present it as the product's AI quality evaluation. Guard regressions of the kind above would go uncaught.",
    "recommendation": "Add a stubbed-provider adversarial track (fabricated number, rescaled number, unit swap, metric swap, pure-prose causality, empty, English) asserting accept/reject, and report guard precision/recall separately from routing accuracy.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-096",
    "lens": "ai-grounding",
+   "source": "panel",
    "severity": "medium",
    "title": "No out-of-scope branch: 41% of live questions fall through to a generic sales summary",
    "location": "zarin/copilot.py:124-131 (terminal fallback branch)",
@@ -1597,13 +1699,14 @@
    "impact": "Users asking a supported question in unmatched wording get a non-answer presented with medium confidence and traceable evidence, which reads as if the question was understood. Routing is 7 hand-written Persian regexes with no normalization or synonym layer.",
    "recommendation": "Split the terminal branch into overview (question maps to headline KPIs) and out_of_scope (confidence=low, explicit capability list); add ZWNJ/ی-ك normalization and a small synonym table so «نرخ تبدیل» routes to the funnel branch.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-097",
    "lens": "ai-grounding",
+   "source": "panel",
    "severity": "medium",
    "title": "Empty or non-Persian LLM output is accepted and displayed",
    "location": "zarin/ai/gateway.py:99-119 (no non-empty / language check before constructing the LLM AIResponse)",
@@ -1611,13 +1714,14 @@
    "impact": "A truncated (AI_MAX_TOKENS=600), rate-limited or misbehaving free model can render an empty or English answer in an RTL Persian merchant UI, with no fallback to the correct deterministic text and no telemetry flag.",
    "recommendation": "Before accepting, require comp.text.strip() non-empty and a minimum Persian-letter ratio (e.g. >0.5 of letters in the Arabic block); otherwise fall back with a bad_output quality flag.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-098",
    "lens": "testing-qa",
+   "source": "panel",
    "severity": "medium",
    "title": "Five endpoints have no HTTP-level happy-path test; the admin guard is spot-checked on one route only",
    "location": "zarin/api.py:107-111 (/api/insights), 121-125 (/api/customers), 128-132 (/api/peers), 135-142 (/api/changes success), 237-247 (/api/quality); tests/test_control.py:88-93",
@@ -1625,13 +1729,14 @@
    "impact": "Dropping `_check_merchant` from /api/customers, or omitting `dependencies=_ADMIN` from a newly added /api/admin/* route, would leak data or bypass the operator token with the suite green.",
    "recommendation": "Add a parametrized test iterating `app.routes` that asserts (a) every merchant-scoped route returns 404 for an unknown `m` and 400 for a bad date, and (b) every path starting with `/api/admin` returns 401 when ADMIN_TOKEN is set and no header is sent.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-099",
    "lens": "testing-qa",
+   "source": "panel",
    "severity": "medium",
    "title": "The path-traversal test can pass vacuously — silent `return` instead of skip, and an empty body satisfies every assertion",
    "location": "tests/test_api.py:75-89",
@@ -1639,13 +1744,14 @@
    "impact": "The traversal/UNC guard is protected by a test whose green status does not distinguish 'guard verified' from 'guard not exercised' — precisely the case in any environment where the frontend has not been built.",
    "recommendation": "Use `pytest.skip('SPA not built')` so the gap is visible, drop the `content == b''` escape hatch, and add a positive control asserting a legitimate asset path is still served.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-100",
    "lens": "testing-qa",
+   "source": "panel",
    "severity": "medium",
    "title": "No coverage or mutation gate; OpenRouter transport and telemetry restart-recovery are untested",
    "location": "pyproject.toml:15-19 (dev deps: pytest, httpx, ruff only); zarin/ai/provider.py:49-87, 101-104; zarin/store.py:29-42",
@@ -1653,13 +1759,14 @@
    "impact": "Coverage can regress silently with no gate. A malformed OpenRouter payload is contained only by gateway.py's blanket `except Exception` (which degrades every LLM answer to fallback rather than surfacing the bug), and a corrupt telemetry file's effect on the Ops AI page is unknown.",
    "recommendation": "Add pytest-cov with a per-module floor (e.g. fail under 80% on zarin/, 60% on the weakest modules), and add tests for provider.py with a stub `fetch_fn`/urlopen covering 200-with-unexpected-shape, non-200, and timeout; add a store.py round-trip test that writes a JSONL file with one corrupt line and asserts recovery.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-101",
    "lens": "rubric-official",
+   "source": "panel",
    "severity": "low",
    "title": "2,777 lines of strict TypeScript with no test at all",
    "location": "frontend/src/ (25 files); tests/ contains only Python (tests/test_api.py, test_metrics.py, test_insights_peers.py, test_ai.py, test_control.py, test_sources.py)",
@@ -1667,13 +1774,14 @@
    "impact": "A silent divergence between the JS midpoint and the Python midpoint would make the What-Changed page and the GMV-change card disagree with no test failing.",
    "recommendation": "Either move the midpoint to the API (return the split the backend used and have the page consume it), or add one vitest asserting the JS midpoint matches a fixture generated from the Python function. The former is smaller and removes the duplication entirely.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-102",
    "lens": "architecture",
+   "source": "panel",
    "severity": "low",
    "title": "Two parallel copilot planners with divergent internal contracts",
    "location": "zarin/copilot.py:39 (_plan → _Plan) vs zarin/ops_copilot.py:32 (_plan → 4-tuple)",
@@ -1681,13 +1789,14 @@
    "impact": "Intent routing is the most likely growth axis for a chat-first product, and each new intent is another regex inserted at the right position in a chain with no test that the ordering is stable. The two surfaces will drift because nothing forces them to share a shape.",
    "recommendation": "Share the `_Plan` type between both planners, and move each intent to a `(pattern, handler)` table so ordering is data rather than control flow — the eval harness in zarin/ai/eval already asserts intent per case and would catch regressions.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-103",
    "lens": "architecture",
+   "source": "panel",
    "severity": "low",
    "title": "Quality gates are thin on the frontend and permissive on the backend",
    "location": "frontend/package.json (no lint deps), [tool.ruff] in pyproject.toml",
@@ -1695,13 +1804,14 @@
    "impact": "2,777 lines of TypeScript — including all state management and the hand-mirrored API types — have exactly one gate (`tsc --noEmit`), and the exhaustive-deps suppressions are load-bearing for correctness of the fetch hooks but unverified.",
    "recommendation": "Add eslint + react-hooks plugin to the frontend (the disable comments are already written for it) and expand ruff's select to at least I, B, UP. Both are config-only changes.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-104",
    "lens": "code-quality",
+   "source": "panel",
    "severity": "low",
    "title": "Assorted dead code and leftover expressions that no configured gate catches",
    "location": "frontend/src/pages/Overview.tsx:14, frontend/src/components/ui.tsx:15-16, frontend/src/fmt.ts:57, zarin/peers.py:90, zarin/registry.py:26-77",
@@ -1709,13 +1819,14 @@
    "impact": "Small individually, but `noUnusedLocals` cannot see unused *exports* and ruff's default rule set cannot see unused registry entries, so this class of rot accumulates unchecked.",
    "recommendation": "Delete the four dead frontend/Python expressions; either surface the registry via a `/api/metrics` endpoint (which would also make the 8 orphan definitions useful) or drop them.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-105",
    "lens": "code-quality",
+   "source": "panel",
    "severity": "low",
    "title": "Convention inconsistencies a new engineer must absorb before extending either copilot",
    "location": "zarin/ops_copilot.py:32 vs zarin/copilot.py:32-37; zarin/peers.py:36,40,44; zarin/analytics.py:17 / insights.py:23 / peers.py:132; zarin/insights.py:320,370,376 and analytics.py:215",
@@ -1723,13 +1834,14 @@
    "impact": "None of these are bugs, but together they mean there is no single answer to «how do we do X here» for planners, SQL reuse, imports, or naming — the friction lands on the next contributor rather than the current one.",
    "recommendation": "Give `ops_copilot` the same `_Plan` return type, replace the `split('WHERE')` trick with a named `_POOL_PREDICATE` constant, keep one period formatter in `fa.py`, and lift the non-cyclic local imports to module scope.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-106",
    "lens": "data-correctness",
+   "source": "panel",
    "severity": "low",
    "title": "Overview's verified-count KPI opens the GMV metric's evidence drawer",
    "location": "frontend/src/pages/Overview.tsx:49 (KPI «پرداخت موفق»)",
@@ -1737,13 +1849,14 @@
    "impact": "A user auditing the count is shown the definition and formula of a different metric, in a product whose header text (Overview.tsx:38) promises every number on the page is traceable to raw data.",
    "recommendation": "Add a `verified` entry to analytics.overview()'s evidence dict using the existing Metric(\"verified\") and point the tile at it.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-107",
    "lens": "data-correctness",
+   "source": "panel",
    "severity": "low",
    "title": "Same concentration statistic suppressed at two different sample floors",
    "location": "frontend/src/pages/CustomersPage.tsx:75 (`n >= 20`) vs zarin/insights.py:274 and zarin/analytics.py:221 (MIN_CUSTOMERS_RETENTION = 50)",
@@ -1751,13 +1864,14 @@
    "impact": "For merchants with 20-49 customers, the concentration number is shown on one surface as reliable enough to display while the engine simultaneously flags the same period as low-n. Minor, but it is a threshold that lives in config for exactly this reason.",
    "recommendation": "Drive the CustomersPage gate from a value served by the API (or reuse `d.low_n`) rather than a hard-coded 20.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-108",
    "lens": "statistics",
+   "source": "panel",
    "severity": "low",
    "title": "Cohort retention cells render percentages with no per-cohort sample floor, contradicting the documented MIN_SEGMENT_N rule",
    "location": "frontend/src/components/charts.tsx:159-172 (FragmentRow); zarin/analytics.py:197-208",
@@ -1765,13 +1879,14 @@
    "impact": "The densest small-sample surface in the product has the weakest suppression: a shaded heat-map cell labelled as a retention rate can rest on a single customer. Unflagged left truncation makes the first cohort structurally non-comparable to later ones.",
    "recommendation": "Blank or grey any cohort row whose cohort_size < MIN_SEGMENT_N, reusing the existing constant; footnote that the first cohort month is left-truncated by the data window; reconcile the ANALYTICS.md 20-customer concentration claim with the 50 in config.py.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-109",
    "lens": "security",
+   "source": "panel",
    "severity": "low",
    "title": "Evidence drawer returns the exact executed SQL and bind parameters to unauthenticated clients",
    "location": "zarin/registry.py:100-102 (`\"sql\": sql.strip(), \"params\": params`), surfaced in every /api/overview, /api/funnel, /api/insights, /api/peers response; typed at frontend/src/api.ts:5",
@@ -1779,13 +1894,14 @@
    "impact": "Full mart schema and query structure (table names, columns including payer_card_key, predicates) are handed to any caller, which is exactly the reconnaissance an attacker wants if any future query builder is less careful. It is also unusual to expose to end-merchants.",
    "recommendation": "Keep the traceability feature — it is a genuine product strength — but gate the `sql`/`params` fields on an authenticated session (or an explicit \"transparency mode\" flag) once auth exists, and continue serving definition/formula/caveats to everyone.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-110",
    "lens": "security",
+   "source": "panel",
    "severity": "low",
    "title": "Non-ASCII X-Admin-Token header raises TypeError → 500 instead of 401",
    "location": "zarin/api.py:36 (`hmac.compare_digest(x_admin_token or \"\", ADMIN_TOKEN)`)",
@@ -1793,13 +1909,14 @@
    "impact": "The guard still denies access, but an attacker can force unhandled 500s on every /api/admin/* route, poisoning the Product Performance error-rate panel (obs.py:47 counts status≥500) and hiding real errors.",
    "recommendation": "Compare bytes: `hmac.compare_digest((x_admin_token or \"\").encode(\"utf-8\", \"ignore\"), ADMIN_TOKEN.encode())`, and add a test case alongside tests/test_control.py:88.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-111",
    "lens": "reliability",
+   "source": "panel",
    "severity": "low",
    "title": "Telemetry write failures are swallowed with no counter, and the event log never rotates",
    "location": "zarin/store.py:54-55, zarin/store.py:29-42",
@@ -1807,13 +1924,14 @@
    "impact": "Loss of the AI audit trail — the artifact backing the grounding/cost claims — is undetectable from inside the product.",
    "recommendation": "Increment a `dropped` counter on OSError and a `corrupt_lines` counter in _warm(), and expose both in the AI-Ops summary; cap/rotate the JSONL by size.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-112",
    "lens": "reliability",
+   "source": "panel",
    "severity": "low",
    "title": "Single global DuckDB lock with no query timeout — one slow query stalls the observability surface too",
    "location": "zarin/db.py:14,63-66",
@@ -1821,13 +1939,14 @@
    "impact": "A pathological window or a mart rebuild landing mid-query blocks every endpoint including /api/admin/performance, so the Control Center goes down with the data layer rather than reporting on it; there is no bound on how long a request can hold the lock.",
    "recommendation": "Use `connect().cursor()` per query (DuckDB cursors are thread-safe siblings) to drop the global lock to connection setup only, and add a statement timeout so one query cannot pin the process.",
    "effort": "medium",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-113",
    "lens": "scalability",
+   "source": "panel",
    "severity": "low",
    "title": "JSONL telemetry grows without bound and is fully re-parsed at every startup",
    "location": "zarin/store.py:29-42 (`EventLog._warm`) and :44-56 (`add`)",
@@ -1835,13 +1954,14 @@
    "impact": "Startup cost is O(total events ever), while only the last 5,000 survive — 1 M events (~380 MB) would be parsed and discarded on every restart. The per-event open/write/close under a lock also serialises AI telemetry writes with the copilot response path.",
    "recommendation": "Seek to the tail (read the last ~N × 1 KB) in `_warm()` instead of the whole file, and rotate or truncate the JSONL at a size cap (`maxlen × avg_size`); keep a single open file handle with periodic flush rather than reopening per event.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-114",
    "lens": "product",
+   "source": "panel",
    "severity": "low",
    "title": "Three orphan surfaces: cross-source insights are dead code, the OpsAI intent panel is unreachable in the default config, and the dormant-customer panel names a segment it cannot list",
    "location": "zarin/control.py:116; frontend/src/ops/OpsAI.tsx:81; frontend/src/pages/CustomersPage.tsx:88-96",
@@ -1849,13 +1969,14 @@
    "impact": "Three places where the UI promises a capability the build cannot deliver. Individually small, but they are exactly the \"orphan feature\" pattern that erodes trust in the rest of the surface, and the OpsAI gating hides the one number that would have told the team their chat coverage is thin.",
    "recommendation": "Wire cross_source into control.sources() behind the existing web_connected check (or delete the module and its UI section); gate the intent panel on `d.intents?.length` rather than models; give the dormant panel the same drill-through the evidence drawer already implements.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-115",
    "lens": "business",
+   "source": "panel",
    "severity": "low",
    "title": "Chat-first landing over-promises relative to a 7-intent regex router; the flagship metric is not askable",
    "location": "zarin/copilot.py:39-131 (_plan) — 7 regex intents, then a generic overview fallback at line 124",
@@ -1863,13 +1984,14 @@
    "impact": "The chat surface is the first thing a merchant meets and it is framed as open-ended. Roughly a third of real questions return a canned summary — including a direct question about the 61.8B IRR figure displayed immediately above the input box. That mismatch reads as \"the AI is fake\" and undercuts the (otherwise correct) deterministic-first architecture.",
    "recommendation": "Add a paid_unverified intent and an issuer-bank intent — both are one query each against existing marts. Then make the fallback honest and useful: name the topics it does cover instead of returning a period summary, so the failure mode reads as scope rather than incompetence.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-116",
    "lens": "ux",
+   "source": "panel",
    "severity": "low",
    "title": "Login accepts empty input and implies a real SMS; the documented login screenshot no longer matches the code",
    "location": "frontend/src/pages/Login.tsx:75-100; docs/screenshots/rd-login.png",
@@ -1877,13 +1999,14 @@
    "impact": "A first-run merchant waits for an SMS that will never arrive, or is confused by being told a code was sent to a number they never entered. Reviewers reading docs/screenshots see a login flow the build no longer has.",
    "recommendation": "Require 10-11 digits before enabling «دریافت کد ورود» and require 5 filled boxes before «ورود»; add one line «نسخه نمایشی — هر کد ۵ رقمی وارد شود». Regenerate rd-login.png (and rd-mobile.png, whose bottom nav shows 6 of the 7 current nav items) from the current build.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-117",
    "lens": "design",
+   "source": "panel",
    "severity": "low",
    "title": "KPI strip values lose their shared baseline whenever a value wraps or a tile has no footer line",
    "location": "frontend/src/theme.css:212-228 (.stats / .stat); visible in rd-overview.png, rd-customers.png, rd-mobile.png",
@@ -1891,13 +2014,14 @@
    "impact": "The most prominent numbers on the landing screen read as a ragged row rather than a scannable strip — the one place where a shared baseline does the most work. The .kpi-grid comment at theme.css:406 shows the team already recognised the sibling problem (orphaned cards) but not this one.",
    "recommendation": "Give .stat a 3-row subgrid (label / value / footer) or reserve the footer line with a min-height and let the label clamp to one line with a title attribute, so .v always starts at the same offset within a strip.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-118",
    "lens": "design",
+   "source": "panel",
    "severity": "low",
    "title": "Bottom of the type scale is too small for Persian, and the topbar merchant selector truncates mid-word",
    "location": "frontend/src/theme.css:142 (.bn-item 9.5px), :84/:339 (0.68rem), :48 chip fontSize 9; frontend/src/App.tsx:120-121 (select maxWidth 190)",
@@ -1905,13 +2029,14 @@
    "impact": "Persian script has no cap-height cue and thin connecting strokes, so it loses legibility earlier than Latin at the same px — the 9.5px nav is the weakest typographic moment in the product. The clipped selector label is the first thing the eye hits in the topbar on every screen.",
    "recommendation": "Floor the scale at ~11px (raise .bn-item to 10.5–11px and drop to icon-only below ~360px), and either widen the select to ~240px, shorten the option text to the merchant key plus category, or replace it with a custom trigger showing the key with the description on a second line.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
    "verification_evidence": null,
    "verification_note": null
   },
   {
    "id": "ZB-119",
    "lens": "ai-grounding",
+   "source": "panel",
    "severity": "low",
    "title": "Legitimate roundings rejected; no cache or quota on the outbound LLM path",
    "location": "zarin/ai/gateway.py:43-53 (false rejection); zarin/api.py:145-151 (/api/copilot — only MAX_QUESTION_LEN=500 applies)",
@@ -1919,7 +2044,22 @@
    "impact": "Higher-than-necessary fallback rate degrades the LLM feature's value, while an unbounded call path can exhaust free-tier quota — enforce_free protects money but not rate limits.",
    "recommendation": "Let an LLM run trace to a deterministic run when it is that run correctly rounded to fewer decimals AND carries the same unit; add an lru_cache keyed on (merchant, question, period) around gateway.explain plus a per-merchant daily call ceiling.",
    "effort": "small",
-   "verification": "not verified (verification pass covered critical/high only)",
+   "verification": "not verified (the pass covered critical/high only)",
+   "verification_evidence": null,
+   "verification_note": null
+  },
+  {
+   "id": "ZB-120",
+   "lens": "record-verification",
+   "source": "record-verification",
+   "severity": "high",
+   "title": "`high_value_friction` is non-deterministic — the same query returns different money",
+   "location": "zarin/insights.py:209 — `ntile(5) OVER (ORDER BY amount)`",
+   "evidence": "Five identical calls to generate('M21','2026-01-01','2026-06-30') returned four distinct values for high_value_friction.impact_high: 4,813,687,678 / 4,763,212,124 / 4,829,335,319 / 4,763,212,124 / 4,712,497,933. An independent auditor reproduced it separately: six calls, five distinct values, spanning 4,645,773,572–4,798,040,037 (106.2–109.7% of the merchant's realized GMV of 4,373,353,280). `ntile(5) OVER (ORDER BY amount)` has no tiebreaker, so rows with equal amount — constant in payments, where prices are round — land in different quintiles on different runs under DuckDB's parallel execution, changing n_top, conv_top and avg_lost_amount.",
+   "impact": "Contradicts the product's central promise — 'the same query, always the same answer' (ADR-0002) — on the very surface built to prove it. A merchant reopening the card, or a judge re-running the evidence drawer, can see a different amount with no explanation, and every downstream figure (ranking position, copilot answer text) becomes irreproducible. Blast radius exceeds the card: it also flips the empty/non-empty verdict for at least one merchant, perturbing the coverage figures this record itself publishes (126 vs 127 of 343 across runs).",
+   "recommendation": "Add a deterministic tiebreaker — `ntile(5) OVER (ORDER BY amount, session_key)` — and a test asserting two consecutive generate() calls return identical impact_high. Audit every other window function and any ORDER BY lacking a unique tiebreaker for the same class of bug.",
+   "effort": "small",
+   "verification": "CONFIRMED (measured directly, then reproduced independently by a second agent)",
    "verification_evidence": null,
    "verification_note": null
   }

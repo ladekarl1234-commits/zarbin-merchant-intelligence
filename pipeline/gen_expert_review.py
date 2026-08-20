@@ -46,7 +46,40 @@ LENS_TITLE = {
 }
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 SEV_LABEL = {"critical": "CRITICAL", "high": "HIGH", "medium": "MEDIUM", "low": "LOW"}
-NOT_VERIFIED = "not verified (verification pass covered critical/high only)"
+# why an issue carries no verdict — depends on severity, so it is never self-contradictory
+NOT_VERIFIED_MEDLOW = "not verified (the pass covered critical/high only)"
+NOT_VERIFIED_CAPPED = "not verified (missed by the per-lens cap of four verifications)"
+
+# Found while auditing the published record, not by the panel. Archived alongside the panel's
+# findings so machine consumers see it, with its different provenance recorded explicitly.
+ADDENDUM_ISSUE = {
+    "id": "ZB-120",
+    "lens": "record-verification",
+    "source": "record-verification",
+    "severity": "high",
+    "title": "`high_value_friction` is non-deterministic — the same query returns different money",
+    "location": "zarin/insights.py:209 — `ntile(5) OVER (ORDER BY amount)`",
+    "evidence": ("Five identical calls to generate('M21','2026-01-01','2026-06-30') returned four distinct "
+                 "values for high_value_friction.impact_high: 4,813,687,678 / 4,763,212,124 / 4,829,335,319 / "
+                 "4,763,212,124 / 4,712,497,933. An independent auditor reproduced it separately: six calls, "
+                 "five distinct values, spanning 4,645,773,572–4,798,040,037 (106.2–109.7% of the merchant's "
+                 "realized GMV of 4,373,353,280). `ntile(5) OVER (ORDER BY amount)` has no tiebreaker, so rows "
+                 "with equal amount — constant in payments, where prices are round — land in different quintiles "
+                 "on different runs under DuckDB's parallel execution, changing n_top, conv_top and avg_lost_amount."),
+    "impact": ("Contradicts the product's central promise — 'the same query, always the same answer' (ADR-0002) — "
+               "on the very surface built to prove it. A merchant reopening the card, or a judge re-running the "
+               "evidence drawer, can see a different amount with no explanation, and every downstream figure "
+               "(ranking position, copilot answer text) becomes irreproducible. Blast radius exceeds the card: it "
+               "also flips the empty/non-empty verdict for at least one merchant, perturbing the coverage figures "
+               "this record itself publishes (126 vs 127 of 343 across runs)."),
+    "recommendation": ("Add a deterministic tiebreaker — `ntile(5) OVER (ORDER BY amount, session_key)` — and a test "
+                       "asserting two consecutive generate() calls return identical impact_high. Audit every other "
+                       "window function and any ORDER BY lacking a unique tiebreaker for the same class of bug."),
+    "effort": "small",
+    "verification": "CONFIRMED (measured directly, then reproduced independently by a second agent)",
+    "verification_evidence": None,
+    "verification_note": None,
+}
 
 
 def clean(s) -> str:
@@ -67,9 +100,25 @@ def build_archive(raw_path: Path) -> dict:
     issues.sort(key=lambda f: (SEV_RANK.get(f.get("severity"), 9),
                                LENS_ORDER.index(f["_lens"]) if f["_lens"] in LENS_ORDER else 99))
 
+    panel_issues = [{
+        "id": f"ZB-{n:03d}", "lens": f["_lens"], "source": "panel", "severity": f.get("severity"),
+        "title": clean(f.get("title")), "location": clean(f.get("location")),
+        "evidence": clean(f.get("evidence")), "impact": clean(f.get("impact")),
+        "recommendation": clean(f.get("recommendation")), "effort": f.get("effort"),
+        "verification": f.get("verdict") or (NOT_VERIFIED_CAPPED
+                                             if f.get("severity") in ("critical", "high")
+                                             else NOT_VERIFIED_MEDLOW),
+        "verification_evidence": clean(f.get("verify_evidence"))[:600] or None,
+        "verification_note": clean(f.get("verify_note"))[:600] or None,
+    } for n, f in enumerate(issues, 1)]
+
     return {
         "commit": "75de6bb",
         "panel": {"lenses": len(lenses), "agents_total": 58, "verification_agents": 43},
+        "counts": {"panel_findings": len(panel_issues), "addendum_findings": 1,
+                   "total": len(panel_issues) + 1,
+                   "note": "stats below describe the PANEL's findings only; ZB-120 was found later, "
+                           "while auditing the published record, and carries source='record-verification'"},
         "stats": stats,
         # full narrative archived so the documents are reproducible from this file alone
         "scores": [{"lens": L["_key"], "dimension": clean(L.get("dimension")), "score": L.get("score"),
@@ -77,15 +126,7 @@ def build_archive(raw_path: Path) -> dict:
                     "scoring_rationale": clean(L.get("scoring_rationale")),
                     "strengths": [clean(s) for s in (L.get("strengths") or [])]} for L in lenses],
         "rubric": next((L["rubric"] for L in lenses if "rubric" in L), None),
-        "issues": [{
-            "id": f"ZB-{n:03d}", "lens": f["_lens"], "severity": f.get("severity"),
-            "title": clean(f.get("title")), "location": clean(f.get("location")),
-            "evidence": clean(f.get("evidence")), "impact": clean(f.get("impact")),
-            "recommendation": clean(f.get("recommendation")), "effort": f.get("effort"),
-            "verification": f.get("verdict") or NOT_VERIFIED,
-            "verification_evidence": clean(f.get("verify_evidence"))[:600] or None,
-            "verification_note": clean(f.get("verify_note"))[:600] or None,
-        } for n, f in enumerate(issues, 1)],
+        "issues": panel_issues + [ADDENDUM_ISSUE],
     }
 
 
@@ -160,8 +201,9 @@ kinds carrying a capped flag : no_attempt_gap, inbank_gap
 
 `paid_unverified` is legitimately uncapped — it is a realized sum, not an estimate. The estimate-
 bearing uncapped kinds are the problem. Note that `impact_high` for this card is **not stable across
-runs** (see [ZB-120](#zb-120) in the addendum); observed values ranged 4.70–4.83 billion IRR over
-five identical calls, i.e. 107–110% of realized GMV.
+runs** (see [ZB-120](EXPERT_REVIEW_ISSUES.md#zb-120)): across eleven identical calls — five here, six
+by an independent auditor — observed values spanned ≈4.65–4.83 billion IRR, i.e. **106–110%** of
+realized GMV. That is an empirical sample of an unbounded defect, not a bounded range.
 
 ### Production-readiness gaps that are honest, but must not be understated
 
@@ -203,7 +245,7 @@ Both lenses were right about different populations: `rubric-official` sampled th
 distribution is well served; the long tail — the merchants who most need help — is not, and the empty
 state currently frames that silence as good news. The finding stands, with the nuance that it is a
 **tail-coverage** problem, not a general one. (These counts move by ±2 between runs because of
-[ZB-120](#zb-120).)
+[ZB-120](EXPERT_REVIEW_ISSUES.md#zb-120) — an independent re-measurement saw 126/127/127 of 343.)
 
 ### Recommended order of work
 
@@ -261,27 +303,21 @@ hand-written claims were re-measured. That pass corrected four numeric/claim def
 generator that could not actually regenerate anything) and surfaced one **new product defect** that
 the panel had missed:
 
-<a id="zb-120"></a>
+### [ZB-120](EXPERT_REVIEW_ISSUES.md#zb-120) · `high_value_friction` is non-deterministic
 
-### ZB-120 · `high_value_friction` is non-deterministic — the same query returns different money
+The same query returns different money. Five identical calls to
+`generate('M21','2026-01-01','2026-06-30')` returned **four distinct** values for
+`high_value_friction.impact_high`; an independent auditor then reproduced it separately with six
+calls and five distinct values. Root cause: `ntile(5) OVER (ORDER BY amount)`
+(`zarin/insights.py:209`) has no tiebreaker, and payment amounts tie constantly, so quintile
+membership shifts between runs under DuckDB's parallel execution.
 
-**Lens:** `record-verification` · **Severity:** HIGH · **Effort:** small · **Verification:** measured directly
-
-- **Where:** `zarin/insights.py:209` — `ntile(5) OVER (ORDER BY amount)`
-- **Observed:** five identical calls to `generate('M21','2026-01-01','2026-06-30')` returned **four
-  distinct** values for `high_value_friction.impact_high`:
-  `4,813,687,678 / 4,763,212,124 / 4,829,335,319 / 4,763,212,124 / 4,712,497,933`.
-- **Why:** `ntile(5) OVER (ORDER BY amount)` has no tiebreaker. Payment amounts tie constantly (round
-  prices), so rows with equal `amount` land in different quintiles on different runs under DuckDB's
-  parallel execution, changing `n_top`, `conv_top` and `avg_lost_amount`.
-- **Impact:** This contradicts the product's central promise — "the same query, always the same
-  answer" (ADR-0002) — on the very surface built to prove it. A merchant who reopens the card, or a
-  judge who re-runs the evidence drawer, can see a different amount with no explanation. It also
-  makes every downstream figure (ranking position, copilot answer text) irreproducible.
-- **Recommended fix:** add a deterministic tiebreaker — `ntile(5) OVER (ORDER BY amount, session_key)`
-  — and add a test asserting two consecutive `generate()` calls return identical `impact_high`.
-  Audit the other window functions and any `ORDER BY` without a unique tiebreaker for the same class
-  of bug.
+This contradicts the product's central promise — "the same query, always the same answer" (ADR-0002)
+— on the very surface built to prove it, and its blast radius reaches this document: it moves the
+empty/non-empty verdict for at least one merchant, perturbing the coverage figures published above.
+Fix is one line plus a determinism test. **It is recorded, not fixed — this task was the review
+itself.** Full entry, with evidence and recommendation, is in the register:
+**[ZB-120](EXPERT_REVIEW_ISSUES.md#zb-120)**.
 
 ### Corrections applied to this record
 
@@ -305,12 +341,16 @@ from an agent's wording above, this table is authoritative.
 
 def render(a: dict) -> None:
     stats, sc = a["stats"], a["stats"]["severity_counts"]
-    issues, scores, R = a["issues"], a["scores"], a["rubric"]
-    serious = [i for i in issues if i["severity"] in ("critical", "high")]
-    verified = [i for i in serious if i["verification"] in ("CONFIRMED", "REFUTED")]
-    confirmed = sum(1 for i in verified if i["verification"] == "CONFIRMED")
-    refuted = sum(1 for i in verified if i["verification"] == "REFUTED")
-    unverified = len(issues) - len(verified)
+    scores, R = a["scores"], a["rubric"]
+    all_issues = sorted(a["issues"], key=lambda f: (SEV_RANK[f["severity"]], f["id"]))
+    # verification statistics describe the PANEL's findings; the addendum has its own provenance
+    panel = [i for i in all_issues if i.get("source", "panel") == "panel"]
+    addendum = [i for i in all_issues if i.get("source") == "record-verification"]
+    serious = [i for i in panel if i["severity"] in ("critical", "high")]
+    verified = [i for i in serious if i["verification"].startswith(("CONFIRMED", "REFUTED"))]
+    confirmed = sum(1 for i in verified if i["verification"].startswith("CONFIRMED"))
+    refuted = sum(1 for i in verified if i["verification"].startswith("REFUTED"))
+    unverified = len(panel) - len(verified)
     medlow = sc["medium"] + sc["low"]
 
     o = []
@@ -320,7 +360,8 @@ def render(a: dict) -> None:
       "It documents **how** the review was run, **which** specialized lenses reviewed it, **what**\n"
       "they scored, **what they found**, and **what remains to be fixed** — not just a headline number.\n")
     w(f"> **Result at a glance** — {a['panel']['lenses']} expert lenses, **{stats['findings_total']} documented findings** "
-      f"({sc['critical']} critical / {sc['high']} high / {sc['medium']} medium / {sc['low']} low), "
+      f"({sc['critical']} critical / {sc['high']} high / {sc['medium']} medium / {sc['low']} low, plus "
+      f"[ZB-120](EXPERT_REVIEW_ISSUES.md#zb-120) found later while auditing this record), "
       f"mean dimension score **{stats['mean']}/100** (median {stats['median']}, range {stats['min']}–{stats['max']}). "
       f"Against the competition's own rubric: **{R['total']}/300**. "
       f"{len(verified)} of the {len(serious)} critical/high findings were independently re-verified "
@@ -377,7 +418,7 @@ def render(a: dict) -> None:
     w("|---:|---|---|---:|---|---|")
     for i, s in enumerate(scores, 1):
         c = {}
-        for f in issues:
+        for f in panel:
             if f["lens"] == s["lens"]:
                 c[f["severity"]] = c.get(f["severity"], 0) + 1
         fs = " · ".join(f"{v} {k}" for k, v in sorted(c.items(), key=lambda kv: SEV_RANK[kv[0]])) or "—"
@@ -418,22 +459,26 @@ def render(a: dict) -> None:
     w("---\n")
 
     w("## 6. Priority queue — every critical and high finding\n")
-    w(f"{sc['critical']} critical + {sc['high']} high findings. Full detail for these and all "
-      f"{len(issues)} findings — observed evidence, impact, recommended fix — is in\n"
+    w(f"{sc['critical']} critical + {sc['high']} high findings from the panel, plus **ZB-120**, found later\n"
+      "while auditing this record (§9). Full detail for these and all "
+      f"{len(all_issues)} findings — observed evidence,\nimpact, recommended fix — is in "
       "**[EXPERT_REVIEW_ISSUES.md](EXPERT_REVIEW_ISSUES.md)**; machine-readable data in\n"
-      "[`expert_review_findings.json`](expert_review_findings.json). One further high-severity defect,\n"
-      "[ZB-120](#zb-120), was found while auditing this record and is documented in §9.\n")
+      "[`expert_review_findings.json`](expert_review_findings.json).\n")
     w("| ID | Sev | Issue | Lens | Effort | Verified |")
     w("|---|---|---|---|---|---|")
-    for f in issues:
+    for f in all_issues:
         if f["severity"] not in ("critical", "high"):
             continue
         t = f["title"].replace("|", "/")
-        v = f["verification"] if f["verification"] in ("CONFIRMED", "REFUTED") else "not verified"
+        v = ("confirmed" if f["verification"].startswith("CONFIRMED")
+             else "refuted" if f["verification"].startswith("REFUTED") else "**not verified**")
         w(f"| [{f['id']}](EXPERT_REVIEW_ISSUES.md#{f['id'].lower()}) | {SEV_LABEL[f['severity']]} | {t} | "
           f"`{f['lens']}` | {f.get('effort') or '—'} | {v} |")
     w("")
     w(f"Medium and low findings ({sc['medium']} + {sc['low']}) are documented in the same register.\n")
+    w("> **Note on ZB-006's wording above:** the title is the reviewing agent's own text, preserved\n"
+      "> verbatim. Its \"one of four opportunity generators\" and \"108%\" were refined by later direct\n"
+      "> measurement — see §7 and the corrections table in §9, which are authoritative.\n")
     w("---\n")
 
     w(FINAL_ASSESSMENT.format(mean=stats["mean"], n=stats["n_lenses"], rubric_total=R["total"]))
@@ -449,16 +494,19 @@ def render(a: dict) -> None:
     r = []
     rw = r.append
     rw("# Expert Panel Review — full issue register\n")
-    rw(f"All **{len(issues)} findings** from the 15-lens expert panel on commit `{a['commit']}`, most\n"
-       "severe first, each with a stable ID so it can be tracked and fixed individually.\n"
+    rw(f"All **{len(all_issues)} findings** on commit `{a['commit']}` — {len(panel)} from the 15-lens expert\n"
+       f"panel plus {len(addendum)} (`ZB-120`) found later while auditing the published record — most severe\n"
+       "first, each with a stable ID so it can be tracked and fixed individually. Every entry carries its\n"
+       "`source` implicitly via its lens: `record-verification` marks the addendum.\n"
        f"`Verification` is the independent second-agent verdict; that pass covered {len(verified)} of the\n"
-       f"{len(serious)} critical/high findings (capped at four per lens — ZB-044 was missed) and no\n"
+       f"{len(serious)} critical/high panel findings (capped at four per lens — ZB-044 was missed) and no\n"
        "medium/low findings. See [EXPERT_REVIEW.md](EXPERT_REVIEW.md) for the process, scores and\n"
-       "overall assessment, and §9 there for [ZB-120](EXPERT_REVIEW.md#zb-120), found later.\n")
-    rw(f"**Counts:** {sc['critical']} critical · {sc['high']} high · {sc['medium']} medium · {sc['low']} low\n")
+       "overall assessment.\n")
+    rw(f"**Counts (panel):** {sc['critical']} critical · {sc['high']} high · {sc['medium']} medium · "
+       f"{sc['low']} low **· plus ZB-120 (high)**\n")
     rw("---\n")
     cur = None
-    for f in issues:
+    for f in all_issues:
         if f["severity"] != cur:
             cur = f["severity"]
             rw(f"## {SEV_LABEL[cur]} severity\n")
@@ -480,7 +528,8 @@ def render(a: dict) -> None:
 
     print(f"WROTE {OUT_MD.name} ({OUT_MD.stat().st_size // 1024}KB) · "
           f"{OUT_ISSUES.name} ({OUT_ISSUES.stat().st_size // 1024}KB)")
-    print(f"issues={len(issues)} serious={len(serious)} verified={len(verified)} "
+    print(f"issues={len(all_issues)} (panel={len(panel)} addendum={len(addendum)}) "
+          f"serious={len(serious)} verified={len(verified)} "
           f"(confirmed={confirmed} refuted={refuted}) unverified={unverified}")
 
 
