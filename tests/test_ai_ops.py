@@ -25,6 +25,12 @@ def test_safe_evidence_strips_raw_query_parameters():
     assert safe[0]["metric_id"] == "x"
 
 
+def test_free_model_policy_rejects_paid_models():
+    assert ai_ops._free_model_policy("openrouter/free") == "openrouter/free"
+    assert ai_ops._free_model_policy("some/model:free") == "some/model:free"
+    assert ai_ops._free_model_policy("some/paid-model") == "openrouter/free"
+
+
 def test_ai_stats_empty_and_config_flag(monkeypatch, tmp_path):
     monkeypatch.setattr(ai_ops, "AI_EVENTS_PATH", tmp_path / "events.jsonl")
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
@@ -64,6 +70,7 @@ def test_admin_copilot_is_grounded_without_external_provider(monkeypatch, tmp_pa
     ops = {
         "ai": {"fallback_rate": 0.12, "p95_latency_ms": 420, "cost_usd": 0.0, "grounded_rate": 0.99,
                "requests": 10, "avg_latency_ms": 200, "models": {"zarbin-rules": 10}, "intents": {}},
+        "api": {"p95_latency_ms": 90, "error_rate": 0.0},
         "sources": [{"label": "Google Analytics 4", "configured": False}],
         "platform": {"merchants": 3, "sessions": 100},
         "slo": {"target_ai_fallback_rate": 0.05},
