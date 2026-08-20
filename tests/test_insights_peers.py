@@ -24,25 +24,42 @@ def test_insights_restraint_on_small_samples():
     assert [c for c in cards if c["kind"] in ("no_attempt_gap", "inbank_gap", "paid_unverified")] == []
 
 
-def test_opportunity_is_not_naive_failed_sum():
-    """Opportunity must be gap-based, far below the naive 'sum of failed amounts'."""
+def test_opportunity_is_gap_based_with_honest_band():
+    """Opportunity = gap × sessions × [0.5..1.0] × ticket, NOT the sum of failed amounts,
+    and the interval spans a real recovery-fraction band (high ≈ 2× low)."""
     me = period_agg("M1", *JAN)
     me["m"] = "M1"
+    me["gmv"] = 10_000_000_000  # large, so the realized-GMV cap does not fire here
     peers = [{"no_attempt_rate": r} for r in (0.01, 0.02, 0.03, 0.04, 0.05)]
-    me["no_attempt_rate"] = 0.30  # pretend a large gap
+    me["no_attempt_rate"] = 0.30  # large gap vs peer median 0.03
     me["sessions"] = 1000
     card = _gap_card(kind="no_attempt_gap", me=me, peers_rates=peers, rate_key="no_attempt_rate",
                      f=JAN[0], t=JAN[1], title_fa="x", diagnosis_fa="x", action_fa="x",
                      effort="medium", metric_id="no_attempt_rate")
-    assert card is not None
-    # naive failed sum in fixture Jan = 999999+70000+80000 = 1,149,999 for only 7 sessions;
-    # gap math: (0.30-0.03)×1000 sessions × conv(attempted)=0.5 × ticket 200000 = 27M — but the
-    # invariant we assert is structural: impact uses the gap, not the failed amounts.
-    gap_mid = 0.30 - 0.03
-    conv_attempted = me["verified"] / me["attempted"]
-    expected = gap_mid * 1000 * conv_attempted * 200000  # median verified ticket of M1 = 200000
-    assert abs(card["impact_low"] - round(expected)) <= 1
-    assert card["impact_high"] >= card["impact_low"]
+    assert card is not None and not card["capped"]
+    assert 0 < card["impact_low"] < card["impact_high"]
+    # recovery-fraction band: high uses 1.0, low uses 0.5 → ratio 2.0
+    assert abs(card["impact_high"] / card["impact_low"] - 2.0) < 1e-6
+    # the opportunity evidence carries the real formula, not an empty string
+    opp = [e for e in card["evidence"] if e["metric_id"] == "opportunity"][0]
+    assert "recoverable" in opp["sql"] and opp["params"]["recovery_fraction_high"] == 1.0
+    # few peers → confidence capped at 'low', never 'high'
+    assert card["confidence"] == "low" and card["n_peers"] == 5
+
+
+def test_opportunity_capped_at_realized_gmv():
+    """An estimate larger than the merchant's whole realized GMV is capped and flagged —
+    it is a broken-funnel signal, not a recoverable number."""
+    me = period_agg("M1", *JAN)
+    me["m"] = "M1"  # real M1 Jan GMV is only 600,000
+    peers = [{"no_attempt_rate": r} for r in (0.01, 0.02, 0.03, 0.04, 0.05)]
+    me["no_attempt_rate"] = 0.30
+    me["sessions"] = 1000
+    card = _gap_card(kind="no_attempt_gap", me=me, peers_rates=peers, rate_key="no_attempt_rate",
+                     f=JAN[0], t=JAN[1], title_fa="x", diagnosis_fa="x", action_fa="x",
+                     effort="medium", metric_id="no_attempt_rate")
+    assert card is not None and card["capped"]
+    assert card["impact_high"] <= me["gmv"]
 
 
 def test_gap_below_2pp_yields_no_card():

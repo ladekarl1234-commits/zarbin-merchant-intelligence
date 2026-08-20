@@ -28,8 +28,9 @@ export default function FunnelPage() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, alignItems: "center" }}>
             {OUTCOME_META.filter(([key]) => key !== "reversed" || (d.outcomes[key] ?? 0) > 0)
               .map(([key, label, cls]) => (
-                <span className={`chip ${cls} num`} key={key}>
-                  {label}: {faNum(d.outcomes[key] ?? 0)} ({pct((d.outcomes[key] ?? 0) / total)})
+                <span className={`chip ${cls}`} key={key}>
+                  {label} —&nbsp;<b className="num">{pct((d.outcomes[key] ?? 0) / total)}</b>
+                  <span className="num" style={{ opacity: 0.75 }}>&nbsp;({faNum(d.outcomes[key] ?? 0)} جلسه)</span>
                 </span>
               ))}
             <span style={{ marginInlineStart: "auto" }}>

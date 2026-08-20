@@ -32,47 +32,101 @@ def _conf(n_sessions: int, n_peers: int) -> str:
     return "low"
 
 
+# which session outcome's own amount distribution values each gap's recoverable sessions
+_GAP_OUTCOME = {"no_attempt_rate": "no_attempt", "inbank_abandon_rate": "abandoned_inbank"}
+
+_PEER_RATE_SQL = (
+    "-- your rate vs same-period peer rates (from merchant_daily):\n"
+    "SELECT merchant_key,\n"
+    "       sum({num})/nullif(sum(sessions),0) AS rate\n"
+    "FROM merchant_daily\n"
+    "WHERE merchant_key IN (peer_keys) AND d BETWEEN $f AND $t\n"
+    "GROUP BY merchant_key HAVING sum(sessions) >= 100;\n"
+    "-- baseline = median(rate) across peers; opportunity per formula below."
+)
+_GAP_NUM = {"no_attempt_rate": "no_attempt", "inbank_abandon_rate": "abandoned_inbank"}
+
+
 def _gap_card(*, kind, me, peers_rates, rate_key, f, t, title_fa, diagnosis_fa, action_fa,
               effort, metric_id, extra_note=None):
-    """Shared shape for 'your loss-rate exceeds peer baseline' opportunities."""
+    """A 'your loss-rate exceeds the peer median' opportunity.
+
+    Opportunity is a counterfactual interval, NOT the sum of failed amounts:
+      recoverable = (your_rate − peer_median) × sessions × recovery_fraction × ticket
+    where ticket is the median amount of the SAME loss outcome's sessions (the sessions
+    we claim to recover), and recovery_fraction spans [0.5 … 1.0] — an honest band for
+    "how much of the gap actually closes", not the spuriously-narrow p25↔p50 band.
+    """
     mine = me.get(rate_key)
     vals = sorted(v[rate_key] for v in peers_rates if v.get(rate_key) is not None)
     if mine is None or len(vals) < 5:
         return None
-    p50, p25 = _quantile(vals, 0.5), _quantile(vals, 0.25)
-    gap_mid, gap_hi = mine - p50, mine - p25
+    p50 = _quantile(vals, 0.5)
+    gap_mid = mine - p50
     if gap_mid < 0.02:  # less than 2pp worse than peer median → not worth a card
         return None
     sessions = me["sessions"]
-    conv_of_attempted = (me["verified"] / me["attempted"]) if me["attempted"] else 0
+    n_peers = len(vals)
+    # value the recoverable sessions at the median amount of the SAME loss outcome
+    outcome = _GAP_OUTCOME.get(rate_key, "verified")
     ticket = q1("SELECT quantile_cont(amount,0.5) AS v FROM sessions "
-                "WHERE merchant_key=$m AND d BETWEEN $f AND $t AND outcome='verified'",
-                {"m": me["m"], "f": f, "t": t})["v"] or 0
-    lo = gap_mid * sessions * conv_of_attempted * ticket
-    hi = max(gap_hi, gap_mid) * sessions * conv_of_attempted * ticket
+                "WHERE merchant_key=$m AND d BETWEEN $f AND $t AND outcome=$o",
+                {"m": me["m"], "f": f, "t": t, "o": outcome})["v"] or \
+        q1("SELECT quantile_cont(amount,0.5) AS v FROM sessions "
+           "WHERE merchant_key=$m AND d BETWEEN $f AND $t AND outcome='verified'",
+           {"m": me["m"], "f": f, "t": t})["v"] or 0
+    excess_sessions = gap_mid * sessions
+    lo = round(excess_sessions * 0.5 * ticket)   # conservative: half the gap recovers
+    hi = round(excess_sessions * 1.0 * ticket)   # optimistic: gap closes to peer median
     if hi <= 0:
         return None
-    conf = _conf(sessions, len(vals))
+
+    # cap against realized GMV: an "opportunity" bigger than the merchant's whole realized
+    # sales is a broken-funnel signal, not a recoverable number — cap and reframe.
+    realized = me["gmv"] or 0
+    capped = realized > 0 and hi > realized
+    broken = mine > 0.5  # more than half of sessions lost at this stage → infra problem
+    if capped:
+        hi = round(realized)
+        lo = min(lo, hi)
+
+    # confidence: few peers can never be "high"; a broken funnel is high-confidence-problem
+    conf = "low" if n_peers < 8 else _conf(sessions, n_peers)
+    label = "برآورد فرصت قابل بازیابی در این دوره"
+    if broken:
+        label = "این مرحله بیش از نیمی از پرداخت‌ها را از دست می‌دهد — ابتدا زیرساخت را رفع کنید"
+        conf = "high"
+    elif capped:
+        label = "سقف واقع‌بینانه (محدود به کل فروش موفق دوره)"
+
+    peer_note = ("توجه: گروه همتایان کوچک است (کمتر از ۸ پذیرنده)، پس این برآورد نامطمئن‌تر است. "
+                 if n_peers < 8 else "")
     return {
-        "id": f"{kind}", "kind": kind,
+        "id": f"{kind}", "kind": kind, "card_type": "opportunity",
         "title_fa": title_fa,
-        "observation_fa": f"نرخ شما {fa_pct(mine)} است؛ میانه همتایان {fa_pct(p50)} (اختلاف {fa_digits(f'{gap_mid*100:.1f}')} واحد درصد).",
+        "observation_fa": f"نرخ شما {fa_pct(mine)} است؛ میانه همتایان {fa_pct(p50)} (اختلاف {fa_digits(f'{gap_mid*100:.1f}')} واحد درصد، بر پایه {fa_num(n_peers)} همتا).",
         "diagnosis_fa": diagnosis_fa,
         "action_fa": action_fa,
-        "impact_low": round(min(lo, hi)), "impact_high": round(max(lo, hi)),
-        "impact_label_fa": "برآورد فرصت قابل بازیابی در این دوره",
+        "impact_low": lo, "impact_high": hi,
+        "impact_label_fa": label,
         "confidence": conf, "effort": effort,
-        "n": int(sessions),
+        "n": int(sessions), "n_peers": n_peers, "capped": capped, "broken": broken,
         "evidence": [evidence(metric_id,
-                              sql="rate = per registry; baseline = quantiles of same-period peer rates (merchant_daily)",
-                              params={"m": me["m"], "f": f, "t": t, "peers_n": len(vals),
-                                      "peer_p50": round(p50, 4), "peer_p25": round(p25, 4),
-                                      "own_rate": round(mine, 4), "conv_of_attempted": round(conv_of_attempted, 4),
-                                      "median_ticket": ticket},
+                              sql=_PEER_RATE_SQL.replace("{num}", _GAP_NUM.get(rate_key, "verified")),
+                              params={"m": me["m"], "f": f, "t": t, "peers_n": n_peers,
+                                      "peer_median_rate": round(p50, 4), "your_rate": round(mine, 4),
+                                      "excess_sessions": round(excess_sessions),
+                                      "ticket_outcome": outcome, "median_ticket_of_outcome": round(ticket)},
                               n=int(sessions), period=_fmt_period(f, t),
-                              extra={"note_fa": extra_note or
-                                     "فرصت = شکاف نرخ × جلسه‌های دوره × نرخ تبدیل تلاش‌های خود شما × میانه تیکت خود شما. کف بازه از میانه همتایان و سقف از چارک برتر ساخته می‌شود."}),
-                     evidence("opportunity", sql="", params={})],
+                              extra={"note_fa": (extra_note or "") + " " + peer_note}),
+                     evidence("opportunity",
+                              sql=("recoverable = (your_rate − peer_median) × sessions "
+                                   "× recovery_fraction × median_ticket_of_lost_sessions;\n"
+                                   f"= ({round(mine,4)} − {round(p50,4)}) × {int(sessions)} "
+                                   f"× [0.5 … 1.0] × {round(ticket):,}"),
+                              params={"recovery_fraction_low": 0.5, "recovery_fraction_high": 1.0,
+                                      "capped_at_realized_gmv": capped},
+                              n=int(sessions), period=_fmt_period(f, t))],
     }
 
 
@@ -90,7 +144,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
     if me["paid_unverified"] >= 5 and me["paid_unverified_amount"] > 0:
         n, amt = int(me["paid_unverified"]), me["paid_unverified_amount"]
         cards.append({
-            "id": "paid_unverified", "kind": "paid_unverified",
+            "id": "paid_unverified", "kind": "paid_unverified", "card_type": "opportunity",
             "title_fa": "پرداخت‌های تاییدنشده — پول رسیده اما تایید نشده",
             "observation_fa": f"{fa_num(n)} پرداخت به مبلغ {fa_money(amt)} در این دوره تسویه بانکی شده اما هرگز Verify نشده است.",
             "diagnosis_fa": "فراخوانی تایید (verify) سمت شما انجام نمی‌شود؛ معمولاً خطای کال‌بک یا وریفای دستی فراموش‌شده.",
@@ -133,7 +187,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
                                 {"m": m, "f": f, "t": t})["v"] or 0
                     lo, hi = gap * fp * ticket * 0.5, gap * fp * ticket
                     cards.append({
-                        "id": "recovery_gap", "kind": "recovery_gap",
+                        "id": "recovery_gap", "kind": "recovery_gap", "card_type": "opportunity",
                         "title_fa": "تلاش مجدد کمتر از همتایان به نتیجه می‌رسد",
                         "observation_fa": f"از {fa_num(fp)} جلسه‌ای که تلاش اولشان ناموفق بود فقط {fa_pct(mine_rr)} نجات یافت؛ میانه همتایان {fa_pct(p50)}.",
                         "diagnosis_fa": "پس از شکست اول، مشتری مسیر ساده‌ای برای تلاش دوباره ندارد یا صفحه پرداخت به او پیشنهاد تکرار نمی‌دهد.",
@@ -164,7 +218,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
                 lo = gap * 0.5 * n_top * (hv["avg_lost_amount"] or 0)
                 hi = gap * n_top * (hv["avg_lost_amount"] or 0)
                 cards.append({
-                    "id": "high_value_friction", "kind": "high_value_friction",
+                    "id": "high_value_friction", "kind": "high_value_friction", "card_type": "opportunity",
                     "title_fa": "پرداخت‌های گران‌قیمت بیشتر شکست می‌خورند",
                     "observation_fa": f"نرخ تبدیل پنجک بالای مبلغ {fa_pct(hv['conv_top'])} است؛ {fa_digits(f'{gap*100:.1f}')} واحد درصد کمتر از مبالغ میانی خودتان.",
                     "diagnosis_fa": "در مبالغ بالا سقف کارت، خطای بانک یا تردید مشتری پررنگ‌تر است؛ این مقایسه درون داده خود شماست و اثر ترکیب پذیرنده‌ها را ندارد.",
@@ -192,7 +246,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
                 extra_txns = (p50 - mine_share) * stats["cust_txns"]
                 ticket = stats["median_ticket"] or 0
                 cards.append({
-                    "id": "repeat_gap", "kind": "repeat_gap",
+                    "id": "repeat_gap", "kind": "repeat_gap", "card_type": "opportunity",
                     "title_fa": "مشتریان کمتر از همتایان برمی‌گردند",
                     "observation_fa": f"{fa_pct(mine_share)} از پرداخت‌های موفق شما از مشتریان تکراری است؛ میانه همتایان {fa_pct(p50)}.",
                     "diagnosis_fa": "جذب مشتری دارید اما نگه‌داشت ضعیف‌تر از پذیرندگان مشابه است.",
@@ -217,7 +271,7 @@ def generate(m: str, f: str, t: str) -> list[dict]:
                coalesce(sum(g) FILTER (WHERE rk<=5),0) AS top5_gmv FROM r""", {"m": m, "f": f, "t": t})
     if (conc.get("n") or 0) >= MIN_CUSTOMERS_RETENTION and (conc.get("top5") or 0) > 0.4:
         cards.append({
-            "id": "concentration", "kind": "concentration",
+            "id": "concentration", "kind": "concentration", "card_type": "alert",
             "title_fa": "وابستگی فروش به چند مشتری معدود",
             "observation_fa": f"۵ مشتری برتر {fa_pct(conc['top5'], 0)} از فروش موفق این دوره را ساخته‌اند ({fa_money(conc['top5_gmv'])}).",
             "diagnosis_fa": "از دست دادن یکی از این مشتریان ضربه بزرگی به درآمد می‌زند؛ این یک ریسک است، نه فرصت فوری.",
@@ -231,16 +285,79 @@ def generate(m: str, f: str, t: str) -> list[dict]:
                                   params={"m": m, "f": f, "t": t}, n=int(conc["n"]), period=_fmt_period(f, t))],
         })
 
-    # 8) GMV change alert (last two halves of the selected period)
+    # 8) PSP friction — names the specific weak gateway from data the funnel already computes
+    if me["sessions"] >= MIN_SESSIONS_INSIGHT:
+        c = _psp_card(m, f, t)
+        if c:
+            cards.append(c)
+
+    # 9) GMV change alert (last two halves of the selected period)
     ch = _change_alert(m, f, t)
     if ch:
         cards.append(ch)
 
+    # Ranking. Opportunities (recoverable rial) ALWAYS rank above alerts (risks/context with
+    # no recoverable figure) — a zero-impact "sales grew" alert must never outrank real money.
     for c in cards:
-        base = c["impact_high"] or c.get("risk_gmv", 0) or 0
-        c["score"] = round(base * CONF_W[c["confidence"]] / EFFORT_W[c["effort"]])
-    cards.sort(key=lambda c: (-c["score"], c["id"]))
+        c.setdefault("card_type", "opportunity")
+        if c["card_type"] == "opportunity":
+            base = c["impact_high"] or 0
+            c["score"] = round(base * CONF_W[c["confidence"]] / EFFORT_W[c["effort"]])
+        else:
+            c["score"] = 0  # alerts are ordered after opportunities, by their own magnitude
+    cards.sort(key=lambda c: (
+        0 if c["card_type"] == "opportunity" else 1,   # opportunities first
+        -c["score"] if c["card_type"] == "opportunity" else -c.get("risk_gmv", 0),
+        c["id"],
+    ))
     return cards
+
+
+def _psp_card(m: str, f: str, t: str) -> dict | None:
+    """Actionable PSP-routing insight from within-merchant attempt success rates."""
+    from .db import q
+    rows = q("""
+        SELECT psp_code, count(*) AS attempts, avg(ok::int) AS ok_rate
+        FROM attempts WHERE merchant_key=$m AND d BETWEEN $f AND $t AND psp_code IS NOT NULL
+        GROUP BY psp_code HAVING count(*) >= 200 ORDER BY ok_rate""", {"m": m, "f": f, "t": t})
+    rows = [r for r in rows if r["ok_rate"] is not None]
+    if len(rows) < 2:
+        return None
+    worst, best = rows[0], rows[-1]
+    gap = best["ok_rate"] - worst["ok_rate"]
+    if gap < 0.10:  # gateways perform similarly → no routing lever
+        return None
+    codes = q("""
+        SELECT switch_response_code AS code, count(*) AS n FROM attempts
+        WHERE merchant_key=$m AND d BETWEEN $f AND $t AND psp_code=$p AND NOT ok
+              AND switch_response_code IS NOT NULL
+        GROUP BY 1 ORDER BY n DESC LIMIT 3""", {"m": m, "f": f, "t": t, "p": worst["psp_code"]})
+    code_txt = ("؛ پرتکرارترین کدهای خطا: " + "، ".join(c["code"] for c in codes)) if codes else ""
+    lost = round(worst["attempts"] * gap * 0.5)  # attempts that a better PSP might have converted
+    return {
+        "id": "psp_friction", "kind": "psp_friction", "card_type": "opportunity",
+        "title_fa": f"درگاه {worst['psp_code']} به‌طور محسوس ضعیف‌تر از بقیه عمل می‌کند",
+        "observation_fa": (f"نرخ موفقیت تلاش‌ها روی {worst['psp_code']} برابر {fa_pct(worst['ok_rate'])} است "
+                           f"(روی {fa_num(worst['attempts'])} تلاش)، در حالی که {best['psp_code']} برای همین "
+                           f"فروشگاه {fa_pct(best['ok_rate'])} موفقیت دارد — اختلاف {fa_digits(f'{gap*100:.0f}')} واحد درصد{code_txt}."),
+        "diagnosis_fa": "این مقایسه فقط روی ترافیک خود شماست؛ انتخاب درگاه سمت زرین‌پال انجام می‌شود، اما الگوی ضعف پایدار است.",
+        "action_fa": f"از پشتیبانی زرین‌پال بخواهید سهم ترافیک را از {worst['psp_code']} به درگاه قوی‌تر منتقل کند و کدهای خطای پرتکرار را بررسی کنید.",
+        "impact_low": round(lost * 0.5), "impact_high": lost,
+        "impact_label_fa": "برآورد تلاش‌های قابل نجات با مسیردهی به درگاه بهتر (تعداد تراکنش)",
+        "impact_is_count": True,
+        "confidence": "medium" if worst["attempts"] >= 1000 else "low", "effort": "easy",
+        "n": int(worst["attempts"]),
+        "evidence": [evidence("first_try_conv",
+                              sql=("SELECT psp_code, count(*) attempts, avg(ok::int) ok_rate\n"
+                                   "FROM attempts WHERE merchant_key=$m AND d BETWEEN $f AND $t\n"
+                                   "  AND psp_code IS NOT NULL\n"
+                                   "GROUP BY psp_code HAVING count(*) >= 200 ORDER BY ok_rate;"),
+                              params={"m": m, "f": f, "t": t,
+                                      "worst_psp": worst["psp_code"], "worst_rate": round(worst["ok_rate"], 4),
+                                      "best_psp": best["psp_code"], "best_rate": round(best["ok_rate"], 4)},
+                              n=int(worst["attempts"]), period=_fmt_period(f, t),
+                              extra={"note_fa": "برآورد نجات = تلاش‌های درگاه ضعیف × شکاف نرخ × ۰٫۵ (سهم محافظه‌کارانه‌ای که با درگاه بهتر موفق می‌شد)."})],
+    }
 
 
 def __peer_repeat(keys: list[str]) -> list[dict]:
@@ -266,13 +383,14 @@ def _change_alert(m: str, f: str, t: str) -> dict | None:
     names = {"sessions": "تعداد جلسه‌های پرداخت", "conv": "نرخ تبدیل", "ticket": "مبلغ متوسط تراکنش"}
     direction = "رشد" if rel > 0 else "افت"
     return {
-        "id": "gmv_change", "kind": "gmv_change",
+        "id": "gmv_change", "kind": "gmv_change", "card_type": "alert",
         "title_fa": f"{direction} {fa_pct(abs(rel), 0)} فروش در نیمه دوم دوره",
         "observation_fa": f"فروش موفق از {fa_money(ch['before']['gmv'])} به {fa_money(ch['after']['gmv'])} رسید.",
-        "diagnosis_fa": f"تجزیه LMDI: بیشترین سهم از «{names[driver_key]}» است ({fa_money(contrib[driver_key])} از کل تغییر {fa_money(ch['delta_gmv'])}).",
-        "action_fa": "جزئیات را در صفحه «چه چیزی تغییر کرد؟» ببینید؛ سهم هر عامل به‌صورت قطعی محاسبه شده است.",
+        # plain-cause on the card face; the method name (LMDI) lives in the evidence drawer only
+        "diagnosis_fa": f"بیشترین دلیل این تغییر «{names[driver_key]}» بوده است ({fa_money(contrib[driver_key])} از کل تغییر {fa_money(ch['delta_gmv'])}).",
+        "action_fa": "جزئیات و سهم دقیق هر عامل را در صفحه «چه چیزی تغییر کرد؟» ببینید.",
         "impact_low": 0, "impact_high": 0,
-        "impact_label_fa": f"تغییر کل: {fa_money(ch['delta_gmv'])}",
+        "impact_label_fa": f"تغییر کل فروش: {fa_money(ch['delta_gmv'])}",
         "confidence": "high", "effort": "easy", "n": int(ch["before"]["sessions"] + ch["after"]["sessions"]),
         "risk_gmv": abs(ch["delta_gmv"]),
         "evidence": [ch["evidence"]],

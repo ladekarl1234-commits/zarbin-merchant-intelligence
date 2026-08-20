@@ -116,8 +116,10 @@ def get_peers(m: str, f: str | None = None, t: str | None = None):
 @app.get("/api/changes")
 def changes(m: str, f1: str, t1: str, f2: str, t2: str):
     _check_merchant(m)
-    for name, v in (("f1", f1), ("t1", t1), ("f2", f2), ("t2", t2)):
-        _valid_date(v, name)
+    # reassign the NORMALIZED dates (not just validate) so basic-form ISO like 20260101
+    # reaches DuckDB as canonical YYYY-MM-DD instead of raising a 500 — mirrors _dates().
+    f1, t1 = _valid_date(f1, "f1"), _valid_date(t1, "t1")
+    f2, t2 = _valid_date(f2, "f2"), _valid_date(t2, "t2")
     return analytics.changes(m, f1, t1, f2, t2)
 
 

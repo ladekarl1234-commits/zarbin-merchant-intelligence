@@ -112,6 +112,9 @@ def benchmarks(m: str, f: str, t: str) -> dict:
             "metric": key, "value": mine, "suppressed": False,
             "p25": _quantile(vals, 0.25), "p50": _quantile(vals, 0.5), "p75": _quantile(vals, 0.75),
             "percentile": pct, "n_peers": len(vals), "higher_better": higher_better,
+            # with a small pool the percentile is coarse and noisy — the UI shows a caution
+            # and quotes rank ("better than k of n") rather than a precise percentile.
+            "low_n": len(vals) < 8,
         })
     return {
         "group": {"n": g["n"], "rule_fa": g["rule_fa"], "level": g["level"],

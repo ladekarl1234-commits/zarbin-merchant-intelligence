@@ -27,9 +27,11 @@ export type Overview = {
 };
 
 export type InsightCard = {
-  id: string; kind: string; title_fa: string; observation_fa: string; diagnosis_fa: string;
-  action_fa: string; impact_low: number; impact_high: number; impact_label_fa: string;
+  id: string; kind: string; card_type?: "opportunity" | "alert"; title_fa: string;
+  observation_fa: string; diagnosis_fa: string; action_fa: string;
+  impact_low: number; impact_high: number; impact_label_fa: string; impact_is_count?: boolean;
   confidence: "high" | "medium" | "low"; effort: string; n: number; score: number;
+  n_peers?: number; capped?: boolean; broken?: boolean;
   risk_gmv?: number; evidence: Evidence[];
 };
 
@@ -61,7 +63,8 @@ export type Peers = {
   group: { n: number; rule_fa: string; level: string; sufficient: boolean; me: Record<string, unknown> };
   rows: {
     metric: string; value: number | null; suppressed: boolean;
-    p25?: number; p50?: number; p75?: number; percentile?: number; n_peers?: number; higher_better?: boolean;
+    p25?: number; p50?: number; p75?: number; percentile?: number; n_peers?: number;
+    higher_better?: boolean; low_n?: boolean;
   }[];
   evidence: Evidence;
 };

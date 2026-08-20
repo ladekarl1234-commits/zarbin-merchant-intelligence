@@ -205,6 +205,10 @@ a { color: inherit; }
   width: 30px; height: 30px; border-radius: 9px; background: var(--brand-ink); color: var(--brand);
   display: grid; place-items: center; font-weight: 800; font-size: var(--fs-m); flex-shrink: 0;
 }
+.insight .rank-alert { background: var(--warn-bg); color: var(--warn); }
+/* alerts (risks/context, no recoverable rial) read quieter than opportunities:
+   a soft warm surface + the warn-colored "!" badge, no side stripe */
+.insight-alert { background: #fffdf5; border-color: #f0e4c0; }
 .insight h3 { font-size: var(--fs-m); }
 .insight .impact {
   background: var(--surface-2); border-radius: var(--r-m); padding: 10px 14px;

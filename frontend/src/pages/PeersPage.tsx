@@ -58,6 +58,11 @@ export default function PeersPage() {
                     <span className={`chip ${strong ? "chip-good" : weak ? "chip-bad" : "chip-mute"} num`} style={{ marginInlineStart: "auto" }}>
                       بهتر از {faNum(r.percentile)}٪ از {faNum(r.n_peers!)} همتا
                     </span>
+                    {r.low_n && (
+                      <span className="chip chip-warn" style={{ fontSize: "var(--fs-xs)" }}>
+                        گروه کوچک — با احتیاط
+                      </span>
+                    )}
                   </div>
                   <PercentileRow percentile={r.percentile} />
                   <div style={{ display: "flex", gap: 16, fontSize: "var(--fs-xs)", color: "var(--ink-2)", flexWrap: "wrap" }} className="num">

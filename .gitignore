@@ -13,4 +13,6 @@ frontend/dist/
 .playwright-cli/
 shot-*.png
 *.png
+!docs/screenshots/*.png
+pipeline/_*
 .claude/
