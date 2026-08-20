@@ -79,13 +79,35 @@ export type Changes = {
   evidence: Evidence;
 };
 
-export type CopilotAnswer = { answer_fa: string; intent: string; evidence: Evidence[]; note_fa: string };
+export type CopilotAnswer = {
+  answer_fa: string; intent: string; evidence: Evidence[]; note_fa: string;
+  ai?: { mode: string; model: string; fallback: boolean; grounded: boolean; latency_ms: number; cost_usd: number; error?: string | null };
+};
 
 export type Quality = {
   outcomes: { outcome: string; n: number; amount: number | null }[];
   concentration: { top5: number; n: number };
   anomalies: { verified_wo_ok_try: number; reversed_sessions: number };
   rules_fa: string[];
+};
+
+export type SourceStatus = {
+  id: string; label: string; configured: boolean; state: string; detail: string; last_sync?: string | null;
+};
+
+export type AdminOps = {
+  period: { from: string; to: string };
+  platform: { sessions: number; verified: number; gmv: number; merchants: number; avg_tries: number };
+  data_quality: { paid_unverified: number; no_attempt: number; reversed: number };
+  ai: {
+    requests: number; success_rate: number | null; grounded_rate: number | null; fallback_rate: number | null;
+    avg_latency_ms: number | null; p95_latency_ms: number | null; cost_usd: number;
+    models: Record<string, number>; intents: Record<string, number>; openrouter_configured: boolean; default_model: string;
+    recent: { ts: string; merchant: string; intent: string; mode: string; model: string; latency_ms: number; success: boolean; fallback: boolean; grounded: boolean; evidence_count: number; cost_usd: number }[];
+  };
+  sources: SourceStatus[];
+  ga4: null | { period: { from: string; to: string }; synced_at: string; totals: { sessions: number; users: number; events: number; purchase_revenue: number } };
+  slo: { target_api_p95_ms: number; target_ai_grounded_rate: number; target_ai_fallback_rate: number; target_success_rate: number };
 };
 
 export type SessionSample = {
