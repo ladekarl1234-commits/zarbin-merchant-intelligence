@@ -3,6 +3,29 @@
   "tasks": [
     {
       "label": "Run Zarbin Dashboard",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Zarbin: Install frontend", "Zarbin: Build frontend", "Zarbin: Serve"],
+      "problemMatcher": [],
+      "detail": "Installs/builds the current React source, then serves http://localhost:8630"
+    },
+    {
+      "label": "Zarbin: Install frontend",
+      "type": "shell",
+      "command": "npm --prefix frontend ci",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared" },
+      "detail": "Installs the exact frontend lockfile before building the latest UI"
+    },
+    {
+      "label": "Zarbin: Build frontend",
+      "type": "shell",
+      "command": "npm --prefix frontend run build",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "detail": "tsc typecheck + Vite production build into zarin/static"
+    },
+    {
+      "label": "Zarbin: Serve",
       "type": "shell",
       "command": "uv run zarin",
       "problemMatcher": [],
@@ -17,7 +40,7 @@
       "command": "uv run pytest -q",
       "group": "test",
       "problemMatcher": [],
-      "detail": "Metric-correctness + API tests on deterministic fixtures"
+      "detail": "Metric-correctness + API/AI Ops tests on deterministic fixtures"
     },
     {
       "label": "Zarbin: Build data marts",
@@ -25,13 +48,6 @@
       "command": "uv run python -m zarin.pipeline",
       "problemMatcher": [],
       "detail": "(Re)build the Parquet marts from data/other_challenge_data.csv.gz"
-    },
-    {
-      "label": "Zarbin: Build frontend",
-      "type": "shell",
-      "command": "npm --prefix frontend run build",
-      "problemMatcher": [],
-      "detail": "tsc typecheck + Vite production build into zarin/static"
     }
   ]
 }
