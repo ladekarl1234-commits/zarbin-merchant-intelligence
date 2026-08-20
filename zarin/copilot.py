@@ -11,7 +11,8 @@ from datetime import date, timedelta
 
 from .analytics import changes, customers, funnel, overview
 from .fa import fa_money as _rial
-from .fa import fa_num, fa_pct as _pct
+from .fa import fa_num
+from .fa import fa_pct as _pct
 from .insights import generate
 from .peers import benchmarks
 
@@ -66,7 +67,7 @@ def answer(m: str, question: str, f: str, t: str) -> dict:
             f"خطای صریح بانکی {_pct(r['failed_bank_rate'])}. نرخ تبدیل نهایی {_pct(r['conv'])}. "
             "این سه حالت ماهیت متفاوتی دارند و در قیف پرداخت جدا نمایش داده می‌شوند.", "friction")
 
-    if re.search(r"(تلاش مجدد|بازیابی|نجات|ریکاوری|retry)", ql, re.I):
+    if re.search(r"(تلاش مجدد|بازیابی|نجات|ریکاوری|retry)", ql, re.IGNORECASE):
         fu = funnel(m, f, t)
         refs.append(fu["evidence"]["recovery"])
         rec = fu["recovery"]

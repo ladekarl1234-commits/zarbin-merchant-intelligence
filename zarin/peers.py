@@ -32,12 +32,12 @@ def peer_group(m: str) -> dict:
         return {"peers": [], "n": 0, "rule_fa": "پذیرنده یافت نشد", "level": "none", "me": {}}
     levels = [
         ("scale+ticket",
-         f"({POOL_SQL.split('WHERE')[1]}) AND category_id = $cat AND merchant_key != $m "
-         "AND gmv_per_day BETWEEN $g/4 AND $g*4 AND median_ticket BETWEEN $tk/3 AND $tk*3",
+         (f"({POOL_SQL.split('WHERE')[1]}) AND category_id = $cat AND merchant_key != $m "
+          "AND gmv_per_day BETWEEN $g/4 AND $g*4 AND median_ticket BETWEEN $tk/3 AND $tk*3"),
          "هم‌صنف، با فروش روزانه در محدوده ¼ تا ۴ برابر و مبلغ متوسط تراکنش در محدوده ⅓ تا ۳ برابر شما"),
         ("scale",
-         f"({POOL_SQL.split('WHERE')[1]}) AND category_id = $cat AND merchant_key != $m "
-         "AND gmv_per_day BETWEEN $g/4 AND $g*4",
+         (f"({POOL_SQL.split('WHERE')[1]}) AND category_id = $cat AND merchant_key != $m "
+          "AND gmv_per_day BETWEEN $g/4 AND $g*4"),
          "هم‌صنف، با فروش روزانه در محدوده ¼ تا ۴ برابر شما"),
         ("category",
          f"({POOL_SQL.split('WHERE')[1]}) AND category_id = $cat AND merchant_key != $m",

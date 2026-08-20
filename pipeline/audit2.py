@@ -1,5 +1,8 @@
 # Audit pass 2: semantic disambiguation. Run: uv run python pipeline/audit2.py
-import duckdb, json, os
+import json
+import os
+
+import duckdb
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSV = os.environ.get("ZARIN_DATA_PATH", os.path.join(ROOT, "data", "other_challenge_data.csv.gz"))

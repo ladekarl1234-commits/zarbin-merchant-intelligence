@@ -10,6 +10,7 @@ MARTS_DIR = Path(os.environ.get("ZARIN_MARTS_DIR", ROOT / "data" / "marts"))
 STATIC_DIR = ROOT / "zarin" / "static"
 
 PORT = int(os.environ.get("ZARIN_PORT", "8630"))
+HOST = os.environ.get("ZARIN_HOST", "127.0.0.1")  # containers set 0.0.0.0
 
 # --- Analytical thresholds (documented in docs/ANALYTICS.md) ---
 MIN_PEERS = 5              # below this: suppress percentile benchmarks entirely

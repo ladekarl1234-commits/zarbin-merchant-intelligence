@@ -8,7 +8,7 @@ hand-written per UI card.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from .config import CUSTOMER_SCOPE_CAVEAT, FEE_CAVEAT
 
@@ -93,6 +93,6 @@ def evidence(metric_id: str, *, sql: str, params: dict, n: int | None = None,
         "params": params,
         "n": n,
         "period": period,
-        "computed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "computed_at": datetime.now(UTC).isoformat(timespec="seconds"),
         **(extra or {}),
     }

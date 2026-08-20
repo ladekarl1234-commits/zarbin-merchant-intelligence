@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import analytics, copilot, insights, peers
-from .config import CUSTOMER_SCOPE_CAVEAT, CURRENCY_NOTE, FEE_CAVEAT, STATIC_DIR
+from .config import CURRENCY_NOTE, CUSTOMER_SCOPE_CAVEAT, FEE_CAVEAT, STATIC_DIR
 from .db import q, q1
 
 app = FastAPI(title="Zarbin — زرین‌بین", docs_url="/api/docs", openapi_url="/api/openapi.json")

@@ -1,7 +1,10 @@
 # Critical data audit for the ZarinPal challenge dataset.
 # Run: uv run python pipeline/audit.py
 # Emits docs/data_audit_raw.json and prints a compact summary.
-import duckdb, json, os, sys
+import json
+import os
+
+import duckdb
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSV = os.environ.get("ZARIN_DATA_PATH", os.path.join(ROOT, "data", "other_challenge_data.csv.gz"))

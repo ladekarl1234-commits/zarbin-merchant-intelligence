@@ -8,13 +8,13 @@ def fa_digits(s: str) -> str:
     return s.translate(_FA_DIGITS)
 
 
-def fa_num(v: float | int | None) -> str:
+def fa_num(v: float | None) -> str:
     if v is None:
         return "—"
     return fa_digits(f"{round(v):,}")
 
 
-def fa_money(v: float | int | None) -> str:
+def fa_money(v: float | None) -> str:
     """Compact IRR in Persian: ۶۱٫۸ میلیارد ریال / ۴۱٫۴ میلیون ریال."""
     if v is None:
         return "—"

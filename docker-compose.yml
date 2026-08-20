@@ -1,0 +1,7 @@
+services:
+  zarbin:
+    build: .
+    ports:
+      - "8630:8630"
+    volumes:
+      - ./data:/app/data

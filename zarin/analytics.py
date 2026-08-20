@@ -180,7 +180,7 @@ def customers(m: str, f: str, t: str) -> dict:
                count(*) AS n FROM r"""
     conc = q1(conc_sql, p)
 
-    interval = q1(f"""
+    interval = q1("""
         WITH v AS (SELECT payer_card_key, created_at,
                           lag(created_at) OVER (PARTITION BY payer_card_key ORDER BY created_at) AS prev
                    FROM sessions WHERE merchant_key=$m AND outcome='verified')
