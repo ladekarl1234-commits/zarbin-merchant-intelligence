@@ -41,7 +41,7 @@ def test_opportunity_is_gap_based_with_honest_band():
     # recovery-fraction band: high uses 1.0, low uses 0.5 → ratio 2.0
     assert abs(card["impact_high"] / card["impact_low"] - 2.0) < 1e-6
     # the opportunity evidence carries the real formula, not an empty string
-    opp = [e for e in card["evidence"] if e["metric_id"] == "opportunity"][0]
+    opp = next(e for e in card["evidence"] if e["metric_id"] == "opportunity")
     assert "recoverable" in opp["sql"] and opp["params"]["recovery_fraction_high"] == 1.0
     # few peers → confidence capped at 'low', never 'high'
     assert card["confidence"] == "low" and card["n_peers"] == 5
