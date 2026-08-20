@@ -48,7 +48,7 @@ export default function ChangesPage() {
 
   return (
     <Section title="چه چیزی تغییر کرد؟"
-             sub="مقایسه نیمه اول و نیمه دوم بازه انتخابی، با تجزیه دقیق ریاضی (LMDI) — سهم سه عامل دقیقاً برابر کل تغییر است.">
+             sub="مقایسه نیمه اول و نیمه دوم بازه انتخابی. سهم سه عامل (تعداد جلسه‌ها، نرخ تبدیل، مبلغ متوسط) دقیقاً برابر کل تغییر فروش است.">
       <div className="card" style={{ padding: 20, marginBottom: 18 }}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
           <span style={{ fontSize: "var(--fs-s)", color: "var(--ink-2)" }} className="num">

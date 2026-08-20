@@ -106,6 +106,8 @@ a { color: inherit; }
 }
 .tab:hover { color: #fff; }
 .tab[aria-current="page"] { color: #fff; border-bottom-color: var(--brand); font-weight: 600; }
+/* on mobile the bottom nav owns navigation — hide the top tab strip to avoid dual nav */
+@media (max-width: 759px) { .tabs { display: none; } }
 
 .main { flex: 1; width: 100%; max-width: 1200px; margin-inline: auto; padding: 24px 20px 96px; }
 @media (min-width: 760px) { .main { padding-bottom: 48px; } }
@@ -114,15 +116,15 @@ a { color: inherit; }
 .bottomnav {
   position: fixed; bottom: 0; inset-inline: 0; z-index: var(--z-sticky);
   background: var(--surface); border-top: 1px solid var(--line);
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   padding-bottom: env(safe-area-inset-bottom);
 }
 @media (min-width: 760px) { .bottomnav { display: none; } }
 .bn-item {
-  background: none; border: 0; padding: 8px 2px 7px; display: flex; flex-direction: column;
-  align-items: center; gap: 2px; font-size: 10.5px; color: var(--ink-3); min-height: 52px;
+  background: none; border: 0; padding: 8px 1px 7px; display: flex; flex-direction: column;
+  align-items: center; gap: 2px; font-size: 9.5px; color: var(--ink-3); min-height: 52px;
 }
-.bn-item svg { width: 21px; height: 21px; }
+.bn-item svg { width: 20px; height: 20px; }
 .bn-item[aria-current="page"] { color: var(--brand-ink); font-weight: 700; }
 .bn-item[aria-current="page"] svg { color: var(--warn); }
 
@@ -210,11 +212,17 @@ a { color: inherit; }
    a soft warm surface + the warn-colored "!" badge, no side stripe */
 .insight-alert { background: #fffdf5; border-color: #f0e4c0; }
 .insight h3 { font-size: var(--fs-m); }
+/* the money figure is the point of the card: a real designed metric, not a gray fill —
+   a hairline top rule + brand-ink number, so the eye lands on the amount */
 .insight .impact {
-  background: var(--surface-2); border-radius: var(--r-m); padding: 10px 14px;
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  padding: 4px 0 2px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
 }
-.insight .impact .amount { font-size: var(--fs-l); font-weight: 800; }
+.insight .impact .amount {
+  font-size: var(--fs-xl); font-weight: 800; letter-spacing: -0.015em; color: var(--brand-ink);
+  line-height: 1.25;
+}
+.insight-alert .impact .amount { color: var(--warn); font-size: var(--fs-l); }
 .insight .row { display: flex; align-items: flex-start; gap: 8px; font-size: var(--fs-s); color: var(--ink-2); }
 .insight .row b { color: var(--ink); font-weight: 700; flex-shrink: 0; }
 .insight footer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -342,6 +350,8 @@ a { color: inherit; }
   max-width: 1200px; margin-inline: auto; padding: 20px; color: var(--ink-3); font-size: var(--fs-xs);
   border-top: 1px solid var(--line); text-align: center;
 }
+.linklike { background: none; border: 0; color: var(--info); font: inherit; padding: 0; cursor: pointer; }
+.linklike:hover { text-decoration: underline; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

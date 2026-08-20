@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppProvider, useApp } from "./ctx";
+import { faDate } from "./fmt";
 import EvidenceDrawer from "./components/EvidenceDrawer";
 import { IconChat, IconDelta, IconFunnel, IconHome, IconScale, IconShield, IconUsers } from "./components/ui";
 import Overview from "./pages/Overview";
@@ -11,13 +12,13 @@ import CopilotPage from "./pages/CopilotPage";
 import QualityPage from "./pages/QualityPage";
 
 const ROUTES = [
-  { id: "overview", label: "نمای کلی", icon: IconHome, el: <Overview />, mobile: true },
-  { id: "funnel", label: "قیف پرداخت", icon: IconFunnel, el: <FunnelPage />, mobile: true },
-  { id: "customers", label: "مشتریان", icon: IconUsers, el: <CustomersPage />, mobile: true },
-  { id: "peers", label: "همتایان", icon: IconScale, el: <PeersPage />, mobile: true },
-  { id: "changes", label: "چه چیزی تغییر کرد؟", icon: IconDelta, el: <ChangesPage />, mobile: false },
-  { id: "copilot", label: "بپرس", icon: IconChat, el: <CopilotPage />, mobile: true },
-  { id: "quality", label: "کیفیت داده", icon: IconShield, el: <QualityPage />, mobile: false },
+  { id: "overview", label: "نمای کلی", short: "کلی", icon: IconHome, el: <Overview />, mobile: true },
+  { id: "funnel", label: "قیف پرداخت", short: "قیف", icon: IconFunnel, el: <FunnelPage />, mobile: true },
+  { id: "changes", label: "چه چیزی تغییر کرد؟", short: "تغییر", icon: IconDelta, el: <ChangesPage />, mobile: true },
+  { id: "peers", label: "همتایان", short: "همتا", icon: IconScale, el: <PeersPage />, mobile: true },
+  { id: "customers", label: "مشتریان", short: "مشتری", icon: IconUsers, el: <CustomersPage />, mobile: true },
+  { id: "copilot", label: "بپرس", short: "بپرس", icon: IconChat, el: <CopilotPage />, mobile: true },
+  { id: "quality", label: "کیفیت داده", short: "کیفیت", icon: IconShield, el: <QualityPage />, mobile: false },
 ];
 
 function useRoute(): [string, (r: string) => void] {
@@ -87,8 +88,8 @@ function Shell() {
       </main>
 
       <p className="footer-note num">
-        {meta?.notes.currency} داده: دیتاست چالش زرین‌پال، {meta ? `${meta.range.from} تا ${meta.range.to}` : ""} ·
-        ساخته‌شده برای هکاتون — زرین‌بین
+        {meta?.notes.currency} داده: دیتاست چالش زرین‌پال، {meta ? `${faDate(meta.range.from)} تا ${faDate(meta.range.to)}` : ""} ·
+        <button className="linklike" onClick={() => go("quality")}>کیفیت داده</button> · زرین‌بین
       </p>
 
       <nav className="bottomnav" aria-label="ناوبری موبایل">
@@ -98,7 +99,7 @@ function Shell() {
             <button key={r.id} className="bn-item" aria-current={r.id === route ? "page" : undefined}
                     onClick={() => go(r.id)}>
               <Icon />
-              {r.id === "funnel" ? "قیف" : r.id === "copilot" ? "بپرس" : r.label}
+              {r.short}
             </button>
           );
         })}

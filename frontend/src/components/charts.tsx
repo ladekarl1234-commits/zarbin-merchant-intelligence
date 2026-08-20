@@ -40,11 +40,11 @@ export function FunnelViz({ stages }: { stages: { id: string; label_fa: string; 
     <div role="table" aria-label="قیف پرداخت">
       {stages.map((s) => (
         <div className="funnel-stage" key={s.id} role="row">
-          <span style={{ fontSize: "var(--fs-s)", fontWeight: 600 }}>{s.label_fa}</span>
-          <div className="funnel-bar">
+          <span role="rowheader" style={{ fontSize: "var(--fs-s)", fontWeight: 600 }}>{s.label_fa}</span>
+          <div className="funnel-bar" role="cell" aria-hidden>
             <div className="funnel-fill" style={{ transform: `scaleX(${Math.max(s.n / max, 0.004)})`, width: "100%" }} />
           </div>
-          <span className="num" style={{ fontSize: "var(--fs-s)", fontWeight: 700, minWidth: 84, textAlign: "start" }}>
+          <span role="cell" className="num" style={{ fontSize: "var(--fs-s)", fontWeight: 700, minWidth: 84, textAlign: "start" }}>
             {faNum(s.n)}
             <span style={{ color: "var(--ink-3)", fontWeight: 400 }}> ({pct(s.n / max, 0)})</span>
           </span>
@@ -106,8 +106,8 @@ export function Waterfall({ items, total }: { items: { label: string; value: num
     <div role="table" aria-label="سهم عوامل در تغییر فروش">
       {items.map((it) => (
         <div className="wf-row" key={it.label} role="row">
-          <span style={{ fontWeight: 600 }}>{it.label}</span>
-          <div className="wf-track" dir="ltr">
+          <span role="rowheader" style={{ fontWeight: 600 }}>{it.label}</span>
+          <div className="wf-track" dir="ltr" role="cell" aria-hidden>
             <div className="wf-bar" style={{
               background: it.value >= 0 ? "var(--good)" : "var(--bad)",
               left: it.value >= 0 ? "50%" : `${50 - (Math.abs(it.value) / max) * 48}%`,
@@ -115,7 +115,7 @@ export function Waterfall({ items, total }: { items: { label: string; value: num
             }} />
             <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "var(--line-strong)" }} />
           </div>
-          <span className="num" style={{ fontWeight: 700, color: it.value >= 0 ? "var(--good)" : "var(--bad)", minWidth: 110, textAlign: "start" }}>
+          <span role="cell" className="num" style={{ fontWeight: 700, color: it.value >= 0 ? "var(--good)" : "var(--bad)", minWidth: 110, textAlign: "start" }}>
             {it.value >= 0 ? "+" : "−"}{rial(Math.abs(it.value))}
           </span>
         </div>
@@ -165,7 +165,8 @@ function FragmentRow({ m0, maxK, cell, monthFa }: {
                title={`${faNum(c.active)} از ${faNum(c.cohort_size)}`}
                style={{
                  background: k === 0 ? "var(--surface-2)" : `rgb(13 138 95 / ${Math.min(0.08 + share * 1.6, 0.9)})`,
-                 color: k > 0 && share > 0.3 ? "#fff" : "var(--ink)",
+                 // white text only once the green is dark enough to keep ≥4.5:1; else dark ink
+                 color: k > 0 && share > 0.55 ? "#fff" : "var(--ink)",
                }}>
             {k === 0 ? faNum(c.cohort_size) : pct(share, 0)}
           </div>

@@ -39,6 +39,12 @@ export function faDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   return dateFmt.format(new Date(iso.slice(0, 10) + "T12:00:00"));
 }
+
+/** Replace any YYYY-MM-DD inside a string with its Jalali/Persian rendering. */
+export function localizeDates(s: string | null | undefined): string {
+  if (!s) return "";
+  return s.replace(/\d{4}-\d{2}-\d{2}/g, (m) => faDate(m));
+}
 export function faDateShort(iso: string): string {
   return dateShort.format(new Date(iso.slice(0, 10) + "T12:00:00"));
 }

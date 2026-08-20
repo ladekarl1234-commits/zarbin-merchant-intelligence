@@ -48,29 +48,32 @@ def meta():
     merchants = q("""
         SELECT merchant_key, category_title, sessions, verified, gmv, active_months
         FROM merchant_stats ORDER BY gmv DESC NULLS LAST""")
-    # demo presets are selected programmatically, not hardcoded conclusions:
-    demo = q("""
-        WITH s AS (SELECT *,
-            paid_unverified_amount AS pua,
+    # demo presets are selected programmatically, not hardcoded conclusions. Each preset
+    # takes the top merchant that isn't already used by an earlier preset, so a collision
+    # (e.g. the top-GMV merchant is also the paid-unverified leader) never drops a preset.
+    ranks = q("""
+        WITH s AS (SELECT merchant_key,
+            gmv, paid_unverified_amount AS pua, repeat_txns,
             no_attempt / nullif(sessions,0) AS na_rate,
             recovered / nullif(sessions,0) AS rec_rate
           FROM merchant_stats WHERE sessions >= 5000)
-        SELECT * FROM (
-          (SELECT merchant_key, 'بیشترین فروش موفق' AS why FROM s ORDER BY gmv DESC LIMIT 1)
-          UNION ALL
-          (SELECT merchant_key, 'بیشترین مبلغ پرداخت تاییدنشده' FROM s ORDER BY pua DESC LIMIT 1)
-          UNION ALL
-          (SELECT merchant_key, 'بالاترین انصراف پیش از پرداخت' FROM s ORDER BY na_rate DESC LIMIT 1)
-          UNION ALL
-          (SELECT merchant_key, 'بیشترین نجات با تلاش مجدد' FROM s ORDER BY rec_rate DESC LIMIT 1)
-          UNION ALL
-          (SELECT merchant_key, 'بیشترین مشتری تکراری' FROM s ORDER BY repeat_txns DESC LIMIT 1))
-        """)
+        SELECT merchant_key,
+               row_number() OVER (ORDER BY gmv DESC) AS r_gmv,
+               row_number() OVER (ORDER BY pua DESC) AS r_pua,
+               row_number() OVER (ORDER BY na_rate DESC) AS r_na,
+               row_number() OVER (ORDER BY rec_rate DESC) AS r_rec,
+               row_number() OVER (ORDER BY repeat_txns DESC) AS r_rep
+        FROM s""")
+    presets = [("بیشترین فروش موفق", "r_gmv"), ("بیشترین مبلغ پرداخت تاییدنشده", "r_pua"),
+               ("بالاترین انصراف پیش از پرداخت", "r_na"), ("بیشترین نجات با تلاش مجدد", "r_rec"),
+               ("بیشترین مشتری تکراری", "r_rep")]
     seen, demo_list = set(), []
-    for d in demo:
-        if d["merchant_key"] not in seen:
-            seen.add(d["merchant_key"])
-            demo_list.append(d)
+    for why, col in presets:
+        for row in sorted(ranks, key=lambda x: x[col]):
+            if row["merchant_key"] not in seen:
+                seen.add(row["merchant_key"])
+                demo_list.append({"merchant_key": row["merchant_key"], "why": why})
+                break
     return {"range": {"from": lo, "to": hi}, "merchants": merchants, "demo": demo_list,
             "notes": {"currency": CURRENCY_NOTE, "fee": FEE_CAVEAT, "customer": CUSTOMER_SCOPE_CAVEAT}}
 
