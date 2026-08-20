@@ -33,10 +33,20 @@ uv run zarin
 - **ویندوز/OneDrive:** اسکریپت‌های `scripts/run.*` به‌صورت خودکار `UV_LINK_MODE=copy` را تنظیم می‌کنند تا محدودیت hardlink دور زده شود.
 
 ```bash
-uv run pytest -q                     # ۱۶ تست صحت متریک
+uv run pytest -q                     # ۲۴ تست صحت متریک و API
 uv run python pipeline/validate.py   # QA مستقل در برابر API زنده (سرور باید بالا باشد)
 uv run ruff check .                  # لینت
 ```
+
+## پیش‌نمایش محصول
+
+| نمای کلی (فید اقدام) | چه چیزی تغییر کرد؟ (تجزیه LMDI) |
+|---|---|
+| ![نمای کلی](docs/screenshots/desk-overview.png) | ![چه چیزی تغییر کرد](docs/screenshots/desk-changes.png) |
+| **کشوی شواهد — «این عدد از کجا آمد؟»** | **موبایل** |
+| ![کشوی شواهد](docs/screenshots/desk-evidence.png) | ![موبایل](docs/screenshots/mob-overview.png) |
+
+تصاویر بیشتر (قیف، مشتریان، همتایان، کیفیت داده، موبایل) در `docs/screenshots/`.
 
 ## چه چیزی این پروژه را متفاوت می‌کند
 
