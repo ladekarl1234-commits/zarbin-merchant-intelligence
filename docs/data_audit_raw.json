@@ -1,0 +1,1110 @@
+{
+ "shape": [
+  {
+   "n_rows": 2213289,
+   "sessions": 2062839,
+   "merchants": 343,
+   "terminals": 348,
+   "categories": 5,
+   "t0": "2026-01-01 00:00:08",
+   "t1": "2026-06-30 23:59:55"
+  }
+ ],
+ "types": [
+  {
+   "column_name": "session_key",
+   "column_type": "BIGINT",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "try_seq",
+   "column_type": "BIGINT",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "terminal_key",
+   "column_type": "VARCHAR",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "merchant_key",
+   "column_type": "VARCHAR",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "category_id",
+   "column_type": "BIGINT",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "category_title",
+   "column_type": "VARCHAR",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "amount",
+   "column_type": "BIGINT",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "adjusted_fee",
+   "column_type": "BIGINT",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "session_status",
+   "column_type": "VARCHAR",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "try_status",
+   "column_type": "VARCHAR",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "switch_response_code",
+   "column_type": "VARCHAR",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "psp_code",
+   "column_type": "VARCHAR",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "issuer_bank_code",
+   "column_type": "VARCHAR",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "payer_card_key",
+   "column_type": "VARCHAR",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "verify_type",
+   "column_type": "VARCHAR",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "init_time_ms",
+   "column_type": "BIGINT",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "verify_time_ms",
+   "column_type": "BIGINT",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "created_at",
+   "column_type": "TIMESTAMP",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "try_created_at",
+   "column_type": "TIMESTAMP",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "verified_at",
+   "column_type": "TIMESTAMP",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "settled_at",
+   "column_type": "TIMESTAMP",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  },
+  {
+   "column_name": "expire_in",
+   "column_type": "TIMESTAMP",
+   "null": "YES",
+   "key": null,
+   "default": null,
+   "extra": null
+  }
+ ],
+ "dup_grain": [
+  {
+   "dup_rows": 0
+  }
+ ],
+ "full_dup": [
+  {
+   "n": 0
+  }
+ ],
+ "missing": [
+  {
+   "session_key": 0,
+   "try_seq": 0,
+   "terminal_key": 0,
+   "merchant_key": 0,
+   "amount": 0,
+   "adjusted_fee": 0,
+   "session_status": 0,
+   "try_status": 0,
+   "switch_response_code": 2155696,
+   "psp_code": 263936,
+   "issuer_bank_code": 1178921,
+   "payer_card_key": 1178921,
+   "verify_type": 0,
+   "init_time_ms": 346747,
+   "verify_time_ms": 1179013,
+   "created_at": 0,
+   "try_created_at": 263936,
+   "verified_at": 1125164,
+   "settled_at": 1116034,
+   "expire_in": 0
+  }
+ ],
+ "session_status_x_try_status": [
+  {
+   "session_status": "Verified",
+   "try_status": "Verified",
+   "n": 1025627
+  },
+  {
+   "session_status": "Failed",
+   "try_status": "InBank",
+   "n": 820787
+  },
+  {
+   "session_status": "Failed",
+   "try_status": "NoAttempt",
+   "n": 263936
+  },
+  {
+   "session_status": "Verified",
+   "try_status": "InBank",
+   "n": 62409
+  },
+  {
+   "session_status": "Failed",
+   "try_status": "Failed",
+   "n": 31310
+  },
+  {
+   "session_status": "Paid",
+   "try_status": "Paid",
+   "n": 8706
+  },
+  {
+   "session_status": "Paid",
+   "try_status": "InBank",
+   "n": 422
+  },
+  {
+   "session_status": "Verified",
+   "try_status": "Failed",
+   "n": 62
+  },
+  {
+   "session_status": "Verified",
+   "try_status": "Paid",
+   "n": 27
+  },
+  {
+   "session_status": "Paid",
+   "try_status": "Failed",
+   "n": 2
+  },
+  {
+   "session_status": "Reversed",
+   "try_status": "Reversed",
+   "n": 1
+  }
+ ],
+ "try_seq_dist": [
+  {
+   "try_seq": 0,
+   "n": 263936
+  },
+  {
+   "try_seq": 1,
+   "n": 1798903
+  },
+  {
+   "try_seq": 2,
+   "n": 74685
+  },
+  {
+   "try_seq": 3,
+   "n": 24768
+  },
+  {
+   "try_seq": 4,
+   "n": 12081
+  },
+  {
+   "try_seq": 5,
+   "n": 6146
+  },
+  {
+   "try_seq": 6,
+   "n": 3558
+  },
+  {
+   "try_seq": 7,
+   "n": 3254
+  },
+  {
+   "try_seq": 8,
+   "n": 2846
+  },
+  {
+   "try_seq": 9,
+   "n": 2126
+  },
+  {
+   "try_seq": 10,
+   "n": 1739
+  },
+  {
+   "try_seq": 11,
+   "n": 1651
+  },
+  {
+   "try_seq": 12,
+   "n": 1545
+  },
+  {
+   "try_seq": 13,
+   "n": 1387
+  },
+  {
+   "try_seq": 14,
+   "n": 1240
+  },
+  {
+   "try_seq": 15,
+   "n": 1072
+  },
+  {
+   "try_seq": 16,
+   "n": 1015
+  },
+  {
+   "try_seq": 17,
+   "n": 956
+  },
+  {
+   "try_seq": 18,
+   "n": 909
+  },
+  {
+   "try_seq": 19,
+   "n": 881
+  },
+  {
+   "try_seq": 20,
+   "n": 847
+  },
+  {
+   "try_seq": 21,
+   "n": 542
+  },
+  {
+   "try_seq": 22,
+   "n": 502
+  },
+  {
+   "try_seq": 23,
+   "n": 462
+  },
+  {
+   "try_seq": 24,
+   "n": 434
+  },
+  {
+   "try_seq": 25,
+   "n": 410
+  },
+  {
+   "try_seq": 26,
+   "n": 396
+  },
+  {
+   "try_seq": 27,
+   "n": 374
+  },
+  {
+   "try_seq": 28,
+   "n": 362
+  },
+  {
+   "try_seq": 29,
+   "n": 345
+  }
+ ],
+ "noattempt": [
+  {
+   "try_status": "Verified",
+   "seq0": 0,
+   "seqpos": 1025627,
+   "no_try_ts": 0,
+   "no_psp": 0
+  },
+  {
+   "try_status": "InBank",
+   "seq0": 0,
+   "seqpos": 883618,
+   "no_try_ts": 0,
+   "no_psp": 0
+  },
+  {
+   "try_status": "NoAttempt",
+   "seq0": 263936,
+   "seqpos": 0,
+   "no_try_ts": 263936,
+   "no_psp": 263936
+  },
+  {
+   "try_status": "Reversed",
+   "seq0": 0,
+   "seqpos": 1,
+   "no_try_ts": 0,
+   "no_psp": 0
+  },
+  {
+   "try_status": "Paid",
+   "seq0": 0,
+   "seqpos": 8733,
+   "no_try_ts": 0,
+   "no_psp": 0
+  },
+  {
+   "try_status": "Failed",
+   "seq0": 0,
+   "seqpos": 31374,
+   "no_try_ts": 0,
+   "no_psp": 0
+  }
+ ],
+ "session_consistency": [
+  {
+   "multi_session_status": 0,
+   "multi_merchant": 0,
+   "multi_terminal": 0,
+   "multi_amount": 0,
+   "sessions": 2062839
+  }
+ ],
+ "session_status_dist": [
+  {
+   "session_status": "Failed",
+   "sessions": 1028477
+  },
+  {
+   "session_status": "Verified",
+   "sessions": 1025655
+  },
+  {
+   "session_status": "Paid",
+   "sessions": 8706
+  },
+  {
+   "session_status": "Reversed",
+   "sessions": 1
+  }
+ ],
+ "attempts_per_session": [
+  {
+   "n_tries": 1,
+   "sessions": 1988154
+  },
+  {
+   "n_tries": 2,
+   "sessions": 49917
+  },
+  {
+   "n_tries": 3,
+   "sessions": 12687
+  },
+  {
+   "n_tries": 4,
+   "sessions": 5935
+  },
+  {
+   "n_tries": 5,
+   "sessions": 2588
+  },
+  {
+   "n_tries": 6,
+   "sessions": 304
+  },
+  {
+   "n_tries": 7,
+   "sessions": 408
+  },
+  {
+   "n_tries": 8,
+   "sessions": 720
+  },
+  {
+   "n_tries": 9,
+   "sessions": 387
+  },
+  {
+   "n_tries": 10,
+   "sessions": 88
+  },
+  {
+   "n_tries": 11,
+   "sessions": 106
+  },
+  {
+   "n_tries": 12,
+   "sessions": 158
+  },
+  {
+   "n_tries": 13,
+   "sessions": 147
+  },
+  {
+   "n_tries": 14,
+   "sessions": 168
+  },
+  {
+   "n_tries": 15,
+   "sessions": 57
+  },
+  {
+   "n_tries": 16,
+   "sessions": 59
+  },
+  {
+   "n_tries": 17,
+   "sessions": 47
+  },
+  {
+   "n_tries": 18,
+   "sessions": 28
+  },
+  {
+   "n_tries": 19,
+   "sessions": 34
+  },
+  {
+   "n_tries": 20,
+   "sessions": 305
+  }
+ ],
+ "retry_recovery": [
+  {
+   "session_status": "Verified",
+   "first_ok": true,
+   "sessions": 985996
+  },
+  {
+   "session_status": "Failed",
+   "first_ok": false,
+   "sessions": 764541
+  },
+  {
+   "session_status": "Verified",
+   "first_ok": false,
+   "sessions": 39659
+  },
+  {
+   "session_status": "Paid",
+   "first_ok": true,
+   "sessions": 8327
+  },
+  {
+   "session_status": "Paid",
+   "first_ok": false,
+   "sessions": 379
+  },
+  {
+   "session_status": "Reversed",
+   "first_ok": false,
+   "sessions": 1
+  }
+ ],
+ "paid_no_verified_at": [
+  {
+   "session_status": "Paid",
+   "null_verified_at": 8706,
+   "n": 8706
+  },
+  {
+   "session_status": "Verified",
+   "null_verified_at": 0,
+   "n": 1025654
+  }
+ ],
+ "verified_session_wo_verified_try": [
+  {
+   "n": 28
+  }
+ ],
+ "paid_session_wo_paid_or_verified_try": [
+  {
+   "n": 0
+  }
+ ],
+ "verify_type": [
+  {
+   "verify_type": "Manual",
+   "n": 131835
+  },
+  {
+   "verify_type": "Automated",
+   "n": 2081454
+  }
+ ],
+ "amount_pct": [
+  {
+   "mn": 1000,
+   "p25": 429000.0,
+   "p50": 760000.0,
+   "p75": 3950000.0,
+   "p95": 18673724.000000004,
+   "p99": 69191093.20000102,
+   "mx": 2000000000,
+   "mean": 5086486.3764402205
+  }
+ ],
+ "fee_ratio": [
+  {
+   "med_ratio": 0.00455011655011655,
+   "mn": 8.661333333333334e-05,
+   "mx": 8.008,
+   "n_nulls": 0
+  }
+ ],
+ "categories": [
+  {
+   "category_id": 48160000,
+   "category_title": "خدمات شبکه‌های کامپیوتری و اینترنت",
+   "merchants": 53,
+   "n": 1374481
+  },
+  {
+   "category_id": 82410000,
+   "category_title": "مراکز آموزشی مجازی",
+   "merchants": 158,
+   "n": 367782
+  },
+  {
+   "category_id": 56610001,
+   "category_title": "کیف و کفش فروشی",
+   "merchants": 69,
+   "n": 301687
+  },
+  {
+   "category_id": 59770001,
+   "category_title": "فروشگاه لوازم آرایشی و بهداشتی",
+   "merchants": 38,
+   "n": 100203
+  },
+  {
+   "category_id": 48160002,
+   "category_title": "ارائه دهنده خدمات اینترنت",
+   "merchants": 25,
+   "n": 69136
+  }
+ ],
+ "terminal_merchant": [
+  {
+   "n_terminals": 348,
+   "terminals_multi_merchant": 0
+  }
+ ],
+ "merchant_multi_terminal": [
+  {
+   "merchants_multi_terminal": 4,
+   "max_terminals": 3
+  }
+ ],
+ "concentration": [
+  {
+   "merchants": 343,
+   "total": 5165420875199,
+   "top5_share": 0.7238606779018664,
+   "top20_share": 0.897004082739627
+  }
+ ],
+ "merchant_active_months": [
+  {
+   "n_months": 1,
+   "merchants": 39
+  },
+  {
+   "n_months": 2,
+   "merchants": 45
+  },
+  {
+   "n_months": 3,
+   "merchants": 49
+  },
+  {
+   "n_months": 4,
+   "merchants": 48
+  },
+  {
+   "n_months": 5,
+   "merchants": 48
+  },
+  {
+   "n_months": 6,
+   "merchants": 114
+  }
+ ],
+ "monthly": [
+  {
+   "m": "2026-01-01 00:00:00",
+   "sessions": 212804,
+   "merchants": 259,
+   "gmv": 587965201487
+  },
+  {
+   "m": "2026-02-01 00:00:00",
+   "sessions": 332197,
+   "merchants": 267,
+   "gmv": 1039760118293
+  },
+  {
+   "m": "2026-03-01 00:00:00",
+   "sessions": 377214,
+   "merchants": 173,
+   "gmv": 453704926748
+  },
+  {
+   "m": "2026-04-01 00:00:00",
+   "sessions": 345243,
+   "merchants": 202,
+   "gmv": 860924645870
+  },
+  {
+   "m": "2026-05-01 00:00:00",
+   "sessions": 373594,
+   "merchants": 240,
+   "gmv": 1025458233944
+  },
+  {
+   "m": "2026-06-01 00:00:00",
+   "sessions": 421787,
+   "merchants": 251,
+   "gmv": 1197607748857
+  }
+ ],
+ "card_null_by_try_status": [
+  {
+   "try_status": "Reversed",
+   "card_null": 0,
+   "n": 1
+  },
+  {
+   "try_status": "InBank",
+   "card_null": 883618,
+   "n": 883618
+  },
+  {
+   "try_status": "Verified",
+   "card_null": 0,
+   "n": 1025627
+  },
+  {
+   "try_status": "NoAttempt",
+   "card_null": 263936,
+   "n": 263936
+  },
+  {
+   "try_status": "Failed",
+   "card_null": 31367,
+   "n": 31374
+  },
+  {
+   "try_status": "Paid",
+   "card_null": 0,
+   "n": 8733
+  }
+ ],
+ "card_cross_merchant": [
+  {
+   "cards": 402173,
+   "cards_multi_merchant": 0
+  }
+ ],
+ "psp": [
+  {
+   "psp_code": "PSP-03",
+   "n": 706816,
+   "ok": 416259
+  },
+  {
+   "psp_code": "PSP-01",
+   "n": 454336,
+   "ok": 265480
+  },
+  {
+   "psp_code": "PSP-05",
+   "n": 349926,
+   "ok": 141983
+  },
+  {
+   "psp_code": null,
+   "n": 263936,
+   "ok": 0
+  },
+  {
+   "psp_code": "PSP-04",
+   "n": 194453,
+   "ok": 116148
+  },
+  {
+   "psp_code": "PSP-08",
+   "n": 108779,
+   "ok": 16822
+  },
+  {
+   "psp_code": "PSP-07",
+   "n": 73136,
+   "ok": 32277
+  },
+  {
+   "psp_code": "PSP-06",
+   "n": 58148,
+   "ok": 34783
+  },
+  {
+   "psp_code": "PSP-02",
+   "n": 3759,
+   "ok": 1875
+  }
+ ],
+ "bank": [
+  {
+   "issuer_bank_code": null,
+   "n": 1178921,
+   "ok": 0
+  },
+  {
+   "issuer_bank_code": "BANK-18",
+   "n": 192029,
+   "ok": 190506
+  },
+  {
+   "issuer_bank_code": "BANK-14",
+   "n": 191698,
+   "ok": 189615
+  },
+  {
+   "issuer_bank_code": "BANK-31",
+   "n": 122373,
+   "ok": 121401
+  },
+  {
+   "issuer_bank_code": "BANK-12",
+   "n": 70429,
+   "ok": 69949
+  },
+  {
+   "issuer_bank_code": "BANK-27",
+   "n": 68040,
+   "ok": 67441
+  },
+  {
+   "issuer_bank_code": "BANK-29",
+   "n": 58587,
+   "ok": 58204
+  },
+  {
+   "issuer_bank_code": "BANK-17",
+   "n": 57303,
+   "ok": 56791
+  },
+  {
+   "issuer_bank_code": "BANK-08",
+   "n": 51463,
+   "ok": 51173
+  },
+  {
+   "issuer_bank_code": "BANK-25",
+   "n": 40259,
+   "ok": 39926
+  },
+  {
+   "issuer_bank_code": "BANK-16",
+   "n": 32597,
+   "ok": 32365
+  },
+  {
+   "issuer_bank_code": "BANK-19",
+   "n": 25537,
+   "ok": 25311
+  }
+ ],
+ "bank_card_count": [
+  {
+   "banks": 31
+  }
+ ],
+ "switch_codes": [
+  {
+   "switch_response_code": null,
+   "n": 2155696
+  },
+  {
+   "switch_response_code": "PSP-03:51",
+   "n": 7366
+  },
+  {
+   "switch_response_code": "PSP-03:56",
+   "n": 6081
+  },
+  {
+   "switch_response_code": "PSP-03:-3",
+   "n": 5260
+  },
+  {
+   "switch_response_code": "PSP-03:59",
+   "n": 4184
+  },
+  {
+   "switch_response_code": "PSP-05:12",
+   "n": 3697
+  },
+  {
+   "switch_response_code": "PSP-01:-3",
+   "n": 3330
+  },
+  {
+   "switch_response_code": "PSP-05:15",
+   "n": 3161
+  },
+  {
+   "switch_response_code": "PSP-05:-100",
+   "n": 2558
+  },
+  {
+   "switch_response_code": "PSP-03:54",
+   "n": 2296
+  },
+  {
+   "switch_response_code": "PSP-03:55",
+   "n": 2276
+  },
+  {
+   "switch_response_code": "PSP-05:18",
+   "n": 1820
+  },
+  {
+   "switch_response_code": "PSP-05:55",
+   "n": 1731
+  },
+  {
+   "switch_response_code": "PSP-05:13",
+   "n": 1405
+  },
+  {
+   "switch_response_code": "PSP-07:56",
+   "n": 1055
+  }
+ ],
+ "ts_sanity": [
+  {
+   "try_before_session": 234653,
+   "verify_before_try": 6,
+   "settle_before_verify": 787573,
+   "expire_before_create": 0,
+   "med_ttl_min": 30.0
+  }
+ ],
+ "timing": [
+  {
+   "init_p50": 161.0,
+   "init_p95": 299.0,
+   "verify_p50": 150.0,
+   "verify_p95": 266.0
+  }
+ ],
+ "hourly_conv": [
+  {
+   "h": 0,
+   "sessions": 97452,
+   "ok": 43850
+  },
+  {
+   "h": 1,
+   "sessions": 91696,
+   "ok": 42862
+  },
+  {
+   "h": 2,
+   "sessions": 70246,
+   "ok": 33714
+  },
+  {
+   "h": 3,
+   "sessions": 46921,
+   "ok": 22715
+  },
+  {
+   "h": 4,
+   "sessions": 32724,
+   "ok": 15675
+  },
+  {
+   "h": 5,
+   "sessions": 25708,
+   "ok": 12443
+  },
+  {
+   "h": 6,
+   "sessions": 26914,
+   "ok": 12851
+  },
+  {
+   "h": 7,
+   "sessions": 36325,
+   "ok": 17361
+  },
+  {
+   "h": 8,
+   "sessions": 49777,
+   "ok": 25201
+  },
+  {
+   "h": 9,
+   "sessions": 65235,
+   "ok": 33377
+  },
+  {
+   "h": 10,
+   "sessions": 83514,
+   "ok": 42758
+  },
+  {
+   "h": 11,
+   "sessions": 96032,
+   "ok": 47544
+  },
+  {
+   "h": 12,
+   "sessions": 105079,
+   "ok": 51302
+  },
+  {
+   "h": 13,
+   "sessions": 110848,
+   "ok": 54799
+  },
+  {
+   "h": 14,
+   "sessions": 116076,
+   "ok": 58395
+  },
+  {
+   "h": 15,
+   "sessions": 116970,
+   "ok": 58954
+  },
+  {
+   "h": 16,
+   "sessions": 110553,
+   "ok": 55720
+  },
+  {
+   "h": 17,
+   "sessions": 105843,
+   "ok": 54091
+  },
+  {
+   "h": 18,
+   "sessions": 103736,
+   "ok": 53181
+  },
+  {
+   "h": 19,
+   "sessions": 108313,
+   "ok": 55931
+  },
+  {
+   "h": 20,
+   "sessions": 108710,
+   "ok": 56794
+  },
+  {
+   "h": 21,
+   "sessions": 114074,
+   "ok": 59205
+  },
+  {
+   "h": 22,
+   "sessions": 121370,
+   "ok": 61739
+  },
+  {
+   "h": 23,
+   "sessions": 118723,
+   "ok": 55193
+  }
+ ]
+}

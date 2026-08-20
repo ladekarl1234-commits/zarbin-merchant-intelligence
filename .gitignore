@@ -1,0 +1,12 @@
+﻿# data
+data/
+data orgin/
+my prompt/
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+frontend/dist/
+.pytest_cache/
+.ruff_cache/
+*.duckdb
