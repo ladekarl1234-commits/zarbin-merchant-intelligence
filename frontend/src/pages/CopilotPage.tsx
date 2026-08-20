@@ -3,6 +3,7 @@ import type { CopilotAnswer } from "../api";
 import { get } from "../api";
 import { useApp } from "../ctx";
 import { EvBtn, Section } from "../components/ui";
+import VoiceInput from "../components/VoiceInput";
 
 const SUGGESTIONS = [
   "این هفته روی چه تمرکز کنم؟",
@@ -26,8 +27,6 @@ export default function CopilotPage() {
   const ask = async (q: string) => {
     if (!q.trim()) return;
     setInput("");
-    // stable per-turn id captured OUTSIDE the state updater (updaters must stay pure),
-    // so concurrent questions each resolve onto their own turn
     const id = ++seq.current;
     setTurns((t) => [...t, { id, q, pending: true }]);
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
@@ -43,7 +42,13 @@ export default function CopilotPage() {
 
   return (
     <Section title="از کسب‌وکارت بپرس"
-             sub="دستیار قطعی و آفلاین: پاسخ‌ها مستقیم از موتور تحلیلی می‌آیند، نه از مدل زبانی — بنابراین هر عدد قابل ردیابی است.">
+             sub="عددها همیشه از موتور تحلیلی می‌آیند. اگر OpenRouter فعال باشد، مدل فقط همان شواهد را به زبان ساده توضیح می‌دهد؛ اگر در دسترس نباشد، پاسخ داخلی ادامه می‌دهد.">
+      <div className="voice-room merchant-voice">
+        <div className="voice-orb" aria-hidden>ز</div>
+        <div><b>Voice Mode</b><p>سوالت را بگو؛ متنش خودکار وارد می‌شود و قبل از ارسال قابل ویرایش است.</p></div>
+        <VoiceInput onText={setInput} />
+      </div>
+
       <div className="chat">
         {turns.length === 0 && (
           <div className="empty" style={{ textAlign: "start" }}>
@@ -58,6 +63,15 @@ export default function CopilotPage() {
               {t.pending ? "در حال محاسبه…" : (
                 <>
                   {t.a!.answer_fa}
+                  {t.a?.ai ? (
+                    <div className="ai-meta">
+                      <span className={`chip ${t.a.ai.fallback ? "chip-warn" : "chip-good"}`}>
+                        {t.a.ai.mode === "openrouter" ? "توضیح AI + شواهد" : "تحلیل داخلی"}
+                      </span>
+                      <span className="term-tip" tabIndex={0} data-tip="مدل اجازه ندارد عدد تازه بسازد؛ عددها از موتور تحلیلی و شواهد همین پذیرنده می‌آیند.">پاسخ مستند</span>
+                      <span>{Math.round(t.a.ai.latency_ms)} ms</span>
+                    </div>
+                  ) : null}
                   {t.a!.evidence.length > 0 && (
                     <div style={{ marginTop: 8 }}>
                       <EvBtn title="پاسخ دستیار" items={t.a!.evidence} label="این اعداد از کجا آمدند؟" />
@@ -76,6 +90,7 @@ export default function CopilotPage() {
       </div>
 
       <form className="ask" onSubmit={(e) => { e.preventDefault(); ask(input); }}>
+        <VoiceInput onText={setInput} compact />
         <input value={input} onChange={(e) => setInput(e.target.value)}
                placeholder="مثلاً: چرا فروشم کم شد؟" aria-label="پرسش از دستیار" />
         <button className="btn btn-brand" type="submit" disabled={!input.trim()}>بپرس</button>
