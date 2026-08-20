@@ -63,3 +63,18 @@ def test_admin_ai_eval_reports_separate_dimensions():
 
 def test_admin_platform_rejects_bad_date():
     assert client.get("/api/admin/platform", params={"f": "not-a-date"}).status_code == 400
+
+
+def test_ops_copilot_is_grounded_and_scoped_to_platform():
+    d = client.get("/api/admin/copilot", params={"q": "وضعیت کل سیستم چطوره؟"}).json()
+    assert d["source"] == "deterministic" and d["grounded"] and d["intent"] == "system"
+    assert len(d["evidence"]) >= 1
+    # ops copilot must not require or leak a merchant scope; it answers platform-level
+    d2 = client.get("/api/admin/copilot", params={"q": "کدام منبع sync نشده؟"}).json()
+    assert d2["intent"] == "sources" and "زرین‌پال" in d2["answer_fa"]
+
+
+def test_ops_copilot_feedback():
+    d = client.get("/api/admin/copilot", params={"q": "AI امروز چطور عمل کرده؟"}).json()
+    fb = client.post("/api/admin/copilot/feedback", params={"intent": d["intent"], "useful": False})
+    assert fb.status_code == 200 and fb.json()["ok"]

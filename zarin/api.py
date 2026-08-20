@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import analytics, control, copilot, insights, obs, peers
+from . import analytics, control, copilot, insights, obs, ops_copilot, peers
 from .ai import telemetry as ai_telemetry
 from .ai.eval import run_eval
 from .config import CURRENCY_NOTE, CUSTOMER_SCOPE_CAVEAT, FEE_CAVEAT, STATIC_DIR
@@ -173,6 +173,18 @@ def admin_sources(f: str | None = None, t: str | None = None):
 @lru_cache(maxsize=1)
 def admin_ai_eval():
     return run_eval()
+
+
+@app.get("/api/admin/copilot")
+def admin_ask(q_: str = Query(alias="q"), f: str | None = None, t: str | None = None):
+    f, t = _dates("", f, t)
+    return ops_copilot.answer(q_, f, t)
+
+
+@app.post("/api/admin/copilot/feedback")
+def admin_copilot_feedback(intent: str, useful: bool):
+    ai_telemetry.record_feedback(merchant_scope="platform", intent=intent, useful=useful, surface="ops")
+    return {"ok": True}
 
 
 _VALID_OUTCOMES = {"verified", "paid_unverified", "no_attempt", "abandoned_inbank", "failed_bank", "reversed"}
