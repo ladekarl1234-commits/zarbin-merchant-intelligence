@@ -62,7 +62,7 @@ function useRoute(): [WS, string, (ws: WS, page: string) => void] {
   return [st[0], st[1], (ws, page) => { location.hash = ws === "ops" ? `#/ops/${page}` : `#/${page}`; }];
 }
 
-function Shell() {
+function Shell({ onLogout }: { onLogout: () => void }) {
   const { meta, merchant, setMerchant, presetId, setPresetId, presets } = useApp();
   const [ws, page, go] = useRoute();
   const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.innerWidth < 860);
@@ -108,6 +108,7 @@ function Shell() {
             <button className="side-btn switch" onClick={() => go(ws === "ops" ? "merchant" : "ops", ws === "ops" ? "copilot" : "overview")}>
               {ws === "ops" ? "→ بازگشت به فضای پذیرنده" : "→ مرکز کنترل عملیات"}
             </button>
+            <button className="side-btn" onClick={onLogout}>خروج از حساب</button>
           </div>
         </aside>
       )}
@@ -121,6 +122,12 @@ function Shell() {
               <div className="t-sub">{current.sub}</div>
             </div>
             <div className="t-right">
+              {narrow && (
+                <button className="btn" style={{ padding: "6px 10px", fontSize: "0.72rem" }}
+                        onClick={() => go(ws === "ops" ? "merchant" : "ops", ws === "ops" ? "copilot" : "overview")}>
+                  {ws === "ops" ? "فضای پذیرنده" : "مرکز کنترل"}
+                </button>
+              )}
               {ws === "merchant" && meta && (
                 <select className="btn num" value={merchant} onChange={(e) => setMerchant(e.target.value)} aria-label="پذیرنده"
                         style={{ maxWidth: 190 }}>
@@ -134,9 +141,9 @@ function Shell() {
                   </optgroup>
                 </select>
               )}
-              <div className="seg" role="tablist" aria-label="بازه">
+              <div className="seg" role="group" aria-label="بازه زمانی">
                 {presets.map((p) => (
-                  <button key={p.id} role="tab" aria-current={p.id === presetId} onClick={() => setPresetId(p.id)}>{p.short ?? p.label}</button>
+                  <button key={p.id} aria-pressed={p.id === presetId} onClick={() => setPresetId(p.id)}>{p.short ?? p.label}</button>
                 ))}
               </div>
             </div>
@@ -147,7 +154,7 @@ function Shell() {
 
         {narrow && (
           <nav className="bottomnav" aria-label="ناوبری موبایل">
-            {items.slice(0, 6).map((n) => (
+            {items.map((n) => (
               <button key={n.id} className="bn-item" aria-current={n.id === page ? "page" : undefined} onClick={() => go(ws, n.id!)}>
                 {n.icon && <n.icon />}{n.short}
               </button>
@@ -162,11 +169,14 @@ function Shell() {
 }
 
 export default function App() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem("zb_auth") === "1");
-  const login = () => { sessionStorage.setItem("zb_auth", "1"); setAuthed(true); };
+  const [authed, setAuthed] = useState(() => {
+    try { return sessionStorage.getItem("zb_auth") === "1"; } catch { return false; }
+  });
+  const login = () => { try { sessionStorage.setItem("zb_auth", "1"); } catch { /* storage blocked */ } setAuthed(true); };
+  const logout = () => { try { sessionStorage.removeItem("zb_auth"); } catch { /* storage blocked */ } setAuthed(false); };
   return (
     <AppProvider>
-      {authed ? <Shell /> : <Login onLogin={login} />}
+      {authed ? <Shell onLogout={logout} /> : <Login onLogin={login} />}
     </AppProvider>
   );
 }

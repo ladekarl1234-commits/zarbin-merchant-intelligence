@@ -22,7 +22,6 @@ export default function OpsCopilotPage() {
       heroSub="پاسخ‌ها از تله‌متری واقعی می‌آیند؛ هیچ رخداد، هزینه یا خطایی ساخته نمی‌شود."
       suggestions={PROMPTS}
       placeholder="مثلاً: چرا fallback زیاد شده؟"
-      accent="ops"
       ask={(q) => get<CopilotAnswer>("admin/copilot", { q, f: period.f, t: period.t })}
       onFeedback={(a, useful) => get("admin/copilot/feedback", { intent: a.intent, useful: String(useful) }, "POST").catch(() => {})}
     />

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /** Plain-language explanation for a technical term: یعنی چه؟ / چرا مهم است؟ / چطور تفسیر کنم؟ */
@@ -42,6 +42,7 @@ export function Term({ label, tip }: { label: React.ReactNode; tip: Tip | string
   const simple = typeof tip === "string" && !rich ? tip : null;
   const [box, setBox] = useState<{ top: number; right: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
+  const popId = useId();
   const open = () => ref.current && setBox(pos(ref.current));
   const close = () => setBox(null);
   useEffect(() => {
@@ -55,11 +56,12 @@ export function Term({ label, tip }: { label: React.ReactNode; tip: Tip | string
   return (
     <span className="term">
       <span ref={ref} className="lbl" tabIndex={0} role="button" aria-label={`توضیح: ${rich?.title ?? "بیشتر"}`}
+            aria-describedby={box ? popId : undefined}
             onMouseEnter={open} onMouseLeave={close} onFocus={open} onBlur={close}
             onClick={() => (box ? close() : open())}
             onKeyDown={(e) => { if (e.key === "Escape") close(); }}>{label}</span>
       {box && createPortal(
-        <div className="tip-pop" role="tooltip" style={{ top: box.top, insetInlineEnd: box.right }}>
+        <div id={popId} className="tip-pop" role="tooltip" style={{ top: box.top, insetInlineEnd: box.right }}>
           {rich ? (
             <>
               <div className="tt">{rich.title}</div>

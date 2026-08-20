@@ -44,7 +44,6 @@ export type CopilotProps = {
   placeholder: string;
   ask: (q: string) => Promise<CopilotAnswer>;
   onFeedback?: (a: CopilotAnswer, useful: boolean) => void;
-  accent?: "brand" | "ops";
 };
 
 export default function Copilot({ heroTitle, heroSub, glance, suggestions, placeholder, ask, onFeedback }: CopilotProps) {
