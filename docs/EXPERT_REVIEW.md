@@ -655,9 +655,77 @@ Independent verification also retired two things this project had asserted:
    manufactures the false positive ZB-003 was about — was accepted rather than argued with.
 2. *"ruff is clean."* It was not, at the time it was claimed.
 
-**Residual risk, recorded not fixed:** the zeroed zero-GMV card keeps its original `title_fa` and
+**Round 3 — the rewritten guard was attacked too, and one finding was critical.** The new design
+held on the points it was built for (marker count-budgeting, normalisation, the round-1/2 evasions
+all still reject), but the verifier found the one comparison that had *not* been routed through
+normalisation:
+
+```
+deterministic:  … ۳۵ درصد است و ۶۱٫۸ میلیارد ریال …
+model output:   نرخ تبدیل شما ۳۵ ميليارد ريال است.      → accepted as grounded
+```
+
+`ميليارد`/`ريال` are Arabic-script spellings (U+064A yeh). They matched neither the scale table nor
+the unit table, so the number lost *both* its scale and its unit — and a unit-less number traces to
+**any** family. A conversion rate of 35% was republished as 35 billion rial, and the guard called it
+grounded. The identical sentence in Persian script was correctly rejected, which is what proves this
+was a normalisation gap rather than a tolerance one. This defeated the numeric layer that every
+other check rests on. Fixed (one line: `_values` now normalises first).
+
+Also fixed from round 3: `«هیچ»` and `«بدون»` had been listed as negation markers, but they are
+ordinary Persian function words — budgeting them rejected faithful rephrasings, so they were
+removed (the round-2 attacks that used them are still caught, by sentence containment rather than by
+vocabulary). Two more ranking queries got key tiebreakers: the funnel's top-6 bank error codes had
+**11 tied count groups**, so which codes appeared changed between runs; and the eval runner chose
+its subject merchant on an untied `ORDER BY gmv` — an eval score resting on an arbitrary tie-break
+is not a measurement, even though that particular tie does not occur today.
+
+One round-3 claim was **disproved rather than fixed**: `control.py:52` was reported as lacking a
+real tiebreaker, but that query groups by `category_title`, which measures 5 rows / 5 distinct
+values — already a total order.
+
+### A methodological flaw worth stating plainly
+
+The verifier's sharpest point was not a bug:
+
+> the 6 faithful strings in `tests/test_grounding_calibration.py` pass because they were authored
+> against this implementation — the calibration set is self-selected and cannot detect this
+
+That is correct, and it is a real limitation of §10's central claim. A guard tuned until its
+author's own examples pass will always pass them. The externally-authored strings the verifier wrote
+before seeing the code are now in the file as `KNOWN_OVER_REJECTIONS`, recorded as *currently
+rejected* — i.e. as known false positives — with an inverted assertion that fails if one ever starts
+passing, so the list cannot quietly go stale. Two independently-written faithful Persian rephrasings
+are rejected by the guard today.
+
+### Residual risk — recorded, not fixed
+
+These are real and reproducible. They are recorded rather than fixed because each trades directly
+against the false-positive rate that round 2 was spent repairing, and tuning a correctness boundary
+without an independently-authored corpus would repeat the flaw described immediately above.
+
+| Hole | Shape | Why not fixed now |
+|---|---|---|
+| Comma clauses | `_SENT_SPLIT` does not split on the Persian comma `،`, so an invented clause («…، خرابی درگاه، …») dilutes into a heavily-copied host sentence | Splitting on `،` would fragment genuine compound Persian sentences and raise false positives |
+| Two-word insertions | `_SENT_NOVEL_MIN = 3` gives every partly-copied sentence a free 2-word insertion («… تسویه شده **و قابل برداشت**») | Lowering to 2 rejects faithful rephrasings that add ordinary connective vocabulary |
+| Unit-word sentences | `_content_words` drops unit and scale words, so a sentence built mostly from them has too few content words to judge | The exclusion is what stops the guard rejecting «۶۱٫۸ میلیارد ریال» as a restatement of a bare number |
+
+All three are contained by the layer below: a rejected answer falls back to the deterministic text,
+and **no hole here can change a number** — the numeric check runs first and is now normalised. What
+they can do is let an unsupported *causal or advisory clause* through in the phrasing layer.
+
+**Other residual risk:** the zeroed zero-GMV card keeps its original `title_fa` and
 `observation_fa`, so a future generator that puts a rial figure in `observation_fa` would need the
 full-JSON scan re-run. The 56 medium and 19 low findings remain untriaged by choice.
+
+### Why this stopped at three rounds
+
+Every round found real defects in the previous round's fixes, so "keep going until a round is clean"
+had no visible end. The stopping rule was fixed in advance and is stated here so the record is not
+mistaken for convergence: **round 3 was declared final before it ran.** Its findings were triaged
+into one-line fixes with proven reproducers (applied) and threshold trade-offs (recorded above).
+A fourth round would very likely find more. What is published is the honest state after three, not a
+clean bill of health.
 
 ---
 

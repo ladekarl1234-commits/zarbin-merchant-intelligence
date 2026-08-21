@@ -82,7 +82,10 @@ def _norm(text: str) -> str:
 _ASSERTION_MARKERS = tuple(m.replace(" ", "") for m in (
     "چون", "زیرا", "به دلیل", "بخاطر", "به خاطر", "باعث", "علت", "دلیل", "ناشی از", "منجر به",
     "کنید", "بکنید", "پیشنهاد می کنم", "توصیه می کنم", "بهتر است", "لازم است", "راهکار", "راه حل",
-    "باید", "نیست", "نبوده", "نشده است", "ندارد", "نداریم", "ندارید", "هیچ", "خیر", "بدون"))
+    "باید", "نیست", "نبوده", "نشده است", "ندارد", "نداریم", "ندارید", "خیر"))
+# NOT markers: «هیچ» and «بدون» are ordinary Persian function words, not negations — budgeting them
+# rejected faithful rephrasings («... تراکنش بدون تایید مانده است»). The sentences they appeared in
+# during round 2 are still caught, by sentence containment rather than by vocabulary.
 _SENT_SPLIT = re.compile(r"[.!?؟؛:\n]+")
 # Function words carry no claim, so they neither prove containment nor count as invention.
 _STOP = frozenset([
@@ -147,7 +150,13 @@ _NOVEL_MIN = 8
 
 def _values(text: str) -> list[tuple[str, float]]:
     """Extract (unit_family, value) pairs, resolving Persian scale words to real magnitudes."""
-    t = _THOUSANDS.sub("", text.translate(_PERSIAN_DIGITS))
+    # _norm FIRST. This was the one comparison that skipped it, and skipping it defeated the whole
+    # numeric layer: «ميليارد ريال» in Arabic script matched neither _SCALE nor _UNITS, so the
+    # number lost both its scale and its unit — and an empty unit traces to ANY family. That let
+    # «نرخ تبدیل شما ۳۵ ميليارد ريال است» pass against a deterministic «۳۵ درصد»: a conversion
+    # rate republished as 35 billion rial. The same sentence in Persian script was correctly
+    # rejected, which is what proves this was a normalisation gap and not a tolerance one.
+    t = _THOUSANDS.sub("", _norm(text).translate(_PERSIAN_DIGITS))
     out: list[tuple[str, float]] = []
     for m in _NUM_RE.finditer(t):
         val = float(m.group())

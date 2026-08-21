@@ -126,7 +126,9 @@ def funnel(m: str, f: str, t: str) -> dict:
     fail_codes = q(f"""
         SELECT switch_response_code AS code, count(*) AS n
         FROM attempts WHERE {PERIOD_SQL} AND NOT ok AND switch_response_code IS NOT NULL
-        GROUP BY 1 ORDER BY n DESC LIMIT 6""", p)
+        -- `code` breaks count ties: 11 tied count groups, so WHICH bank error codes make the
+        -- top 6 (not merely their order) changed between identical runs.
+        GROUP BY 1 ORDER BY n DESC, code LIMIT 6""", p)
 
     return {
         "period": {"from": f, "to": t},

@@ -7,7 +7,11 @@ from .cases import CASES, Case
 
 
 def _default_merchant_and_range() -> tuple[str, str, str]:
-    m = q1("SELECT merchant_key FROM merchant_stats ORDER BY gmv DESC NULLS LAST LIMIT 1")["merchant_key"]
+    # merchant_key breaks GMV ties. The top GMV is not tied today, so this changes nothing now —
+    # but this query chooses which merchant the whole eval scores against, and an eval score that
+    # rests on an arbitrary tie-break is not a measurement.
+    m = q1("SELECT merchant_key FROM merchant_stats "
+           "ORDER BY gmv DESC NULLS LAST, merchant_key LIMIT 1")["merchant_key"]
     r = q1("SELECT min(d) AS f, max(d) AS t FROM sessions")
     return m, str(r["f"]), str(r["t"])
 
