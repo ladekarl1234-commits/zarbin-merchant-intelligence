@@ -74,7 +74,7 @@ def test_honest_no_data_answer_never_fabricates_a_number(monkeypatch, question, 
     """When the backing telemetry function reports has_data=False, the answer text must be an
     honest 'no data yet' sentence — never a number interpolated from missing/zeroed data."""
     monkeypatch.setattr(control, attr, patch_fn)
-    text, intent, refs, conf = ops_copilot._plan(question, *PERIOD)
+    text, _intent, refs, conf = ops_copilot._plan(question, *PERIOD)
     assert not _HAS_DIGIT.search(text), f"answer fabricated a number with no telemetry: {text!r}"
     assert refs == []
     assert conf in ("low", "medium")
@@ -85,6 +85,6 @@ def test_attention_with_no_signals_is_honest_not_empty_evidence():
     rather than silently returning an empty answer."""
     with mock.patch.object(control, "performance", lambda: {"has_data": False}), \
          mock.patch.object(control, "platform", lambda f, t: {"insights": []}):
-        text, intent, refs, conf = ops_copilot._plan("چه چیزی الان نیاز به توجه دارد؟", *PERIOD)
+        text, intent, _refs, _conf = ops_copilot._plan("چه چیزی الان نیاز به توجه دارد؟", *PERIOD)
     assert intent == "attention"
     assert "شناسایی نشده" in text or "موردی" in text

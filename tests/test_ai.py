@@ -146,6 +146,31 @@ def test_grounding_guard_binds_numbers_to_their_unit():
     assert gateway.grounding_failure("۶۱٫۸ مشتری داشتی", det) == "ungrounded_number"
 
 
+def test_grounding_guard_rejects_short_inserted_assertions():
+    """A cause, an instruction or a negation inserted into otherwise-copied text. A bag-of-words
+    novelty ratio cannot see these (almost every word is copied), which is how the first fix for
+    ZB-004 let invented causality through."""
+    det = f"نرخ تبدیل شما {fa_pct(0.35)} است و {fa_money(61_800_000_000)} تایید نشده باقی مانده"
+    for bad in (f"نرخ تبدیل شما {fa_pct(0.35)} است چون درگاه بانک خراب است",      # invented cause
+                f"نرخ تبدیل شما {fa_pct(0.35)} است، درگاه را عوض کنید",            # invented advice
+                f"نرخ تبدیل شما {fa_pct(0.35)} نیست"):                              # negation flip
+        assert gateway.grounding_failure(bad, det) == "unsupported_assertion", bad
+
+
+def test_grounding_guard_separates_rial_from_toman():
+    """1 تومان = 10 ریال, so restating a rial figure as toman is a silent 10x error (ZB-039)."""
+    det = f"فروش موفق {fa_money(61_800_000_000)}"
+    assert gateway.grounding_failure("۶۱٫۸ میلیارد تومان فروش داشتی", det) == "ungrounded_number"
+
+
+def test_grounding_guard_accepts_a_faithful_persian_rephrasing():
+    """The guard must not be so strict that the LLM path silently becomes a no-op: a
+    numerically-exact, semantically-identical restatement has to pass."""
+    det = f"فروش موفق {fa_money(61_800_000_000)} از {fa_num(23801)} پرداخت بود"
+    good = f"در این بازه {fa_num(23801)} پرداخت موفق داشتید و مجموع آن {fa_money(61_800_000_000)} شد"
+    assert gateway.grounding_failure(good, det) is None
+
+
 def test_grounding_guard_rejects_non_numeric_hallucination():
     """The guard was digit-only, so invented causality, invented advice and injected links all
     passed as 'grounded' (ZB-004 / ZB-020)."""
@@ -154,7 +179,10 @@ def test_grounding_guard_rejects_non_numeric_hallucination():
     assert gateway.grounding_failure(f"{fa_money(61_800_000_000)}، تماس ۰۹۱۲۳۴۵۶۷۸۹", det) == "forbidden_content"
     invented = (f"فروش {fa_money(61_800_000_000)} بود چون کمپین تبلیغاتی نوروزی ضعیف اجرا شد و "
                 "رقبای شما تخفیف بیشتری دادند و بازار راکد بود")
-    assert gateway.grounding_failure(invented, det) in ("novel_content", "length_inflation")
+    # rejected — the precise reason is the inserted causal marker («چون»), which the
+    # assertion-marker check catches before the coarse novelty/length backstops
+    assert gateway.grounding_failure(invented, det) in (
+        "unsupported_assertion", "novel_content", "length_inflation")
     assert gateway.is_grounded(f"حدود {fa_money(61_800_000_000)} فروش موفق داشتی", det)  # faithful — ok
 
 

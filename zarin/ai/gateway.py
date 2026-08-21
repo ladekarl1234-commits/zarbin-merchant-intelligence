@@ -39,9 +39,18 @@ _THOUSANDS = re.compile(r"(?<=\d)[,،٬\s](?=\d)")
 _SCALE = (("هزار میلیارد", 1e12), ("میلیارد", 1e9), ("میلیون", 1e6), ("هزار", 1e3))
 # Unit families. A number only traces to a deterministic number of the SAME family, so the same
 # digits carrying a different unit (rial vs percent vs transactions) can no longer pass (ZB-039).
-_UNITS = (("ریال", "irr"), ("تومان", "irr"), ("درصد", "pct"), ("٪", "pct"), ("%", "pct"),
+# NOTE: تومان is its own family — 1 تومان = 10 ریال, so treating them as one family let the model
+# restate a rial figure as toman (a silent 10x error) and still "trace" (ZB-039).
+_UNITS = (("ریال", "irr"), ("تومان", "toman"), ("درصد", "pct"), ("٪", "pct"), ("%", "pct"),
           ("واحد", "pp"), ("مشتری", "count"), ("پرداخت", "count"), ("تراکنش", "count"),
           ("جلسه", "count"), ("تلاش", "count"), ("روز", "day"), ("ساعت", "hour"))
+# Words that assert something the engine did not: a cause, an instruction, or a negation. A short
+# insertion like «چون درگاه خراب است» copies almost every other word, so a bag-of-words novelty
+# ratio cannot see it — this directional check is what actually closes ZB-004.
+_ASSERTION_MARKERS = ("چون", "زیرا", "به دلیل", "به‌دلیل", "بخاطر", "به خاطر", "به‌خاطر",
+                      "باعث", "علتش", "دلیلش", "ناشی از", "منجر به",
+                      "کنید", "بکنید", "کن ", "پیشنهاد می‌کنم", "توصیه می‌کنم", "بهتر است",
+                      "باید", "نیست", "نبوده", "نشده است", "ندارد")
 _NUM_RE = re.compile(r"\d+(?:\.\d+)?")
 # Content the model must never introduce: an answer about payments has no business containing a
 # link, an email or a phone number — those are classic injected/hallucinated payloads (ZB-020).
@@ -51,8 +60,11 @@ _WORD_RE = re.compile(r"[^\W\d_]{4,}", re.UNICODE)
 _BARE_INT_IGNORE = 12
 _REL_TOL = 0.01          # a restatement may round (۶۱٫۸۴۷ → ۶۱٫۸), not invent
 _LEN_FACTOR = 1.6        # a "rephrase" that is much longer than the source is adding content
-_NOVEL_RATIO = 0.6       # share of content words absent from the deterministic answer
-_NOVEL_MIN = 5
+# Novelty is a coarse backstop only. It was set at 0.6, which rejected faithful Persian
+# rephrasings (the LLM path silently degraded to a no-op); the assertion-marker check above is
+# what carries the safety, so this can be loose enough to let a genuine restatement through.
+_NOVEL_RATIO = 0.85
+_NOVEL_MIN = 8
 
 
 def _values(text: str) -> list[tuple[str, float]]:
@@ -104,11 +116,16 @@ def grounding_failure(llm_text: str, deterministic_text: str) -> str | None:
     for unit, val in _values(llm_text):
         if not _traces(unit, val, det_vals):
             return "ungrounded_number"
+    # A cause, an instruction or a negation the engine never asserted — regardless of how much
+    # of the surrounding text was copied. This catches the short insertion a novelty ratio can't.
+    for marker in _ASSERTION_MARKERS:
+        if marker in llm_text and marker not in deterministic_text:
+            return "unsupported_assertion"
     det_words = {w for w in _WORD_RE.findall(deterministic_text)}
     novel = [w for w in _WORD_RE.findall(llm_text) if w not in det_words]
     total = len(_WORD_RE.findall(llm_text)) or 1
     if len(novel) >= _NOVEL_MIN and len(novel) / total > _NOVEL_RATIO:
-        return "novel_content"    # invented causality/advice, not a rephrasing
+        return "novel_content"    # wholesale invention, not a rephrasing
     return None
 
 

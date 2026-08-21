@@ -92,6 +92,33 @@ def test_cap_covers_every_estimate_generator_not_just_the_peer_gap():
     assert by["psp_friction"]["impact_high"] == 900 and not by["psp_friction"]["capped"]
 
 
+def test_zero_gmv_merchant_cannot_publish_a_rial_opportunity():
+    """The extreme of ZB-006: with NO realized sales there is no demonstrated ability to convert,
+    so a peer-gap rial estimate is unsupportable. The first fix early-returned on gmv<=0, which
+    let those cards through completely UNCAPPED — worse than the original bug."""
+    cards = [{"kind": "no_attempt_gap", "card_type": "opportunity", "impact_low": 20_000_000_000,
+              "impact_mid": 30_000_000_000, "impact_high": 40_000_000_000, "impact_label_fa": "x"}]
+    _apply_gmv_cap(cards, 0)
+    c = cards[0]
+    assert c["impact_high"] == 0 and c["impact_low"] == 0
+    assert c["card_type"] == "alert" and c["capped"] is True
+
+
+def test_no_merchant_anywhere_publishes_an_opportunity_above_its_realized_gmv():
+    """End-to-end guard over every fixture merchant — the unit test above pins the helper, this
+    pins what `generate()` actually ships, which is where ZB-006 escaped."""
+    from zarin.analytics import period_agg
+    from zarin.db import q
+    period = ("2026-01-01", "2026-06-30")
+    for row in q("SELECT merchant_key FROM merchant_stats"):
+        m = row["merchant_key"]
+        gmv = period_agg(m, *period)["gmv"] or 0
+        for c in generate(m, *period):
+            if c.get("impact_is_count") or c.get("impact_is_realized") or c["card_type"] != "opportunity":
+                continue
+            assert (c.get("impact_high") or 0) <= gmv, f"{m}/{c['kind']} exceeds realized GMV {gmv}"
+
+
 def test_format_impact_never_prints_a_count_as_rial():
     """The copilot used to render transaction counts with a rial formatter (ZB-013)."""
     count_card = {"impact_low": 10, "impact_high": 900, "impact_is_count": True, "impact_label_fa": "x"}

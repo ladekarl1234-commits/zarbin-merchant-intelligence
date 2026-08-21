@@ -36,7 +36,7 @@ FRESH_DAYS = 30
 # funnel (2.8% conversion on 36 sessions) still deserves to be told — silence there is a false
 # negative, not restraint (ZB-003). The absolute card quotes no opportunity figure and is
 # explicitly low-confidence below MIN_SESSIONS_INSIGHT.
-MIN_SIGNAL_SESSIONS = 20
+MIN_SIGNAL_SESSIONS = 10
 
 
 def _fmt_period(f, t):
@@ -214,8 +214,10 @@ def _card_paid_unverified(ctx: _Ctx):
 
     age_note = ""
     if n_fresh < n:
+        # "پایانی این بازه" not "اخیر": the age is measured from the END OF THE SELECTED PERIOD,
+        # so on a historical window "recent" would be misleading.
         age_note = (f" از این میان {fa_num(n_fresh)} پرداخت به مبلغ {fa_money(amt_fresh)} در "
-                    f"{fa_num(FRESH_DAYS)} روز اخیر تسویه شده و بقیه قدیمی‌ترند.")
+                    f"{fa_num(FRESH_DAYS)} روز پایانیِ همین بازه تسویه شده و بقیه قدیمی‌ترند.")
     return {
         "id": "paid_unverified", "kind": "paid_unverified", "card_type": "opportunity",
         "title_fa": "پرداخت‌های تاییدنشده — پول رسیده اما تایید نشده",
@@ -607,15 +609,29 @@ def _apply_gmv_cap(cards: list[dict], realized_gmv: float) -> None:
     recoverable number. Previously only the peer-gap generator capped, so other generators could
     publish an impact above 100% of realized GMV (ZB-006). Realized sums (paid-unverified) and
     count-denominated cards are exempt by construction.
+
+    A merchant with ZERO realized sales is the extreme of the same case: any "recoverable" rial
+    figure there is unsupportable (there is no demonstrated ability to convert at all). Such cards
+    are converted to a funnel alert rather than published as money — an early-return here used to
+    let them through UNCAPPED, which was worse than the bug this function exists to fix.
     """
-    if not realized_gmv or realized_gmv <= 0:
-        return
+    realized = realized_gmv or 0
     for c in cards:
         c.setdefault("capped", False)
         if c.get("impact_is_count") or c.get("impact_is_realized") or c["card_type"] != "opportunity":
             continue
-        if (c.get("impact_high") or 0) > realized_gmv:
-            hi = round(realized_gmv)
+        if realized <= 0:
+            if (c.get("impact_high") or 0) > 0:
+                c["impact_low"] = c["impact_high"] = 0
+                c["impact_mid"] = None
+                c["card_type"] = "alert"
+                c["capped"] = True
+                c["risk_gmv"] = 0
+                c["impact_label_fa"] = ("در این دوره هیچ پرداخت موفقی ثبت نشده، پس برآورد ریالی "
+                                        "قابل اتکا نیست — این یک هشدار خرابی مسیر پرداخت است.")
+            continue
+        if (c.get("impact_high") or 0) > realized:
+            hi = round(realized)
             c["impact_high"] = hi
             c["impact_low"] = min(c.get("impact_low") or 0, hi)
             if c.get("impact_mid") is not None:

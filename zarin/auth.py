@@ -26,6 +26,9 @@ from typing import Any
 
 _SECRET = os.environ.get("ZARIN_SESSION_SECRET", "").encode() or secrets.token_bytes(32)
 _SCOPES = ("merchant", "ops")
+# `iat` used to be written but never checked, so a leaked token was valid forever. Sessions now
+# expire; override for longer-lived operator sessions if a deployment needs it.
+MAX_AGE_SECONDS = int(os.environ.get("ZARIN_SESSION_MAX_AGE", str(12 * 3600)))
 
 
 def _sign(payload: bytes) -> bytes:
@@ -59,5 +62,11 @@ def verify(token: str | None) -> dict[str, Any] | None:
     except (ValueError, TypeError):
         return None
     if not isinstance(claims, dict) or claims.get("scope") not in _SCOPES:
+        return None
+    iat = claims.get("iat")
+    if not isinstance(iat, (int, float)):
+        return None
+    age = time.time() - iat
+    if age > MAX_AGE_SECONDS or age < -300:   # expired, or issued implausibly in the future
         return None
     return claims

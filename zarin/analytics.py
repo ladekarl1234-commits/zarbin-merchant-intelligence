@@ -106,7 +106,10 @@ def funnel(m: str, f: str, t: str) -> dict:
 
     bands_sql = f"""
         WITH b AS (
-          SELECT amount, outcome, ntile(5) OVER (ORDER BY amount) AS band
+          -- session_key breaks ties: payment amounts repeat constantly, and without a total
+          -- order tied rows fall into different quintiles between runs, silently moving the
+          -- per-band conversion shown to the merchant (same defect class as ZB-120).
+          SELECT amount, outcome, ntile(5) OVER (ORDER BY amount, session_key) AS band
           FROM sessions WHERE {PERIOD_SQL})
         SELECT band, min(amount) AS lo, max(amount) AS hi, count(*) AS sessions,
                count(*) FILTER (WHERE outcome='verified') / count(*) AS conv

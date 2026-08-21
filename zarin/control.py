@@ -54,7 +54,8 @@ def platform(f: str, t: str) -> dict:
     conc = q1("""
         WITH g AS (SELECT merchant_key, sum(amount) FILTER (WHERE outcome='verified') AS gmv
                    FROM sessions WHERE d BETWEEN $f AND $t GROUP BY 1),
-             r AS (SELECT gmv, row_number() OVER (ORDER BY gmv DESC NULLS LAST) AS rk FROM g)
+             -- merchant_key breaks GMV ties so the "top 5" set is stable between runs
+             r AS (SELECT gmv, row_number() OVER (ORDER BY gmv DESC NULLS LAST, merchant_key) AS rk FROM g)
         SELECT sum(gmv) FILTER (WHERE rk<=5)/nullif(sum(gmv),0) AS top5, count(*) AS n FROM r""",
         {"f": f, "t": t})
 
