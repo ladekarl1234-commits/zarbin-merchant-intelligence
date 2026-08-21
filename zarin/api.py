@@ -181,7 +181,7 @@ def meta():
     lo, hi = _range()
     merchants = q("""
         SELECT merchant_key, category_title, sessions, verified, gmv, active_months
-        FROM merchant_stats ORDER BY gmv DESC NULLS LAST""")
+        FROM merchant_stats ORDER BY gmv DESC NULLS LAST, merchant_key""")
     # demo presets are selected programmatically, not hardcoded conclusions. Each preset
     # takes the top merchant that isn't already used by an earlier preset, so a collision
     # (e.g. the top-GMV merchant is also the paid-unverified leader) never drops a preset.
@@ -191,12 +191,14 @@ def meta():
             no_attempt / nullif(sessions,0) AS na_rate,
             recovered / nullif(sessions,0) AS rec_rate
           FROM merchant_stats WHERE sessions >= 5000)
+        -- merchant_key breaks ties so a preset always names the same merchant between runs.
+        -- repeat_txns alone has 26 tied groups, so «بیشترین مشتری تکراری» was genuinely unstable.
         SELECT merchant_key,
-               row_number() OVER (ORDER BY gmv DESC) AS r_gmv,
-               row_number() OVER (ORDER BY pua DESC) AS r_pua,
-               row_number() OVER (ORDER BY na_rate DESC) AS r_na,
-               row_number() OVER (ORDER BY rec_rate DESC) AS r_rec,
-               row_number() OVER (ORDER BY repeat_txns DESC) AS r_rep
+               row_number() OVER (ORDER BY gmv DESC, merchant_key) AS r_gmv,
+               row_number() OVER (ORDER BY pua DESC, merchant_key) AS r_pua,
+               row_number() OVER (ORDER BY na_rate DESC, merchant_key) AS r_na,
+               row_number() OVER (ORDER BY rec_rate DESC, merchant_key) AS r_rec,
+               row_number() OVER (ORDER BY repeat_txns DESC, merchant_key) AS r_rep
         FROM s""")
     presets = [("بیشترین فروش موفق", "r_gmv"), ("بیشترین مبلغ پرداخت تاییدنشده", "r_pua"),
                ("بالاترین انصراف پیش از پرداخت", "r_na"), ("بیشترین نجات با تلاش مجدد", "r_rec"),
@@ -375,7 +377,9 @@ def evidence_sessions(m: str = Depends(_merchant_scope), outcome: str | None = N
         SELECT session_key, d, amount, outcome, n_tries, first_try_status, last_try_status,
                win_psp, session_status
         FROM sessions WHERE merchant_key=$m AND d BETWEEN $f AND $t {cond}
-        ORDER BY amount DESC LIMIT {int(limit)}""",
+        -- session_key breaks amount ties: 17k sessions share an amount, and an evidence
+        -- drawer that returns different rows for the same query is not auditable.
+        ORDER BY amount DESC, session_key LIMIT {int(limit)}""",
         {"m": m, "f": f, "t": t, **({"o": outcome} if outcome else {})})
     total = q1(f"SELECT count(*) AS n FROM sessions WHERE merchant_key=$m AND d BETWEEN $f AND $t {cond}",
                {"m": m, "f": f, "t": t, **({"o": outcome} if outcome else {})})
@@ -398,9 +402,10 @@ def _live_quality_anomalies() -> dict:
 @app.get("/api/quality", response_model=QualityResponse)
 @lru_cache(maxsize=1)
 def quality():
-    outcomes = q("SELECT outcome, count(*) AS n, sum(amount) AS amount FROM sessions GROUP BY 1 ORDER BY n DESC")
+    outcomes = q("SELECT outcome, count(*) AS n, sum(amount) AS amount FROM sessions "
+                 "GROUP BY 1 ORDER BY n DESC, outcome")
     conc = q1("""WITH g AS (SELECT merchant_key, sum(gmv) AS gmv FROM merchant_daily GROUP BY 1),
-                 r AS (SELECT gmv, row_number() OVER (ORDER BY gmv DESC) AS rk FROM g)
+                 r AS (SELECT gmv, row_number() OVER (ORDER BY gmv DESC, merchant_key) AS rk FROM g)
                  SELECT sum(gmv) FILTER (WHERE rk<=5)/sum(gmv) AS top5, count(*) AS n FROM r""")
     dq = control._dq_sidecar()
     if dq is not None:

@@ -49,7 +49,7 @@ def platform(f: str, t: str) -> dict:
                sum(s.amount) FILTER (WHERE s.outcome='verified') AS gmv
         FROM sessions s JOIN merchant_stats ms USING(merchant_key)
         WHERE s.d BETWEEN $f AND $t
-        GROUP BY 1 ORDER BY gmv DESC NULLS LAST LIMIT 10""", {"f": f, "t": t})
+        GROUP BY 1 ORDER BY gmv DESC NULLS LAST, category LIMIT 10""", {"f": f, "t": t})
 
     conc = q1("""
         WITH g AS (SELECT merchant_key, sum(amount) FILTER (WHERE outcome='verified') AS gmv

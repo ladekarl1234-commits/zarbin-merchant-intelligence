@@ -44,13 +44,91 @@ _SCALE = (("هزار میلیارد", 1e12), ("میلیارد", 1e9), ("میلی
 _UNITS = (("ریال", "irr"), ("تومان", "toman"), ("درصد", "pct"), ("٪", "pct"), ("%", "pct"),
           ("واحد", "pp"), ("مشتری", "count"), ("پرداخت", "count"), ("تراکنش", "count"),
           ("جلسه", "count"), ("تلاش", "count"), ("روز", "day"), ("ساعت", "hour"))
+# --- normalisation -------------------------------------------------------------------
+# Persian text has several ways to spell the same word, and a matcher that does not fold them
+# is trivially evaded: Arabic ك/ي for Persian ک/ی, an optional ZWNJ inside compounds
+# («به‌دلیل» vs «به دلیل»), and optional diacritics («به‌علتِ»). Both sides of every textual
+# comparison below go through _norm first.
+_AR_FOLD = str.maketrans({
+    "ك": "ک",   # ARABIC KAF   -> PERSIAN KEHEH
+    "ي": "ی",   # ARABIC YEH   -> FARSI YEH
+    "ى": "ی",   # ALEF MAKSURA -> FARSI YEH
+    "ة": "ه",   # TEH MARBUTA  -> HEH
+    # ZWNJ and the bidi marks are INVISIBLE, so they are written as chr() rather than as
+    # literals: a literal is unreviewable in a diff, and the bidi marks in particular are
+    # the Trojan-Source class ruff flags as PLE2502.
+    chr(0x200C): " ",   # ZERO WIDTH NON-JOINER  («به دلیل» spelled as one token)
+    chr(0x200F): " ",   # RIGHT-TO-LEFT MARK
+    chr(0x200E): " ",   # LEFT-TO-RIGHT MARK
+})
+# harakat (U+064B..U+0652), superscript alef, tatweel
+_DIACRITICS = re.compile("[" + "".join(chr(c) for c in [*range(0x64B, 0x653), 0x670, 0x640]) + "]")
+
+
+def _norm(text: str) -> str:
+    return _DIACRITICS.sub("", text.translate(_AR_FOLD))
+
+
 # Words that assert something the engine did not: a cause, an instruction, or a negation. A short
 # insertion like «چون درگاه خراب است» copies almost every other word, so a bag-of-words novelty
-# ratio cannot see it — this directional check is what actually closes ZB-004.
-_ASSERTION_MARKERS = ("چون", "زیرا", "به دلیل", "به‌دلیل", "بخاطر", "به خاطر", "به‌خاطر",
-                      "باعث", "علتش", "دلیلش", "ناشی از", "منجر به",
-                      "کنید", "بکنید", "کن ", "پیشنهاد می‌کنم", "توصیه می‌کنم", "بهتر است",
-                      "باید", "نیست", "نبوده", "نشده است", "ندارد")
+# ratio cannot see it, and it has no sentence boundary for the containment check below to catch —
+# this is the check that closes intra-sentence ZB-004.
+#
+# Compared by COUNT, not membership. Membership was a hole with a normal trigger: nearly every
+# card's action_fa ends in «کنید», and one legitimate occurrence in the deterministic text used to
+# license unlimited invented imperatives across the whole answer.
+# Whitespace is stripped from both markers and text before matching, so «به دلیل» and «به‌دلیل»
+# are one pattern rather than two spellings to enumerate.
+_ASSERTION_MARKERS = tuple(m.replace(" ", "") for m in (
+    "چون", "زیرا", "به دلیل", "بخاطر", "به خاطر", "باعث", "علت", "دلیل", "ناشی از", "منجر به",
+    "کنید", "بکنید", "پیشنهاد می کنم", "توصیه می کنم", "بهتر است", "لازم است", "راهکار", "راه حل",
+    "باید", "نیست", "نبوده", "نشده است", "ندارد", "نداریم", "ندارید", "هیچ", "خیر", "بدون"))
+_SENT_SPLIT = re.compile(r"[.!?؟؛:\n]+")
+# Function words carry no claim, so they neither prove containment nor count as invention.
+_STOP = frozenset([
+    "در", "این", "از", "به", "با", "را", "که", "و", "تا", "هم", "یا", "بر", "هر", "یک", "آن",
+    "ما", "شما", "است", "بود", "بوده", "شد", "شده", "می", "ها", "های", "برای", "نیز", "باشد",
+    "دارد", "دارید", "داشتی", "داشتید", "هست", "کرد", "کرده", "طی", "حدود", "یعنی", "او",
+    "خود", "تو", "اید", "ای", "رو",
+])
+# Numbers, scale words and unit words are the NUMERIC check's job (_values/_traces above, which
+# compare magnitudes, not spellings). Re-judging them as prose is what made the guard reject
+# «۶۱٫۸ میلیارد ریال» as a restatement of a bare «۶۱٬۸۰۰٬۰۰۰٬۰۰۰» — same fact, different surface.
+_NUMERIC_WORDS = frozenset([w for w, _ in _SCALE] + [w for w, _ in _UNITS])
+_HAS_DIGIT = re.compile(r"[0-9٠-٩۰-۹]")
+_TOKEN_SPLIT = re.compile(r"[\s،؛,()«»\"'؟?!]+")
+# A sentence the deterministic text does not support is an insertion, whatever words it uses —
+# this is the half of the check that does NOT depend on enumerating vocabulary.
+# Thresholds are pinned by tests/test_grounding_calibration.py; do not tune them without it.
+_SENT_NOVEL_RATIO = 0.5
+_SENT_NOVEL_MIN = 3       # partly-copied sentence: needs real substance to count as invention
+_SENT_ALL_NOVEL_MIN = 2   # a sentence with NOTHING from the engine needs far less
+
+
+def _content_words(text: str) -> list[str]:
+    """Prose tokens only — the words that can carry a claim."""
+    return [w for w in _TOKEN_SPLIT.split(text)
+            if len(w) > 1 and w not in _STOP and w not in _NUMERIC_WORDS
+            and not _HAS_DIGIT.search(w)]
+
+
+def _unsupported_sentence(llm_norm: str, det_norm: str) -> bool:
+    """True if some sentence of the LLM text stands on its own — i.e. its content words are
+    mostly (or entirely) absent from the deterministic text. Catches invented causes, advice
+    and negations regardless of the words chosen, which a blacklist cannot."""
+    det_words = set(_content_words(det_norm))
+    for sentence in _SENT_SPLIT.split(llm_norm):
+        content = _content_words(sentence)
+        if not content:
+            continue
+        novel = [w for w in content if w not in det_words]
+        if not novel:
+            continue
+        if len(novel) == len(content) and len(novel) >= _SENT_ALL_NOVEL_MIN:
+            return True     # nothing in this sentence came from the engine
+        if len(novel) >= _SENT_NOVEL_MIN and len(novel) / len(content) > _SENT_NOVEL_RATIO:
+            return True
+    return False
 _NUM_RE = re.compile(r"\d+(?:\.\d+)?")
 # Content the model must never introduce: an answer about payments has no business containing a
 # link, an email or a phone number — those are classic injected/hallucinated payloads (ZB-020).
@@ -116,11 +194,16 @@ def grounding_failure(llm_text: str, deterministic_text: str) -> str | None:
     for unit, val in _values(llm_text):
         if not _traces(unit, val, det_vals):
             return "ungrounded_number"
-    # A cause, an instruction or a negation the engine never asserted — regardless of how much
-    # of the surrounding text was copied. This catches the short insertion a novelty ratio can't.
+    # A cause, an instruction or a negation the engine never asserted. Two complementary checks:
+    # markers catch insertions INSIDE a copied sentence (no boundary for the next check to see),
+    # sentence containment catches appended sentences whatever vocabulary they use.
+    llm_norm, det_norm = _norm(llm_text), _norm(deterministic_text)
+    llm_tight, det_tight = llm_norm.replace(" ", ""), det_norm.replace(" ", "")
     for marker in _ASSERTION_MARKERS:
-        if marker in llm_text and marker not in deterministic_text:
+        if llm_tight.count(marker) > det_tight.count(marker):
             return "unsupported_assertion"
+    if _unsupported_sentence(llm_norm, det_norm):
+        return "unsupported_assertion"
     det_words = {w for w in _WORD_RE.findall(deterministic_text)}
     novel = [w for w in _WORD_RE.findall(llm_text) if w not in det_words]
     total = len(_WORD_RE.findall(llm_text)) or 1

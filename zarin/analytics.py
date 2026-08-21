@@ -185,7 +185,7 @@ def customers(m: str, f: str, t: str) -> dict:
     conc_sql = f"""
         WITH pc AS (SELECT payer_card_key, sum(amount) AS g
                     FROM sessions WHERE {PERIOD_SQL} AND outcome='verified' GROUP BY 1),
-        r AS (SELECT g, row_number() OVER (ORDER BY g DESC) AS rk FROM pc)
+        r AS (SELECT g, row_number() OVER (ORDER BY g DESC, payer_card_key) AS rk FROM pc)
         SELECT coalesce(sum(g) FILTER (WHERE rk<=5),0) / nullif(sum(g),0) AS top5_share,
                count(*) AS n FROM r"""
     conc = q1(conc_sql, p)
