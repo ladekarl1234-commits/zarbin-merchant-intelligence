@@ -219,9 +219,14 @@ def auth_session(scope: str, merchant_key: str | None = None):
     if scope not in ("merchant", "ops"):
         raise HTTPException(400, f"invalid scope: {scope!r} (expected 'merchant' or 'ops')")
     if scope == "merchant":
-        if not merchant_key:
-            raise HTTPException(400, "merchant_key required for scope='merchant'")
-        _check_merchant(merchant_key)
+        if merchant_key:
+            _check_merchant(merchant_key)
+        elif REQUIRE_AUTH:
+            # With auth enforced, an unbound merchant token would defeat tenant scoping.
+            raise HTTPException(400, "merchant_key required for scope='merchant' when ZARIN_REQUIRE_AUTH=1")
+        # Demo default: the merchant is chosen from the picker AFTER login, so a token issued at
+        # login carries no merchant claim. It is inert — merchant routes still read `m=` while
+        # REQUIRE_AUTH is off, and reject an unbound token once it is on.
     else:
         merchant_key = None
     return {"token": auth.issue(scope, merchant_key), "scope": scope, "merchant_key": merchant_key}
