@@ -20,6 +20,11 @@ TELEMETRY_DIR = Path(os.environ.get("ZARIN_TELEMETRY_DIR", ROOT / "data" / "tele
 ADMIN_TOKEN = os.environ.get("ZARIN_ADMIN_TOKEN", "").strip()
 MAX_QUESTION_LEN = 500  # cap free-text copilot questions (memory / prompt-size guard)
 
+# Off by default (offline judge demo: query-param tenant scoping, as documented in
+# README limitations). Set ZARIN_REQUIRE_AUTH=1 to require a zarin.auth session token
+# and derive tenant scope server-side instead of trusting the client-supplied `m=`.
+REQUIRE_AUTH = os.environ.get("ZARIN_REQUIRE_AUTH", "") == "1"
+
 # --- AI copilot (OpenRouter) ---------------------------------------------------
 # The AI layer is OPTIONAL. With no key the product runs fully offline on the
 # deterministic engine; the LLM only ever rephrases numbers the engine computed.

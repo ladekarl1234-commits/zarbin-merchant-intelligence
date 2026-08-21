@@ -38,11 +38,11 @@ No API key and no network are required — the product runs fully offline on the
 |---|---|
 | **Paid-but-Unverified** | Money that settled at the bank but the merchant never verified — **real settled money, not an estimate.** Surfaced and quantified, not buried. |
 | **Payment Rescue** | Sessions whose first attempt failed but a retry succeeded — recovered GMV, measured. |
-| **Opportunity Engine** | Opportunity = **counterfactual** (gap vs matched peers × sessions × own conversion × own ticket). **Never** "lost revenue = Σ failed amounts." ⚠️ The realized-GMV cap currently applies only to the peer-gap generators — see [ZB-006](docs/EXPERT_REVIEW_ISSUES.md#zb-006). |
+| **Opportunity Engine** | Opportunity = **counterfactual** (gap vs matched peers × sessions × recovery fraction × median ticket of the lost outcome), **capped at realized GMV for every generator** in one shared guard. **Never** "lost revenue = Σ failed amounts." |
 | **Explainable peers** | Peers matched by category + scale band + ticket band, ≥ pool size, suppressed when thin — with the *reason* shown. |
 | **What Changed?** | Exact decomposition of a GMV move into sessions × conversion × ticket (LMDI, sums exactly). |
 | **Evidence lineage** | Every number has a «محاسبه» button → definition, method, the **SQL that ran**, params, sample size, caveats, drill-through to source rows. |
-| **Grounded Copilot** | Deterministic answers; an optional LLM only *rephrases*. A grounding guard rejects invented **numbers**. Works offline. ⚠️ The guard is digit-based, so invented *causality/advice* can still pass — see [ZB-004](docs/EXPERT_REVIEW_ISSUES.md#zb-004). |
+| **Grounded Copilot** | Deterministic answers; an optional LLM only *rephrases*. The grounding guard binds every number to its **value and unit**, rejects rescaled figures, injected links/emails/phones, length inflation and **invented causality**. Out-of-scope questions are declined, not answered with something else. Works offline. |
 | **AI Operations** | Live AI quality separated into deterministic / grounding / language / usefulness — plus fallback, hallucination-risk, latency, tokens, **cost**. |
 | **Voice** | Persian voice-to-text on both copilots (Web Speech, graceful fallback). |
 | **Pluggable sources** | `DataSourceAdapter` — GA4 first (config-gated); web signals never confused with payment truth. |

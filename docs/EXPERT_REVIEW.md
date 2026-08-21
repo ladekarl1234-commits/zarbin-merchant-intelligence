@@ -330,53 +330,56 @@ while auditing this record (§9). Full detail for these and all 120 findings —
 impact, recommended fix — is in **[EXPERT_REVIEW_ISSUES.md](EXPERT_REVIEW_ISSUES.md)**; machine-readable data in
 [`expert_review_findings.json`](expert_review_findings.json).
 
-| ID | Sev | Issue | Lens | Effort | Verified |
-|---|---|---|---|---|---|
-| [ZB-001](EXPERT_REVIEW_ISSUES.md#zb-001) | CRITICAL | No authn/authz on any merchant data endpoint; tenant scoping is a client-supplied parameter | `security` | large | confirmed |
-| [ZB-002](EXPERT_REVIEW_ISSUES.md#zb-002) | CRITICAL | Process-wide RLock serializes every DuckDB query — hard concurrency ceiling | `scalability` | small | confirmed |
-| [ZB-003](EXPERT_REVIEW_ISSUES.md#zb-003) | CRITICAL | 37% of merchants see an empty dashboard; the empty state calls a broken funnel "good news" | `business` | medium | confirmed |
-| [ZB-004](EXPERT_REVIEW_ISSUES.md#zb-004) | CRITICAL | Grounding guard is digit-only: invented causality and advice pass verbatim | `ai-grounding` | medium | confirmed |
-| [ZB-005](EXPERT_REVIEW_ISSUES.md#zb-005) | CRITICAL | Peer percentile happy path has zero coverage — only the suppressed branch is tested | `testing-qa` | medium | confirmed |
-| [ZB-006](EXPERT_REVIEW_ISSUES.md#zb-006) | HIGH | Realized-GMV cap applied to only one of four opportunity generators — a card claims 108% of the merchant's entire sales | `rubric-official` | small | confirmed |
-| [ZB-007](EXPERT_REVIEW_ISSUES.md#zb-007) | HIGH | Evidence drawer prints two contradictory formulas for the same opportunity number | `rubric-official` | small | confirmed |
-| [ZB-008](EXPERT_REVIEW_ISSUES.md#zb-008) | HIGH | Chat is the landing surface but its regex router misses questions the engine can already answer | `rubric-official` | medium | confirmed |
-| [ZB-009](EXPERT_REVIEW_ISSUES.md#zb-009) | HIGH | API contract crosses the biggest seam untyped and hand-mirrored | `architecture` | medium | confirmed |
-| [ZB-010](EXPERT_REVIEW_ISSUES.md#zb-010) | HIGH | Hardcoded data fact in the API layer contradicts the computed metric on the same page | `architecture` | small | confirmed |
-| [ZB-011](EXPERT_REVIEW_ISSUES.md#zb-011) | HIGH | Metric registry — the declared single source of truth — has drifted from the code it documents | `code-quality` | small | confirmed |
-| [ZB-012](EXPERT_REVIEW_ISSUES.md#zb-012) | HIGH | `insights.generate()` is a 181-line C901=20 function whose shape contradicts the documented extension pattern | `code-quality` | medium | confirmed |
-| [ZB-013](EXPERT_REVIEW_ISSUES.md#zb-013) | HIGH | Copilot formats a transaction count as rial | `data-correctness` | small | confirmed |
-| [ZB-014](EXPERT_REVIEW_ISSUES.md#zb-014) | HIGH | Evidence drawer states an opportunity formula the code does not compute | `data-correctness` | small | confirmed |
-| [ZB-015](EXPERT_REVIEW_ISSUES.md#zb-015) | HIGH | Insight ranking sorts transaction counts against rial in the same score | `data-correctness` | small | confirmed |
-| [ZB-016](EXPERT_REVIEW_ISSUES.md#zb-016) | HIGH | PSP friction card compares non-comparable traffic: the "weak" gateway is the retry rail | `statistics` | medium | confirmed |
-| [ZB-017](EXPERT_REVIEW_ISSUES.md#zb-017) | HIGH | Evidence drawer publishes a formula and caveat that contradict the estimator that produced the number | `statistics` | small | confirmed |
-| [ZB-018](EXPERT_REVIEW_ISSUES.md#zb-018) | HIGH | "First half vs second half" compares unequal windows, with no minimum-window guard on the copilot path | `statistics` | small | confirmed |
-| [ZB-019](EXPERT_REVIEW_ISSUES.md#zb-019) | HIGH | Operator-token gate on /api/admin/* is fail-open by default | `security` | small | confirmed |
-| [ZB-020](EXPERT_REVIEW_ISSUES.md#zb-020) | HIGH | Grounding guard checks only multi-digit numbers — arbitrary model text passes as "grounded" | `security` | medium | confirmed |
-| [ZB-021](EXPERT_REVIEW_ISSUES.md#zb-021) | HIGH | Unhandled 500s are invisible to the Control Center's own error metric | `reliability` | small | confirmed |
-| [ZB-022](EXPERT_REVIEW_ISSUES.md#zb-022) | HIGH | Bootstrap /api/meta failure leaves the merchant workspace in a permanent skeleton | `reliability` | small | confirmed |
-| [ZB-023](EXPERT_REVIEW_ISSUES.md#zb-023) | HIGH | Marts are unclustered — every merchant query full-scans all 2.06M sessions | `scalability` | small | confirmed |
-| [ZB-024](EXPERT_REVIEW_ISSUES.md#zb-024) | HIGH | /api/insights issues 23–25 sequential uncached queries, several redundant | `scalability` | medium | confirmed |
-| [ZB-025](EXPERT_REVIEW_ISSUES.md#zb-025) | HIGH | Full 1.95M-row attempts aggregate on every /api/quality and /api/admin/platform, uncached | `scalability` | small | confirmed |
-| [ZB-026](EXPERT_REVIEW_ISSUES.md#zb-026) | HIGH | Control Center recommends merchant-level action but offers no merchant drilldown or search | `product` | medium | confirmed |
-| [ZB-027](EXPERT_REVIEW_ISSUES.md#zb-027) | HIGH | Ranked action cards are terminal: no navigation, no state, no follow-through | `product` | medium | confirmed |
-| [ZB-028](EXPERT_REVIEW_ISSUES.md#zb-028) | HIGH | Flagship card's headline action is wrong for ~100% of the merchants it fires on | `business` | small | confirmed |
-| [ZB-029](EXPERT_REVIEW_ISSUES.md#zb-029) | HIGH | 61.8B IRR presented as claimable money with no claimability or expiry framing | `business` | small | confirmed |
-| [ZB-030](EXPERT_REVIEW_ISSUES.md#zb-030) | HIGH | No tenancy: any merchant's full business data is readable by merchant key | `business` | medium | confirmed |
-| [ZB-031](EXPERT_REVIEW_ISSUES.md#zb-031) | HIGH | Plain-language tooltip system is not wired into any merchant analytics page | `ux` | small | confirmed |
-| [ZB-032](EXPERT_REVIEW_ISSUES.md#zb-032) | HIGH | Copilot answers a different question instead of admitting it did not understand | `ux` | small | confirmed |
-| [ZB-033](EXPERT_REVIEW_ISSUES.md#zb-033) | HIGH | Rich tooltip is positioned by physical-right math but applied to a logical inset — mirrors across the viewport in RTL | `design` | small | confirmed |
-| [ZB-034](EXPERT_REVIEW_ISSUES.md#zb-034) | HIGH | Cohort heat map uses an absolute 0–100% colour ramp, so real retention data renders as one flat green | `design` | small | confirmed |
-| [ZB-035](EXPERT_REVIEW_ISSUES.md#zb-035) | HIGH | Body/muted text tokens fail 1.4.3 across every surface; mobile primary nav at 2.35:1 | `accessibility` | small | confirmed |
-| [ZB-036](EXPERT_REVIEW_ISSUES.md#zb-036) | HIGH | Chat composer input has its focus indicator removed (2.4.7) | `accessibility` | small | confirmed |
-| [ZB-037](EXPERT_REVIEW_ISSUES.md#zb-037) | HIGH | Seven zero-size, invisible buttons in the tab order on the Overview and Customers KPI strips | `accessibility` | small | confirmed |
-| [ZB-038](EXPERT_REVIEW_ISSUES.md#zb-038) | HIGH | Abbreviation rule accepts arbitrary downscale (۱۰۰ → ۱۰, ۱۲۰۰ → ۱۲) | `ai-grounding` | small | confirmed |
-| [ZB-039](EXPERT_REVIEW_ISSUES.md#zb-039) | HIGH | Guard is unit- and metric-blind: same digits, wrong currency or wrong metric passes | `ai-grounding` | medium | confirmed |
-| [ZB-040](EXPERT_REVIEW_ISSUES.md#zb-040) | HIGH | "Refusal safety 100%" is vacuous — the checks cannot fail and the cases do not refuse | `ai-grounding` | medium | confirmed |
-| [ZB-041](EXPERT_REVIEW_ISSUES.md#zb-041) | HIGH | LMDI and conversion-driver tests assert closure, not attribution — a factor swap stays green | `testing-qa` | small | confirmed |
-| [ZB-042](EXPERT_REVIEW_ISSUES.md#zb-042) | HIGH | Insights engine at 55% — six of nine card generators never run, incl. the PSP selection-bias fix | `testing-qa` | medium | confirmed |
-| [ZB-043](EXPERT_REVIEW_ISSUES.md#zb-043) | HIGH | No frontend tests at all; Persian formatting is duplicated between fa.py and fmt.ts with an observable divergence and no parity test | `testing-qa` | large | confirmed |
-| [ZB-044](EXPERT_REVIEW_ISSUES.md#zb-044) | HIGH | Ops copilot intent routing is 54% covered and misroutes — verified, with no equivalent to the merchant copilot's ordering regression test | `testing-qa` | small | **not verified** |
-| [ZB-120](EXPERT_REVIEW_ISSUES.md#zb-120) | HIGH | `high_value_friction` is non-deterministic — the same query returns different money | `record-verification` | small | confirmed |
+| ID | Sev | Issue | Lens | Effort | Verified | Status |
+|---|---|---|---|---|---|---|
+| [ZB-001](EXPERT_REVIEW_ISSUES.md#zb-001) | CRITICAL | No authn/authz on any merchant data endpoint; tenant scoping is a client-supplied parameter | `security` | large | confirmed | ✅ fixed |
+| [ZB-002](EXPERT_REVIEW_ISSUES.md#zb-002) | CRITICAL | Process-wide RLock serializes every DuckDB query — hard concurrency ceiling | `scalability` | small | confirmed | ✅ fixed |
+| [ZB-003](EXPERT_REVIEW_ISSUES.md#zb-003) | CRITICAL | 37% of merchants see an empty dashboard; the empty state calls a broken funnel "good news" | `business` | medium | confirmed | ✅ fixed |
+| [ZB-004](EXPERT_REVIEW_ISSUES.md#zb-004) | CRITICAL | Grounding guard is digit-only: invented causality and advice pass verbatim | `ai-grounding` | medium | confirmed | ✅ fixed |
+| [ZB-005](EXPERT_REVIEW_ISSUES.md#zb-005) | CRITICAL | Peer percentile happy path has zero coverage — only the suppressed branch is tested | `testing-qa` | medium | confirmed | ✅ fixed |
+| [ZB-006](EXPERT_REVIEW_ISSUES.md#zb-006) | HIGH | Realized-GMV cap applied to only one of four opportunity generators — a card claims 108% of the merchant's entire sales | `rubric-official` | small | confirmed | ✅ fixed |
+| [ZB-007](EXPERT_REVIEW_ISSUES.md#zb-007) | HIGH | Evidence drawer prints two contradictory formulas for the same opportunity number | `rubric-official` | small | confirmed | ✅ fixed |
+| [ZB-008](EXPERT_REVIEW_ISSUES.md#zb-008) | HIGH | Chat is the landing surface but its regex router misses questions the engine can already answer | `rubric-official` | medium | confirmed | ✅ fixed |
+| [ZB-009](EXPERT_REVIEW_ISSUES.md#zb-009) | HIGH | API contract crosses the biggest seam untyped and hand-mirrored | `architecture` | medium | confirmed | ✅ fixed |
+| [ZB-010](EXPERT_REVIEW_ISSUES.md#zb-010) | HIGH | Hardcoded data fact in the API layer contradicts the computed metric on the same page | `architecture` | small | confirmed | ✅ fixed |
+| [ZB-011](EXPERT_REVIEW_ISSUES.md#zb-011) | HIGH | Metric registry — the declared single source of truth — has drifted from the code it documents | `code-quality` | small | confirmed | ✅ fixed |
+| [ZB-012](EXPERT_REVIEW_ISSUES.md#zb-012) | HIGH | `insights.generate()` is a 181-line C901=20 function whose shape contradicts the documented extension pattern | `code-quality` | medium | confirmed | ✅ fixed |
+| [ZB-013](EXPERT_REVIEW_ISSUES.md#zb-013) | HIGH | Copilot formats a transaction count as rial | `data-correctness` | small | confirmed | ✅ fixed |
+| [ZB-014](EXPERT_REVIEW_ISSUES.md#zb-014) | HIGH | Evidence drawer states an opportunity formula the code does not compute | `data-correctness` | small | confirmed | ✅ fixed |
+| [ZB-015](EXPERT_REVIEW_ISSUES.md#zb-015) | HIGH | Insight ranking sorts transaction counts against rial in the same score | `data-correctness` | small | confirmed | ✅ fixed |
+| [ZB-016](EXPERT_REVIEW_ISSUES.md#zb-016) | HIGH | PSP friction card compares non-comparable traffic: the "weak" gateway is the retry rail | `statistics` | medium | confirmed | ✅ fixed |
+| [ZB-017](EXPERT_REVIEW_ISSUES.md#zb-017) | HIGH | Evidence drawer publishes a formula and caveat that contradict the estimator that produced the number | `statistics` | small | confirmed | ✅ fixed |
+| [ZB-018](EXPERT_REVIEW_ISSUES.md#zb-018) | HIGH | "First half vs second half" compares unequal windows, with no minimum-window guard on the copilot path | `statistics` | small | confirmed | ✅ fixed |
+| [ZB-019](EXPERT_REVIEW_ISSUES.md#zb-019) | HIGH | Operator-token gate on /api/admin/* is fail-open by default | `security` | small | confirmed | ✅ fixed |
+| [ZB-020](EXPERT_REVIEW_ISSUES.md#zb-020) | HIGH | Grounding guard checks only multi-digit numbers — arbitrary model text passes as "grounded" | `security` | medium | confirmed | ✅ fixed |
+| [ZB-021](EXPERT_REVIEW_ISSUES.md#zb-021) | HIGH | Unhandled 500s are invisible to the Control Center's own error metric | `reliability` | small | confirmed | ✅ fixed |
+| [ZB-022](EXPERT_REVIEW_ISSUES.md#zb-022) | HIGH | Bootstrap /api/meta failure leaves the merchant workspace in a permanent skeleton | `reliability` | small | confirmed | ✅ fixed |
+| [ZB-023](EXPERT_REVIEW_ISSUES.md#zb-023) | HIGH | Marts are unclustered — every merchant query full-scans all 2.06M sessions | `scalability` | small | confirmed | ✅ fixed |
+| [ZB-024](EXPERT_REVIEW_ISSUES.md#zb-024) | HIGH | /api/insights issues 23–25 sequential uncached queries, several redundant | `scalability` | medium | confirmed | ✅ fixed |
+| [ZB-025](EXPERT_REVIEW_ISSUES.md#zb-025) | HIGH | Full 1.95M-row attempts aggregate on every /api/quality and /api/admin/platform, uncached | `scalability` | small | confirmed | ✅ fixed |
+| [ZB-026](EXPERT_REVIEW_ISSUES.md#zb-026) | HIGH | Control Center recommends merchant-level action but offers no merchant drilldown or search | `product` | medium | confirmed | ✅ fixed |
+| [ZB-027](EXPERT_REVIEW_ISSUES.md#zb-027) | HIGH | Ranked action cards are terminal: no navigation, no state, no follow-through | `product` | medium | confirmed | ✅ fixed |
+| [ZB-028](EXPERT_REVIEW_ISSUES.md#zb-028) | HIGH | Flagship card's headline action is wrong for ~100% of the merchants it fires on | `business` | small | confirmed | ✅ fixed |
+| [ZB-029](EXPERT_REVIEW_ISSUES.md#zb-029) | HIGH | 61.8B IRR presented as claimable money with no claimability or expiry framing | `business` | small | confirmed | ✅ fixed |
+| [ZB-030](EXPERT_REVIEW_ISSUES.md#zb-030) | HIGH | No tenancy: any merchant's full business data is readable by merchant key | `business` | medium | confirmed | ✅ fixed |
+| [ZB-031](EXPERT_REVIEW_ISSUES.md#zb-031) | HIGH | Plain-language tooltip system is not wired into any merchant analytics page | `ux` | small | confirmed | ✅ fixed |
+| [ZB-032](EXPERT_REVIEW_ISSUES.md#zb-032) | HIGH | Copilot answers a different question instead of admitting it did not understand | `ux` | small | confirmed | ✅ fixed |
+| [ZB-033](EXPERT_REVIEW_ISSUES.md#zb-033) | HIGH | Rich tooltip is positioned by physical-right math but applied to a logical inset — mirrors across the viewport in RTL | `design` | small | confirmed | ✅ fixed |
+| [ZB-034](EXPERT_REVIEW_ISSUES.md#zb-034) | HIGH | Cohort heat map uses an absolute 0–100% colour ramp, so real retention data renders as one flat green | `design` | small | confirmed | ✅ fixed |
+| [ZB-035](EXPERT_REVIEW_ISSUES.md#zb-035) | HIGH | Body/muted text tokens fail 1.4.3 across every surface; mobile primary nav at 2.35:1 | `accessibility` | small | confirmed | ✅ fixed |
+| [ZB-036](EXPERT_REVIEW_ISSUES.md#zb-036) | HIGH | Chat composer input has its focus indicator removed (2.4.7) | `accessibility` | small | confirmed | ✅ fixed |
+| [ZB-037](EXPERT_REVIEW_ISSUES.md#zb-037) | HIGH | Seven zero-size, invisible buttons in the tab order on the Overview and Customers KPI strips | `accessibility` | small | confirmed | ✅ fixed |
+| [ZB-038](EXPERT_REVIEW_ISSUES.md#zb-038) | HIGH | Abbreviation rule accepts arbitrary downscale (۱۰۰ → ۱۰, ۱۲۰۰ → ۱۲) | `ai-grounding` | small | confirmed | ✅ fixed |
+| [ZB-039](EXPERT_REVIEW_ISSUES.md#zb-039) | HIGH | Guard is unit- and metric-blind: same digits, wrong currency or wrong metric passes | `ai-grounding` | medium | confirmed | ✅ fixed |
+| [ZB-040](EXPERT_REVIEW_ISSUES.md#zb-040) | HIGH | "Refusal safety 100%" is vacuous — the checks cannot fail and the cases do not refuse | `ai-grounding` | medium | confirmed | ✅ fixed |
+| [ZB-041](EXPERT_REVIEW_ISSUES.md#zb-041) | HIGH | LMDI and conversion-driver tests assert closure, not attribution — a factor swap stays green | `testing-qa` | small | confirmed | ✅ fixed |
+| [ZB-042](EXPERT_REVIEW_ISSUES.md#zb-042) | HIGH | Insights engine at 55% — six of nine card generators never run, incl. the PSP selection-bias fix | `testing-qa` | medium | confirmed | ✅ fixed |
+| [ZB-043](EXPERT_REVIEW_ISSUES.md#zb-043) | HIGH | No frontend tests at all; Persian formatting is duplicated between fa.py and fmt.ts with an observable divergence and no parity test | `testing-qa` | large | confirmed | ✅ fixed |
+| [ZB-044](EXPERT_REVIEW_ISSUES.md#zb-044) | HIGH | Ops copilot intent routing is 54% covered and misroutes — verified, with no equivalent to the merchant copilot's ordering regression test | `testing-qa` | small | **not verified** | ✅ fixed |
+| [ZB-120](EXPERT_REVIEW_ISSUES.md#zb-120) | HIGH | `high_value_friction` is non-deterministic — the same query returns different money | `record-verification` | small | confirmed | ✅ fixed |
+
+**Remediation status:** 45 of these 45 critical/high findings are fixed in the current `main`; see the commit trail and the regression tests named in each
+issue's entry. Medium/low findings are not yet triaged.
 
 Medium and low findings (56 + 19) are documented in the same register.
 

@@ -42,7 +42,10 @@ def _plan(question: str, f: str, t: str) -> tuple[str, str, list[dict], str]:
                 f"رخدادهای پرریسک: {fa_num(a['hallucination_risk'])}.")
         return (text, "ai_fallback", refs, "high")
 
-    if re.search(r"(هزینه|cost|خرج).*(ai|هوش|مدل)|هزینه", ql, re.IGNORECASE):
+    # anchored: a bare «هزینه» used to swallow any cost question, including merchant-side costs
+    # that this surface cannot answer (ZB-044). Require an AI/model/token qualifier on either side.
+    if re.search(r"(هزینه|cost|خرج|توکن|token).*(ai|هوش|مدل|model|درخواست)"
+                 r"|(ai|هوش|مدل|model).*(هزینه|cost|خرج|توکن|token)", ql, re.IGNORECASE):
         a = control.ai_ops()
         if not a.get("has_data"):
             return ("هنوز هزینه‌ای ثبت نشده است؛ در حالت آفلاین یا با مدل‌های رایگان هزینه صفر است.", "ai_cost", [], "medium")
@@ -51,7 +54,10 @@ def _plan(question: str, f: str, t: str) -> tuple[str, str, list[dict], str]:
                 f"({_usd(a['cost_per_request'])} دلار به‌ازای هر درخواست). سیاست فقط-رایگان فعال است، پس انتظار هزینهٔ صفر می‌رود.")
         return (text, "ai_cost", refs, "high")
 
-    if re.search(r"(کدام|چه).*(مدل|model)", ql, re.IGNORECASE):
+    # a model question that is really a LATENCY question belongs to the perf lens, so the more
+    # specific intent wins on compound phrasings like «کدام مدل کند است؟» (ZB-044)
+    if (re.search(r"(کدام|چه).*(مدل|model)", ql, re.IGNORECASE)
+            and not re.search(r"(کند|تأخیر|تاخیر|latency|سرعت|زمان پاسخ)", ql, re.IGNORECASE)):
         a = control.ai_ops()
         if not a.get("has_data") or not a.get("models"):
             return ("هنوز مدلی فراخوانی نشده است (حالت قطعی/آفلاین).", "ai_model", [], "medium")

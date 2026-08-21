@@ -6,6 +6,7 @@ import { faDate, faNum, pct, pp, rial } from "../fmt";
 import { Waterfall } from "../components/charts";
 import { Empty, EvBtn, Loading, Section } from "../components/ui";
 import { useEffect, useState } from "react";
+import { Term } from "../components/Tooltip";
 
 const DRIVER_FA: Record<string, string> = {
   no_attempt_rate: "انصراف پیش از پرداخت",
@@ -75,7 +76,7 @@ export default function ChangesPage() {
       ) : (
         <>
           <div className="card" style={{ padding: 20, marginBottom: 18 }}>
-            <h3 style={{ fontSize: "var(--fs-m)", marginBottom: 12 }}>سهم هر عامل در تغییر فروش</h3>
+            <h3 style={{ fontSize: "var(--fs-m)", marginBottom: 12 }}><Term label="سهم هر عامل در تغییر فروش" tip="decomp" /></h3>
             <Waterfall total={d.delta_gmv} items={[
               { label: "تعداد جلسه‌ها", value: d.contrib.sessions ?? 0 },
               { label: "نرخ تبدیل", value: d.contrib.conv ?? 0 },
@@ -85,9 +86,9 @@ export default function ChangesPage() {
               <table className="tbl num">
                 <thead><tr><th>عامل</th><th>نیمه اول</th><th>نیمه دوم</th></tr></thead>
                 <tbody>
-                  <tr><td>جلسه‌های پرداخت</td><td>{faNum(d.before.sessions)}</td><td>{faNum(d.after.sessions)}</td></tr>
-                  <tr><td>نرخ تبدیل</td><td>{pct(d.before.conv)}</td><td>{pct(d.after.conv)}</td></tr>
-                  <tr><td>مبلغ متوسط تراکنش</td><td>{rial(d.before.ticket)}</td><td>{rial(d.after.ticket)}</td></tr>
+                  <tr><td><Term label="جلسه‌های پرداخت" tip="sessions" /></td><td>{faNum(d.before.sessions)}</td><td>{faNum(d.after.sessions)}</td></tr>
+                  <tr><td><Term label="نرخ تبدیل" tip="conv" /></td><td>{pct(d.before.conv)}</td><td>{pct(d.after.conv)}</td></tr>
+                  <tr><td><Term label="مبلغ متوسط تراکنش" tip="ticket" /></td><td>{rial(d.before.ticket)}</td><td>{rial(d.after.ticket)}</td></tr>
                 </tbody>
               </table>
             </div>

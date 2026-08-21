@@ -6,19 +6,89 @@ import os
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, ConfigDict
 
-from . import analytics, control, copilot, insights, obs, ops_copilot, peers
+from . import analytics, auth, control, copilot, insights, obs, ops_copilot, peers
 from .ai import telemetry as ai_telemetry
 from .ai.eval import run_eval
-from .config import ADMIN_TOKEN, CURRENCY_NOTE, CUSTOMER_SCOPE_CAVEAT, FEE_CAVEAT, MAX_QUESTION_LEN, STATIC_DIR
+from .config import (
+    ADMIN_TOKEN,
+    CURRENCY_NOTE,
+    CUSTOMER_SCOPE_CAVEAT,
+    FEE_CAVEAT,
+    HOST,
+    MAX_QUESTION_LEN,
+    REQUIRE_AUTH,
+    STATIC_DIR,
+)
 from .db import q, q1
+from .fa import fa_num
 
 app = FastAPI(title="Zarbin — زرین‌بین", docs_url="/api/docs", openapi_url="/api/openapi.json")
 app.middleware("http")(obs.middleware)  # request telemetry → Control Center Product Performance
+
+
+# --- Response contracts (ZB-009) -----------------------------------------------
+# Loose on purpose: nested payloads (kpis, evidence, cards, ...) come from
+# analytics.py/insights.py/peers.py, which are evolving concurrently, so fields
+# inside them are typed Any rather than pinned — the point is a real OpenAPI
+# schema and byte-for-byte compatibility with today's frontend, not a rewrite.
+class _Loose(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+
+class OverviewResponse(_Loose):
+    period: dict[str, Any]
+    compare: dict[str, Any] | None = None
+    kpis: dict[str, Any]
+    previous: dict[str, Any] | None = None
+    daily: list[dict[str, Any]]
+    evidence: dict[str, Any]
+
+
+class InsightsResponse(_Loose):
+    cards: list[dict[str, Any]]
+
+
+class FunnelResponse(_Loose):
+    period: dict[str, Any]
+    stages: list[dict[str, Any]]
+    outcomes: dict[str, Any]
+    rates: dict[str, Any]
+    recovery: dict[str, Any]
+    hours: list[dict[str, Any]]
+    amount_bands: list[dict[str, Any]]
+    psp: list[dict[str, Any]]
+    fail_codes: list[dict[str, Any]]
+    evidence: dict[str, Any]
+
+
+class PeersResponse(_Loose):
+    group: dict[str, Any]
+    rows: list[dict[str, Any]]
+    evidence: dict[str, Any]
+
+
+class ChangesResponse(_Loose):
+    before: dict[str, Any]
+    after: dict[str, Any]
+    delta_gmv: float
+    decomposable: bool
+    contrib: dict[str, Any]
+    conv_drivers: dict[str, Any]
+    evidence: dict[str, Any]
+
+
+class QualityResponse(_Loose):
+    outcomes: list[dict[str, Any]]
+    concentration: dict[str, Any]
+    anomalies: dict[str, Any]
+    rules_fa: list[str]
 
 
 def _range() -> tuple[str, str]:
@@ -31,10 +101,58 @@ def _check_merchant(m: str) -> None:
         raise HTTPException(404, f"merchant {m} not found")
 
 
-def _admin_guard(x_admin_token: str | None = Header(default=None)) -> None:
-    """Operator-token gate for /api/admin/*. Enforced only when ZARIN_ADMIN_TOKEN is set."""
-    if ADMIN_TOKEN and not hmac.compare_digest(x_admin_token or "", ADMIN_TOKEN):
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _is_loopback(host: str) -> bool:
+    return host in _LOOPBACK_HOSTS
+
+
+def _bearer_token(authorization: str | None) -> str | None:
+    if authorization and authorization.lower().startswith("bearer "):
+        return authorization[7:].strip()
+    return None
+
+
+def _merchant_scope(m: str, authorization: str | None = Header(default=None)) -> str:
+    """FastAPI dependency binding the merchant every /api/* merchant route trusts (ZB-001/ZB-030).
+
+    REQUIRE_AUTH off (demo default): the `m=` query param is used exactly as before this
+    module existed. REQUIRE_AUTH on: `m` MUST come from a verified merchant-scope session
+    token; a query `m` that doesn't match the token's merchant_key is rejected with 403.
+    """
+    if not REQUIRE_AUTH:
+        return m
+    claims = auth.verify(_bearer_token(authorization))
+    if not claims or claims.get("scope") != "merchant" or not claims.get("merchant_key"):
+        raise HTTPException(401, "valid merchant session required")
+    if claims["merchant_key"] != m:
+        raise HTTPException(403, "session merchant does not match m")
+    return m
+
+
+def _admin_guard(x_admin_token: str | None = Header(default=None),
+                  authorization: str | None = Header(default=None)) -> None:
+    """Operator gate for /api/admin/*.
+
+    - ZARIN_ADMIN_TOKEN set and header matches -> always passes (back-compat).
+    - ZARIN_REQUIRE_AUTH=1 -> otherwise an ops-scope session token is required (ZB-001).
+    - ZARIN_ADMIN_TOKEN set but header wrong, REQUIRE_AUTH off -> 401 (unchanged).
+    - ZARIN_ADMIN_TOKEN unset and HOST not loopback -> 503: refuse rather than serve the
+      operator surface openly to the network (ZB-019, fail-closed instead of fail-open).
+    - ZARIN_ADMIN_TOKEN unset and HOST loopback, REQUIRE_AUTH off -> open (demo default).
+    """
+    if ADMIN_TOKEN and hmac.compare_digest(x_admin_token or "", ADMIN_TOKEN):
+        return
+    if REQUIRE_AUTH:
+        claims = auth.verify(_bearer_token(authorization))
+        if claims and claims.get("scope") == "ops":
+            return
+        raise HTTPException(403, "ops session required")
+    if ADMIN_TOKEN:
         raise HTTPException(401, "operator token required for the Control Center API")
+    if not _is_loopback(HOST):
+        raise HTTPException(503, "admin API disabled: set ZARIN_ADMIN_TOKEN before a non-loopback deploy")
 
 
 def _check_question(q_: str) -> str:
@@ -94,8 +212,23 @@ def meta():
             "notes": {"currency": CURRENCY_NOTE, "fee": FEE_CAVEAT, "customer": CUSTOMER_SCOPE_CAVEAT}}
 
 
-@app.get("/api/overview")
-def overview(m: str, f: str | None = None, t: str | None = None,
+@app.post("/api/auth/session")
+def auth_session(scope: str, merchant_key: str | None = None):
+    """Issue a session token (ZB-001/ZB-030). Unused unless ZARIN_REQUIRE_AUTH=1 —
+    the demo default keeps trusting the `m=` query param on every merchant route."""
+    if scope not in ("merchant", "ops"):
+        raise HTTPException(400, f"invalid scope: {scope!r} (expected 'merchant' or 'ops')")
+    if scope == "merchant":
+        if not merchant_key:
+            raise HTTPException(400, "merchant_key required for scope='merchant'")
+        _check_merchant(merchant_key)
+    else:
+        merchant_key = None
+    return {"token": auth.issue(scope, merchant_key), "scope": scope, "merchant_key": merchant_key}
+
+
+@app.get("/api/overview", response_model=OverviewResponse)
+def overview(m: str = Depends(_merchant_scope), f: str | None = None, t: str | None = None,
              cf: str | None = None, ct: str | None = None):
     _check_merchant(m)
     f, t = _dates(m, f, t)
@@ -104,36 +237,36 @@ def overview(m: str, f: str | None = None, t: str | None = None,
     return analytics.overview(m, f, t, cf, ct)
 
 
-@app.get("/api/insights")
-def get_insights(m: str, f: str | None = None, t: str | None = None):
+@app.get("/api/insights", response_model=InsightsResponse)
+def get_insights(m: str = Depends(_merchant_scope), f: str | None = None, t: str | None = None):
     _check_merchant(m)
     f, t = _dates(m, f, t)
     return {"cards": insights.generate(m, f, t)}
 
 
-@app.get("/api/funnel")
-def funnel(m: str, f: str | None = None, t: str | None = None):
+@app.get("/api/funnel", response_model=FunnelResponse)
+def funnel(m: str = Depends(_merchant_scope), f: str | None = None, t: str | None = None):
     _check_merchant(m)
     f, t = _dates(m, f, t)
     return analytics.funnel(m, f, t)
 
 
 @app.get("/api/customers")
-def customers(m: str, f: str | None = None, t: str | None = None):
+def customers(m: str = Depends(_merchant_scope), f: str | None = None, t: str | None = None):
     _check_merchant(m)
     f, t = _dates(m, f, t)
     return analytics.customers(m, f, t)
 
 
-@app.get("/api/peers")
-def get_peers(m: str, f: str | None = None, t: str | None = None):
+@app.get("/api/peers", response_model=PeersResponse)
+def get_peers(m: str = Depends(_merchant_scope), f: str | None = None, t: str | None = None):
     _check_merchant(m)
     f, t = _dates(m, f, t)
     return peers.benchmarks(m, f, t)
 
 
-@app.get("/api/changes")
-def changes(m: str, f1: str, t1: str, f2: str, t2: str):
+@app.get("/api/changes", response_model=ChangesResponse)
+def changes(f1: str, t1: str, f2: str, t2: str, m: str = Depends(_merchant_scope)):
     _check_merchant(m)
     # reassign the NORMALIZED dates (not just validate) so basic-form ISO like 20260101
     # reaches DuckDB as canonical YYYY-MM-DD instead of raising a 500 — mirrors _dates().
@@ -143,8 +276,8 @@ def changes(m: str, f1: str, t1: str, f2: str, t2: str):
 
 
 @app.get("/api/copilot")
-def ask(m: str, q_: str = Query(alias="q"), f: str | None = None, t: str | None = None,
-        surface: str = "merchant"):
+def ask(q_: str = Query(alias="q"), m: str = Depends(_merchant_scope), f: str | None = None,
+        t: str | None = None, surface: str = "merchant"):
     _check_merchant(m)
     q_ = _check_question(q_)
     f, t = _dates(m, f, t)
@@ -152,7 +285,7 @@ def ask(m: str, q_: str = Query(alias="q"), f: str | None = None, t: str | None 
 
 
 @app.post("/api/copilot/feedback")
-def copilot_feedback(m: str, intent: str, useful: bool, surface: str = "merchant"):
+def copilot_feedback(intent: str, useful: bool, m: str = Depends(_merchant_scope), surface: str = "merchant"):
     """Lightweight 👍/👎 loop feeding AI quality monitoring."""
     _check_merchant(m)
     ai_telemetry.record_feedback(merchant_scope=m, intent=intent, useful=useful, surface=surface)
@@ -169,6 +302,17 @@ _ADMIN = [Depends(_admin_guard)]
 def admin_platform(f: str | None = None, t: str | None = None):
     f, t = _dates("", f, t)
     return control.platform(f, t)
+
+
+_MERCHANT_SORTS = {"unverified", "no_attempt", "gmv", "recovered"}
+
+
+@app.get("/api/admin/merchants", dependencies=_ADMIN)
+def admin_merchants(sort: str = "unverified", limit: int = Query(20, ge=1, le=100)):
+    """Merchant drilldown behind the Control Center's recommended actions (ZB-026)."""
+    if sort not in _MERCHANT_SORTS:
+        raise HTTPException(400, f"unknown sort: {sort!r} (expected one of {sorted(_MERCHANT_SORTS)})")
+    return control.merchants(sort, limit)
 
 
 @app.get("/api/admin/performance", dependencies=_ADMIN)
@@ -214,7 +358,7 @@ _VALID_OUTCOMES = {"verified", "paid_unverified", "no_attempt", "abandoned_inban
 
 
 @app.get("/api/evidence/sessions")
-def evidence_sessions(m: str, outcome: str | None = None, f: str | None = None,
+def evidence_sessions(m: str = Depends(_merchant_scope), outcome: str | None = None, f: str | None = None,
                       t: str | None = None, limit: int = Query(12, ge=1, le=50)):
     """Drill-through: sample source sessions behind a metric."""
     _check_merchant(m)
@@ -234,16 +378,34 @@ def evidence_sessions(m: str, outcome: str | None = None, f: str | None = None,
             "note_fa": "نمونه جلسه‌های منبع (به ترتیب مبلغ). session_key همان شناسه ردیف‌های دیتاست اصلی است."}
 
 
-@app.get("/api/quality")
+def _live_quality_anomalies() -> dict:
+    """Fallback when the pipeline sidecar is missing (old mart dir) — ZB-025."""
+    dq = q1("""SELECT
+        (SELECT count(*) FROM sessions WHERE session_status='Verified' AND outcome='verified'
+           AND session_key IN (SELECT session_key FROM attempts GROUP BY 1 HAVING sum(ok::int)=0)) AS verified_wo_ok_try,
+        (SELECT count(*) FROM sessions WHERE session_status='Verified' AND outcome='verified'
+           AND session_key IN (SELECT session_key FROM attempts GROUP BY 1
+                                HAVING sum((try_status='Verified')::int)=0)) AS verified_wo_verified_try,
+        (SELECT count(*) FROM sessions WHERE outcome='reversed') AS reversed_sessions""")
+    return dq
+
+
+@app.get("/api/quality", response_model=QualityResponse)
+@lru_cache(maxsize=1)
 def quality():
     outcomes = q("SELECT outcome, count(*) AS n, sum(amount) AS amount FROM sessions GROUP BY 1 ORDER BY n DESC")
     conc = q1("""WITH g AS (SELECT merchant_key, sum(gmv) AS gmv FROM merchant_daily GROUP BY 1),
                  r AS (SELECT gmv, row_number() OVER (ORDER BY gmv DESC) AS rk FROM g)
                  SELECT sum(gmv) FILTER (WHERE rk<=5)/sum(gmv) AS top5, count(*) AS n FROM r""")
-    anomalies = q1("""SELECT
-        (SELECT count(*) FROM sessions WHERE session_status='Verified' AND outcome='verified'
-           AND session_key IN (SELECT session_key FROM attempts GROUP BY 1 HAVING sum(ok::int)=0)) AS verified_wo_ok_try,
-        (SELECT count(*) FROM sessions WHERE outcome='reversed') AS reversed_sessions""")
+    dq = control._dq_sidecar()
+    if dq is not None:
+        anomalies = {"verified_wo_ok_try": dq["verified_wo_ok_try"],
+                     "verified_wo_verified_try": dq["verified_wo_verified_try"],
+                     "reversed_sessions": dq["reversed_sessions"]}
+    else:
+        anomalies = _live_quality_anomalies()
+    # ZB-010: both counts come from the query above (they differ only in whether a Paid
+    # attempt counts as "ok"), not a literal that goes stale the moment the dataset changes.
     return {
         "outcomes": outcomes, "concentration": conc, "anomalies": anomalies,
         "rules_fa": [
@@ -253,7 +415,9 @@ def quality():
             "شناسه کارت فقط در تلاش‌های به سرانجام رسیده ثبت شده و بین پذیرنده‌ها مشترک نیست؛ تحلیل مشتری فقط پرداخت‌کنندگان موفق همان پذیرنده است.",
             FEE_CAVEAT,
             "اختلاف چندثانیه‌ای ساعت بین created_at و try_created_at (جیتر ساعت سرور) دست‌نخورده باقی مانده است.",
-            "۲۸ جلسه Verified بدون تلاش Verified و ۱ جلسه Reversed در داده وجود دارد؛ اصلاح نشده‌اند و مستند شده‌اند.",
+            (f"{fa_num(anomalies['verified_wo_verified_try'])} جلسه Verified بدون تلاش دقیقاً Verified وجود دارد؛ "
+             f"از این میان {fa_num(anomalies['verified_wo_ok_try'])} جلسه حتی تلاش تسویه‌شده/OK هم ندارند. "
+             f"همچنین {fa_num(anomalies['reversed_sessions'])} جلسه Reversed در داده هست. اصلاح نشده‌اند و مستند شده‌اند."),
             CURRENCY_NOTE,
         ],
     }

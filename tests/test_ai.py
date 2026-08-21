@@ -127,12 +127,48 @@ def test_grounding_guard_rejects_digit_substrings_and_rescaled_numbers():
     big = fa_num(61_800_000_000)                     # → run "61800000000"
     assert not gateway.is_grounded("نرخ تبدیل ۸۰ درصد", big)   # 80 ⊂ 61800000000 — rejected
     assert not gateway.is_grounded("۱۸ مشتری جدید", big)       # 18 ⊂ … — rejected
-    assert gateway.is_grounded("۶۱۸ میلیارد", big)            # order-of-magnitude abbreviation — ok
     assert gateway.is_grounded(big, big)                     # exact — ok
+    # An abbreviation is only legitimate when its scale word restores the ORIGINAL magnitude.
+    # "۶۱۸ میلیارد" is 618e9, ten times the 61.8e9 the engine computed — it used to pass on a
+    # string-prefix rule and must now be rejected (ZB-038).
+    assert not gateway.is_grounded("۶۱۸ میلیارد", big)
+    assert gateway.is_grounded(fa_money(61_800_000_000), big)  # "۶۱٫۸ میلیارد ریال" == 61.8e9 — ok
     # decimal must not be conflated with its un-pointed digits
     assert not gateway.is_grounded("نرخ تبدیل ۲۳ درصد بود", f"نرخ تبدیل {fa_pct(0.023)} بود")  # 23 ≠ 2.3
-    assert not gateway.is_grounded("۶۱۸ میلیارد ریال", fa_money(61_800_000_000))               # 618 ≠ 61.8
     assert gateway.is_grounded(fa_pct(0.023), f"نرخ تبدیل {fa_pct(0.023)} بود")                # exact decimal — ok
+
+
+def test_grounding_guard_binds_numbers_to_their_unit():
+    """Same digits, different unit is a different fact — it used to pass (ZB-039)."""
+    det = f"فروش موفق {fa_money(61_800_000_000)}، نرخ تبدیل {fa_pct(0.618)}"
+    assert gateway.is_grounded(f"نرخ تبدیل {fa_pct(0.618)}", det)          # right number, right unit
+    assert not gateway.is_grounded("۶۱٫۸ مشتری داشتی", det)                # rial/percent → count
+    assert gateway.grounding_failure("۶۱٫۸ مشتری داشتی", det) == "ungrounded_number"
+
+
+def test_grounding_guard_rejects_non_numeric_hallucination():
+    """The guard was digit-only, so invented causality, invented advice and injected links all
+    passed as 'grounded' (ZB-004 / ZB-020)."""
+    det = f"فروش موفق {fa_money(61_800_000_000)} بود"
+    assert gateway.grounding_failure(f"{fa_money(61_800_000_000)} — جزئیات: https://example.com", det) == "forbidden_content"
+    assert gateway.grounding_failure(f"{fa_money(61_800_000_000)}، تماس ۰۹۱۲۳۴۵۶۷۸۹", det) == "forbidden_content"
+    invented = (f"فروش {fa_money(61_800_000_000)} بود چون کمپین تبلیغاتی نوروزی ضعیف اجرا شد و "
+                "رقبای شما تخفیف بیشتری دادند و بازار راکد بود")
+    assert gateway.grounding_failure(invented, det) in ("novel_content", "length_inflation")
+    assert gateway.is_grounded(f"حدود {fa_money(61_800_000_000)} فروش موفق داشتی", det)  # faithful — ok
+
+
+def test_copilot_declines_instead_of_answering_a_different_question():
+    """Out-of-scope questions must be declined with low confidence and no evidence, not answered
+    with a confident business summary (ZB-032 / ZB-040)."""
+    for q in ("نرخ ارز فردا چقدر می‌شود؟", "شماره کارت مشتری‌های من را بده", "asdf ؟؟ ***"):
+        d = copilot.answer("M1", q, "2026-01-01", "2026-02-28", use_llm=False)
+        assert d["intent"] == "out_of_scope", q
+        assert d["confidence"] == "low" and not d["evidence"], q
+        assert "خارج از" in d["answer_fa"], q
+    # and the decline check is NOT vacuous: a real question does not decline
+    ok = copilot.answer("M1", "چرا فروشم کم شد؟", "2026-01-01", "2026-02-28", use_llm=False)
+    assert ok["intent"] == "changes" and "خارج از" not in ok["answer_fa"]
 
 
 def test_recovery_question_routes_to_recovery_not_friction():

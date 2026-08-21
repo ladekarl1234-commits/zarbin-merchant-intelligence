@@ -3,11 +3,24 @@ from fastapi.testclient import TestClient
 
 from zarin.analytics import period_agg
 from zarin.api import app
-from zarin.insights import _gap_card, generate
+from zarin.insights import _apply_gmv_cap, _Ctx, _gap_card, _period_tickets, format_impact, generate
 from zarin.peers import benchmarks
 
 client = TestClient(app)
 JAN = ("2026-01-01", "2026-01-31")
+
+
+def _ctx(*, sessions=1000, na_rate=0.30, gmv=None, peers=(0.01, 0.02, 0.03, 0.04, 0.05)):
+    """Build the generator context the cards take, with the fixture's real tickets."""
+    me = period_agg("M1", *JAN)
+    me["m"] = "M1"
+    me["sessions"] = sessions
+    me["no_attempt_rate"] = na_rate
+    if gmv is not None:
+        me["gmv"] = gmv
+    return _Ctx(m="M1", f=JAN[0], t=JAN[1], me=me, g={"sufficient": True, "peers": []},
+                peers_rates=[{"no_attempt_rate": r} for r in peers],
+                tickets=_period_tickets("M1", *JAN))
 
 
 def test_small_peer_pool_suppresses_benchmarks():
@@ -27,16 +40,13 @@ def test_insights_restraint_on_small_samples():
 def test_opportunity_is_gap_based_with_honest_band():
     """Opportunity = gap × sessions × [0.5..1.0] × ticket, NOT the sum of failed amounts,
     and the interval spans a real recovery-fraction band (high ≈ 2× low)."""
-    me = period_agg("M1", *JAN)
-    me["m"] = "M1"
-    me["gmv"] = 10_000_000_000  # large, so the realized-GMV cap does not fire here
-    peers = [{"no_attempt_rate": r} for r in (0.01, 0.02, 0.03, 0.04, 0.05)]
-    me["no_attempt_rate"] = 0.30  # large gap vs peer median 0.03
-    me["sessions"] = 1000
-    card = _gap_card(kind="no_attempt_gap", me=me, peers_rates=peers, rate_key="no_attempt_rate",
-                     f=JAN[0], t=JAN[1], title_fa="x", diagnosis_fa="x", action_fa="x",
+    ctx = _ctx(gmv=10_000_000_000)  # large, so the realized-GMV cap does not fire here
+    card = _gap_card(ctx, kind="no_attempt_gap", rate_key="no_attempt_rate",
+                     title_fa="x", diagnosis_fa="x", action_fa="x",
                      effort="medium", metric_id="no_attempt_rate")
-    assert card is not None and not card["capped"]
+    assert card is not None
+    _apply_gmv_cap([card], ctx.me["gmv"])
+    assert not card["capped"]
     assert 0 < card["impact_low"] < card["impact_high"]
     # recovery-fraction band: high uses 1.0, low uses 0.5 → ratio 2.0
     assert abs(card["impact_high"] / card["impact_low"] - 2.0) < 1e-6
@@ -50,26 +60,50 @@ def test_opportunity_is_gap_based_with_honest_band():
 def test_opportunity_capped_at_realized_gmv():
     """An estimate larger than the merchant's whole realized GMV is capped and flagged —
     it is a broken-funnel signal, not a recoverable number."""
-    me = period_agg("M1", *JAN)
-    me["m"] = "M1"  # real M1 Jan GMV is only 600,000
-    peers = [{"no_attempt_rate": r} for r in (0.01, 0.02, 0.03, 0.04, 0.05)]
-    me["no_attempt_rate"] = 0.30
-    me["sessions"] = 1000
-    card = _gap_card(kind="no_attempt_gap", me=me, peers_rates=peers, rate_key="no_attempt_rate",
-                     f=JAN[0], t=JAN[1], title_fa="x", diagnosis_fa="x", action_fa="x",
+    ctx = _ctx()  # real M1 Jan GMV is only 600,000
+    card = _gap_card(ctx, kind="no_attempt_gap", rate_key="no_attempt_rate",
+                     title_fa="x", diagnosis_fa="x", action_fa="x",
                      effort="medium", metric_id="no_attempt_rate")
-    assert card is not None and card["capped"]
-    assert card["impact_high"] <= me["gmv"]
+    assert card is not None
+    _apply_gmv_cap([card], ctx.me["gmv"])
+    assert card["capped"] and card["impact_high"] <= ctx.me["gmv"]
+
+
+def test_cap_covers_every_estimate_generator_not_just_the_peer_gap():
+    """The cap used to live inside one generator, so other kinds published estimates larger than
+    the merchant's entire realized GMV (ZB-006). The shared guard must clamp any rial estimate,
+    while leaving realized sums and count-denominated cards alone."""
+    gmv = 1_000_000
+    cards = [
+        {"kind": "high_value_friction", "card_type": "opportunity", "impact_low": 5_000_000,
+         "impact_high": 9_000_000, "impact_label_fa": "x"},
+        {"kind": "repeat_gap", "card_type": "opportunity", "impact_low": 1, "impact_high": 2_000_000,
+         "impact_mid": 1_500_000, "impact_label_fa": "x"},
+        {"kind": "paid_unverified", "card_type": "opportunity", "impact_low": 8_000_000,
+         "impact_high": 8_000_000, "impact_is_realized": True, "impact_label_fa": "x"},
+        {"kind": "psp_friction", "card_type": "opportunity", "impact_low": 10, "impact_high": 900,
+         "impact_is_count": True, "impact_label_fa": "x"},
+    ]
+    _apply_gmv_cap(cards, gmv)
+    by = {c["kind"]: c for c in cards}
+    assert by["high_value_friction"]["impact_high"] == gmv and by["high_value_friction"]["capped"]
+    assert by["repeat_gap"]["impact_high"] == gmv and by["repeat_gap"]["impact_mid"] <= gmv
+    assert by["paid_unverified"]["impact_high"] == 8_000_000 and not by["paid_unverified"]["capped"]
+    assert by["psp_friction"]["impact_high"] == 900 and not by["psp_friction"]["capped"]
+
+
+def test_format_impact_never_prints_a_count_as_rial():
+    """The copilot used to render transaction counts with a rial formatter (ZB-013)."""
+    count_card = {"impact_low": 10, "impact_high": 900, "impact_is_count": True, "impact_label_fa": "x"}
+    money_card = {"impact_low": 5_000_000, "impact_high": 9_000_000, "impact_label_fa": "x"}
+    assert "تراکنش" in format_impact(count_card) and "ریال" not in format_impact(count_card)
+    assert "ریال" in format_impact(money_card)
 
 
 def test_gap_below_2pp_yields_no_card():
-    me = period_agg("M1", *JAN)
-    me["m"] = "M1"
-    me["sessions"] = 1000
-    me["no_attempt_rate"] = 0.05
-    peers = [{"no_attempt_rate": r} for r in (0.04, 0.045, 0.05, 0.055, 0.06)]
-    assert _gap_card(kind="no_attempt_gap", me=me, peers_rates=peers, rate_key="no_attempt_rate",
-                     f=JAN[0], t=JAN[1], title_fa="x", diagnosis_fa="x", action_fa="x",
+    ctx = _ctx(na_rate=0.05, peers=(0.04, 0.045, 0.05, 0.055, 0.06))
+    assert _gap_card(ctx, kind="no_attempt_gap", rate_key="no_attempt_rate",
+                     title_fa="x", diagnosis_fa="x", action_fa="x",
                      effort="medium", metric_id="no_attempt_rate") is None
 
 

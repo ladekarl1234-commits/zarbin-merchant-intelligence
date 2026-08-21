@@ -108,27 +108,42 @@ export default function Copilot({ heroTitle, heroSub, glance, suggestions, place
             <div className="bubble bubble-q">{t.q}</div>
             {t.pending ? (
               <div className="bubble-pending">در حال محاسبه از داده‌های شما<span className="dots">…</span></div>
-            ) : (
-              <div className="bubble bubble-a num" aria-live="polite">
-                <p style={{ margin: 0 }}>{t.a!.answer_fa}</p>
-                <div className="ans-badges">
-                  {t.a!.source === "llm"
-                    ? <span className="chip chip-info">با کمک هوش مصنوعی</span>
-                    : <Term label={<span className="src-chip"><span className="dot" />محاسبه قطعی از داده شما</span>} tip="deterministic" />}
-                  {t.a!.fallback && <span className="chip chip-warn">پاسخ قطعی جایگزین شد</span>}
-                  {t.a!.confidence && <ConfChip level={t.a!.confidence} />}
-                </div>
-                <div className="ans-actions">
-                  {t.a!.evidence.length > 0 && <EvBtn title="پاسخ زرین‌بین" items={t.a!.evidence} label="این عدد از کجا آمد؟" />}
-                  {onFeedback && (
-                    <span className="vote" role="group" aria-label="آیا این پاسخ کمک کرد؟">
-                      <button type="button" className={`vote-btn ${t.vote === true ? "on" : ""}`} aria-pressed={t.vote === true} onClick={() => vote(t.id, true)} title="مفید بود">👍</button>
-                      <button type="button" className={`vote-btn ${t.vote === false ? "on" : ""}`} aria-pressed={t.vote === false} onClick={() => vote(t.id, false)} title="مفید نبود">👎</button>
-                    </span>
+            ) : (() => {
+              // ZB-032: the copilot used to answer a different question instead of admitting it
+              // didn't understand. `fallback` is the current backend intent; `out_of_scope` is the
+              // new one it's moving to (handle both). Lead with an explicit admission instead of a
+              // confidence chip that implies the (wrong) answer is trustworthy.
+              const outOfScope = t.a!.intent === "fallback" || t.a!.intent === "out_of_scope";
+              return (
+                <div className="bubble bubble-a num" aria-live="polite">
+                  {outOfScope && <p style={{ margin: "0 0 6px", fontWeight: 700 }}>سوال شما را دقیق متوجه نشدم.</p>}
+                  <p style={{ margin: 0 }}>{t.a!.answer_fa}</p>
+                  <div className="ans-badges">
+                    {t.a!.source === "llm"
+                      ? <span className="chip chip-info">با کمک هوش مصنوعی</span>
+                      : <Term label={<span className="src-chip"><span className="dot" />محاسبه قطعی از داده شما</span>} tip="deterministic" />}
+                    {t.a!.fallback && <span className="chip chip-warn">پاسخ قطعی جایگزین شد</span>}
+                    {!outOfScope && t.a!.confidence && <ConfChip level={t.a!.confidence} />}
+                  </div>
+                  {outOfScope && suggestions.length > 0 && (
+                    <div className="suggest" style={{ marginTop: 10 }}>
+                      {suggestions.slice(0, 4).map((p) => (
+                        <button key={p.q} type="button" onClick={() => run(p.q)}>{p.q}</button>
+                      ))}
+                    </div>
                   )}
+                  <div className="ans-actions">
+                    {t.a!.evidence.length > 0 && <EvBtn title="پاسخ زرین‌بین" items={t.a!.evidence} label="این عدد از کجا آمد؟" />}
+                    {onFeedback && (
+                      <span className="vote" role="group" aria-label="آیا این پاسخ کمک کرد؟">
+                        <button type="button" className={`vote-btn ${t.vote === true ? "on" : ""}`} aria-pressed={t.vote === true} onClick={() => vote(t.id, true)} title="مفید بود">👍</button>
+                        <button type="button" className={`vote-btn ${t.vote === false ? "on" : ""}`} aria-pressed={t.vote === false} onClick={() => vote(t.id, false)} title="مفید نبود">👎</button>
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         ))}
         <div ref={bottomRef} />

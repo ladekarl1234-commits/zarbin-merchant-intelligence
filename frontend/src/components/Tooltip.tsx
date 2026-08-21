@@ -28,11 +28,18 @@ export const TIPS: Record<string, Tip> = {
   p95: { title: "زمان پاسخ ۹۵٪ درخواست‌ها", what: "۹۵ درصد درخواست‌ها سریع‌تر از این زمان پاسخ گرفته‌اند.", why: "میانگین، کندی‌های واقعی را پنهان می‌کند؛ p95 تجربه بدترین‌ها را نشان می‌دهد.", how: "اگر بالا رفت، دنبال یک endpoint یا کوئری کند بگردید." },
 };
 
+// Popover is min(300px, 86vw) wide (see .tip-pop). ZB-033: this used to compute a physical
+// "distance from the right viewport edge" and then apply it to `insetInlineEnd`, a LOGICAL
+// property — in this RTL app insetInlineEnd maps to the physical LEFT edge, so the popover
+// mirrored off-screen. Fix: compute and apply a physical `left`, which is direction-agnostic
+// for a position:fixed element, and clamp it against both viewport edges.
+const POP_W = 300;
 function pos(el: HTMLElement) {
   const r = el.getBoundingClientRect();
   const top = Math.min(window.innerHeight - 230, r.bottom + 10);
-  const right = Math.max(12, Math.min(window.innerWidth - 320, window.innerWidth - r.right - 150 + r.width / 2));
-  return { top, right };
+  const idealLeft = r.left + r.width / 2 - POP_W / 2;
+  const left = Math.max(12, Math.min(window.innerWidth - POP_W - 12, idealLeft));
+  return { top, left };
 }
 
 /** A term with a progressive-disclosure tooltip. Opens on hover, keyboard focus, and tap.
@@ -40,7 +47,7 @@ function pos(el: HTMLElement) {
 export function Term({ label, tip }: { label: React.ReactNode; tip: Tip | string }) {
   const rich: Tip | undefined = typeof tip === "string" ? TIPS[tip] : tip;
   const simple = typeof tip === "string" && !rich ? tip : null;
-  const [box, setBox] = useState<{ top: number; right: number } | null>(null);
+  const [box, setBox] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
   const popId = useId();
   const open = () => ref.current && setBox(pos(ref.current));
@@ -61,7 +68,7 @@ export function Term({ label, tip }: { label: React.ReactNode; tip: Tip | string
             onClick={() => (box ? close() : open())}
             onKeyDown={(e) => { if (e.key === "Escape") close(); }}>{label}</span>
       {box && createPortal(
-        <div id={popId} className="tip-pop" role="tooltip" style={{ top: box.top, insetInlineEnd: box.right }}>
+        <div id={popId} className="tip-pop" role="tooltip" style={{ top: box.top, left: box.left }}>
           {rich ? (
             <>
               <div className="tt">{rich.title}</div>

@@ -15,6 +15,8 @@ type Ctx = {
   openEvidence: (title: string, items: Evidence[], sampleOutcome?: string) => void;
   drawer: { title: string; items: Evidence[]; sampleOutcome?: string } | null;
   closeEvidence: () => void;
+  metaError: string | null;
+  retryMeta: () => void;
 };
 
 const AppCtx = createContext<Ctx>(null as unknown as Ctx);
@@ -31,14 +33,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [merchant, setMerchant] = useState<string>("");
   const [presetId, setPresetId] = useState("all");
   const [drawer, setDrawer] = useState<Ctx["drawer"]>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
+  const [metaTick, setMetaTick] = useState(0);
 
+  // ZB-022: a failed bootstrap used to leave every merchant page in a permanent skeleton
+  // (useData bails out silently while `merchant` is still ""). Surface the error and let the
+  // caller retry instead.
   useEffect(() => {
+    setMetaError(null);
     get<Meta>("meta", {}).then((m) => {
       setMeta(m);
       const first = m.demo[0]?.merchant_key ?? m.merchants[0]?.merchant_key;
       if (first) setMerchant((cur) => cur || first);
-    });
-  }, []);
+    }).catch((e) => setMetaError(String(e)));
+  }, [metaTick]);
+  const retryMeta = useCallback(() => setMetaTick((t) => t + 1), []);
 
   const presets = useMemo(() => [
     { id: "all", label: "کل دوره (۶ ماه)", short: "کل دوره" },
@@ -67,25 +76,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(() => ({
     meta, merchant, setMerchant, period, presetId, setPresetId, presets,
-    openEvidence, drawer, closeEvidence,
-  }), [meta, merchant, period, presetId, presets, openEvidence, drawer, closeEvidence]);
+    openEvidence, drawer, closeEvidence, metaError, retryMeta,
+  }), [meta, merchant, period, presetId, presets, openEvidence, drawer, closeEvidence, metaError, retryMeta]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }
 
 /** Control-Center fetching. `usePeriod` sends the selected window (platform/sources);
  *  global telemetry endpoints (performance/ai-ops/eval) omit it. */
-export function useAdmin<T>(path: string, opts?: { usePeriod?: boolean }) {
+export function useAdmin<T>(path: string, opts?: { usePeriod?: boolean; extra?: Record<string, string | undefined> }) {
   const { period } = useApp();
   const [state, setState] = useState<{ data: T | null; loading: boolean; error: string | null }>({
     data: null, loading: true, error: null,
   });
   const usePeriod = opts?.usePeriod ?? false;
-  const key = JSON.stringify([path, usePeriod ? [period.f, period.t] : null]);
+  const extra = opts?.extra;
+  const key = JSON.stringify([path, usePeriod ? [period.f, period.t] : null, extra ?? null]);
   useEffect(() => {
     let alive = true;
     setState((s) => ({ ...s, loading: true, error: null }));
-    get<T>(path, usePeriod ? { f: period.f, t: period.t } : {})
+    get<T>(path, { ...(usePeriod ? { f: period.f, t: period.t } : {}), ...(extra ?? {}) })
       .then((d) => alive && setState({ data: d, loading: false, error: null }))
       .catch((e) => alive && setState({ data: null, loading: false, error: String(e) }));
     return () => { alive = false; };

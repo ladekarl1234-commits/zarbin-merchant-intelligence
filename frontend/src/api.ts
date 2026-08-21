@@ -161,7 +161,12 @@ export async function get<T>(path: string, params: Record<string, string | undef
                              method: "GET" | "POST" = "GET"): Promise<T> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v != null && v !== "") qs.set(k, v);
-  const res = await fetch(`/api/${path}?${qs}`, { method });
+  const headers: Record<string, string> = {};
+  try {
+    const token = sessionStorage.getItem("zb_token");
+    if (token) headers.Authorization = `Bearer ${token}`;
+  } catch { /* storage blocked */ }
+  const res = await fetch(`/api/${path}?${qs}`, { method, headers });
   if (!res.ok) throw new Error(`${path}: ${res.status}`);
   return res.json();
 }

@@ -46,6 +46,11 @@ LENS_TITLE = {
 }
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 SEV_LABEL = {"critical": "CRITICAL", "high": "HIGH", "medium": "MEDIUM", "low": "LOW"}
+
+# Findings remediated in the repository after the audit. Keeping this list here (rather than
+# editing the archived findings) preserves the audit as a point-in-time record while letting the
+# generated documents show current status.
+FIXED = {f"ZB-{n:03d}" for n in range(1, 45)} | {"ZB-120"}
 # why an issue carries no verdict — depends on severity, so it is never self-contradictory
 NOT_VERIFIED_MEDLOW = "not verified (the pass covered critical/high only)"
 NOT_VERIFIED_CAPPED = "not verified (missed by the per-lens cap of four verifications)"
@@ -464,17 +469,21 @@ def render(a: dict) -> None:
       f"{len(all_issues)} findings — observed evidence,\nimpact, recommended fix — is in "
       "**[EXPERT_REVIEW_ISSUES.md](EXPERT_REVIEW_ISSUES.md)**; machine-readable data in\n"
       "[`expert_review_findings.json`](expert_review_findings.json).\n")
-    w("| ID | Sev | Issue | Lens | Effort | Verified |")
-    w("|---|---|---|---|---|---|")
+    w("| ID | Sev | Issue | Lens | Effort | Verified | Status |")
+    w("|---|---|---|---|---|---|---|")
     for f in all_issues:
         if f["severity"] not in ("critical", "high"):
             continue
         t = f["title"].replace("|", "/")
         v = ("confirmed" if f["verification"].startswith("CONFIRMED")
              else "refuted" if f["verification"].startswith("REFUTED") else "**not verified**")
+        st = "✅ fixed" if f["id"] in FIXED else "open"
         w(f"| [{f['id']}](EXPERT_REVIEW_ISSUES.md#{f['id'].lower()}) | {SEV_LABEL[f['severity']]} | {t} | "
-          f"`{f['lens']}` | {f.get('effort') or '—'} | {v} |")
+          f"`{f['lens']}` | {f.get('effort') or '—'} | {v} | {st} |")
     w("")
+    w(f"**Remediation status:** {len(FIXED)} of these {len(serious) + len(addendum)} critical/high findings "
+      "are fixed in the current `main`; see the commit trail and the regression tests named in each\n"
+      "issue's entry. Medium/low findings are not yet triaged.\n")
     w(f"Medium and low findings ({sc['medium']} + {sc['low']}) are documented in the same register.\n")
     w("> **Note on ZB-006's wording above:** the title is the reviewing agent's own text, preserved\n"
       "> verbatim. Its \"one of four opportunity generators\" and \"108%\" were refined by later direct\n"
@@ -516,6 +525,8 @@ def render(a: dict) -> None:
         if f.get("effort"):
             meta.append(f"**Effort:** {f['effort']}")
         meta.append(f"**Verification:** {f['verification']}")
+        if f["id"] in FIXED:
+            meta.append("**Status:** ✅ fixed in `main`")
         rw(" · ".join(meta) + "\n")
         rw(f"- **Where:** {f['location']}")
         rw(f"- **Observed:** {f['evidence']}")

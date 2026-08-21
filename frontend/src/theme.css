@@ -10,8 +10,8 @@
   --surface-3: #f4f4f6;
   --ink: #16161d;
   --ink-2: #4b4d59;
-  --ink-3: #7c7e8a;
-  --ink-4: #a0a2ac;
+  --ink-3: #5f616c;            /* ZB-035: darkened from #7c7e8a — 5.70:1 on --bg, 6.15:1 on --surface (was 3.73/4.03, failed AA) */
+  --ink-4: #6b6d78;            /* ZB-035: decorative-only now (icons/dividers); darkened from #a0a2ac (2.35/2.54:1) to 4.76/5.14:1 as a safety margin — do not use for text */
   --line: #e7e7ea;
   --line-2: #efeff2;
   --line-3: #d8d9de;
@@ -23,7 +23,7 @@
   --blue-hover: #1826b8;
   --blue-2: #2029e8;           /* logo circle, data bars */
   /* semantic */
-  --good: #0d8a5f; --good-bg: #e7f6f0;
+  --good: #0a6f4d; --good-bg: #e7f6f0;  /* ZB-035: darkened from #0d8a5f — 5.55:1 on --good-bg (was 3.91:1, failed AA) */
   --bad: #c43a26;  --bad-bg: #fdeeec;
   --warn: #8a6100; --warn-bg: #fff6d6; --warn-soft: #fffbe8; --warn-line: #f0e2a8;
   /* shape */
@@ -83,7 +83,7 @@ input:focus, button:focus-visible, a:focus-visible {
 .side-brand .name { font-weight: 900; font-size: 1.02rem; line-height: 1.25; }
 .side-brand .sub { font-size: 0.68rem; color: var(--ink-3); }
 .side-nav { padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; }
-.side-head { font-size: 0.68rem; font-weight: 700; color: var(--ink-4); padding: 14px 10px 4px; letter-spacing: 0.02em; }
+.side-head { font-size: 0.68rem; font-weight: 700; color: var(--ink-3); padding: 14px 10px 4px; letter-spacing: 0.02em; }
 .side-item {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: start;
   background: none; border: 0; border-radius: var(--r-m); padding: 9px 12px;
@@ -139,7 +139,7 @@ input:focus, button:focus-visible, a:focus-visible {
 }
 .bn-item {
   background: none; border: 0; padding: 8px 1px 7px; display: flex; flex-direction: column;
-  align-items: center; gap: 2px; font-size: 9.5px; min-height: 52px; color: var(--ink-4); font-weight: 500; min-width: 0;
+  align-items: center; gap: 2px; font-size: 10.5px; min-height: 52px; color: var(--ink-3); font-weight: 500; min-width: 0;
 }
 .bn-item svg { width: 20px; height: 20px; }
 .bn-item[aria-current="page"] { color: var(--ink); font-weight: 800; }
@@ -170,7 +170,7 @@ input:focus, button:focus-visible, a:focus-visible {
 .role-pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line);
   border-radius: 999px; padding: 4px 12px; font-size: 0.72rem; font-weight: 600; background: var(--surface-2); }
 .role-pill .dot { width: 7px; height: 7px; border-radius: 50%; }
-.login-foot { text-align: center; font-size: 0.72rem; color: var(--ink-4); margin-top: 16px; }
+.login-foot { text-align: center; font-size: 0.72rem; color: var(--ink-3); margin-top: 16px; }
 
 /* ---------- buttons ---------- */
 .btn {
@@ -203,10 +203,11 @@ input:focus, button:focus-visible, a:focus-visible {
 .chip-info { background: #eef0ff; color: var(--blue); }
 .chip-mute { background: var(--surface-3); color: var(--ink-2); }
 
-.ev-btn { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 0;
+.ev-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: none; border: 0;
+  padding: 2px; min-width: 24px; min-height: 24px; border-radius: var(--r-s);
   color: var(--blue); font: inherit; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
 .ev-btn:hover { text-decoration: underline; }
-.ev-btn svg { width: 13px; height: 13px; }
+.ev-btn svg { width: 15px; height: 15px; }
 
 /* stat strip */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -279,6 +280,9 @@ input:focus, button:focus-visible, a:focus-visible {
 .heat-legend { display: flex; gap: 10px; align-items: center; font-size: var(--fs-xs); color: var(--ink-3); margin-top: 6px; }
 .cohort { display: grid; gap: 3px; font-size: var(--fs-xs); direction: ltr; }
 .cohort .cell { border-radius: 4px; padding: 4px 2px; text-align: center; min-width: 34px; }
+.cohort-legend { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--ink-3); margin-top: 8px; direction: ltr; }
+.cohort-legend .ramp { display: flex; height: 10px; width: 90px; border-radius: 4px; overflow: hidden; border: 1px solid var(--line-2); }
+.cohort-legend .ramp span { flex: 1; }
 .wf-row { display: grid; grid-template-columns: minmax(110px, 150px) 1fr auto; align-items: center; gap: 12px; padding: 7px 0; font-size: 0.82rem; }
 .wf-track { position: relative; height: 20px; background: var(--surface-3); border-radius: 6px; }
 .wf-bar { position: absolute; top: 3px; bottom: 3px; border-radius: 4px; }
@@ -322,9 +326,12 @@ input:focus, button:focus-visible, a:focus-visible {
 
 .composer { position: sticky; bottom: 12px; margin-top: 24px; }
 .composer form { display: flex; gap: 8px; background: var(--surface); border: 1.5px solid #e0e0e5; border-radius: 16px;
-  padding: 8px; box-shadow: 0 8px 30px rgb(22 22 29 / 0.08); align-items: center; }
+  padding: 8px; box-shadow: 0 8px 30px rgb(22 22 29 / 0.08); align-items: center;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.composer form:focus-within { border-color: var(--blue); box-shadow: 0 8px 30px rgb(22 22 29 / 0.08), 0 0 0 2px #2333e04d; }
 .composer input { flex: 1; border: 0; font: inherit; font-size: 0.9rem; background: none; color: var(--ink);
-  min-width: 0; padding: 0 6px; outline: none; }
+  min-width: 0; padding: 0 6px; }
+.composer input:focus { outline: none; } /* focus ring shown on the enclosing pill instead — see .composer form:focus-within */
 .composer input::placeholder { color: var(--ink-3); }
 .mic { width: 40px; height: 40px; border: 0; background: var(--surface-3); border-radius: 11px;
   display: grid; place-items: center; cursor: pointer; flex-shrink: 0; color: var(--ink-2); }
@@ -336,7 +343,7 @@ input:focus, button:focus-visible, a:focus-visible {
   padding: 9px 20px; font: inherit; font-size: 0.86rem; font-weight: 800; cursor: pointer; flex-shrink: 0; }
 .composer-send:hover { background: var(--brand-hover); }
 .composer-send:disabled { opacity: 0.5; }
-.composer-note { text-align: center; font-size: 0.68rem; color: var(--ink-4); margin: 8px 0 0; }
+.composer-note { text-align: center; font-size: 0.68rem; color: var(--ink-3); margin: 8px 0 0; }
 .suggest { display: flex; flex-wrap: wrap; gap: 8px; }
 .suggest button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
   padding: 6px 14px; font-size: var(--fs-xs); color: var(--ink-2); cursor: pointer; }
@@ -386,7 +393,7 @@ input:focus, button:focus-visible, a:focus-visible {
 
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
 
-.footer-note { color: var(--ink-4); font-size: var(--fs-xs); padding: 20px; text-align: center; }
+.footer-note { color: var(--ink-3); font-size: var(--fs-xs); padding: 20px; text-align: center; }
 
 /* ---------- Control Center primitives ---------- */
 .ops-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 14px 16px; box-shadow: var(--shadow-1); }
@@ -430,7 +437,7 @@ input:focus, button:focus-visible, a:focus-visible {
 .entry-arrow { color: var(--ink-4); font-size: 1.1rem; flex-shrink: 0; }
 .entry-card:hover .entry-arrow { color: var(--ink-2); }
 
-@media (pointer: coarse) { .btn, .field, .composer-send, .mic { min-height: 44px; } }
+@media (pointer: coarse) { .btn, .field, .composer-send, .mic, .ev-btn, .seg button, .vote-btn { min-height: 44px; } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

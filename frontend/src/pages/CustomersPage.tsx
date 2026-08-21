@@ -3,6 +3,7 @@ import { useApp, useData } from "../ctx";
 import { faNum, pct, rial } from "../fmt";
 import { CohortGrid } from "../components/charts";
 import { Empty, EvBtn, Loading, Section } from "../components/ui";
+import { Term } from "../components/Tooltip";
 
 export default function CustomersPage() {
   const { meta } = useApp();
@@ -31,7 +32,7 @@ export default function CustomersPage() {
 
       <div className="stats">
         <div className="stat">
-          <span className="k">مشتریان این دوره <EvBtn title="مشتریان" items={[d.evidence.customers]} label="" /></span>
+          <span className="k"><Term label="مشتریان این دوره" tip="customers" /> <EvBtn title="مشتریان" items={[d.evidence.customers]} label="" /></span>
           <div className="v num">{faNum(s.customers)}</div>
           <span className="d num" style={{ color: "var(--ink-3)" }}>{faNum(s.new_customers)} مشتری جدید</span>
         </div>
@@ -45,7 +46,7 @@ export default function CustomersPage() {
           <div className="v num">{pct(repeatGmvShare)}</div>
         </div>
         <div className="stat">
-          <span className="k">میانه فاصله بین دو خرید <span className="chip chip-mute" style={{ fontSize: 9 }}>کل بازه</span></span>
+          <span className="k"><Term label="میانه فاصله بین دو خرید" tip="median" /> <span className="chip chip-mute" style={{ fontSize: 9 }}>کل بازه</span></span>
           <div className="v num">{d.interval.median_days != null ? `${faNum(Math.round(d.interval.median_days))}` : "—"}<span className="u">روز</span></div>
         </div>
       </div>
@@ -57,7 +58,7 @@ export default function CustomersPage() {
         </p>
       )}
 
-      <Section title="بازگشت مشتریان (کوهورت ماهانه)"
+      <Section title={<Term label="بازگشت مشتریان (کوهورت ماهانه)" tip="cohort" />}
                sub="روی کل بازه داده محاسبه می‌شود (نه فقط دوره انتخابی). هر ردیف: مشتریانی که اولین خرید موفقشان در آن ماه بود؛ ستون‌های بعدی سهم بازگشت آن‌ها در ماه‌های بعد.">
         {d.cohorts.length >= 2 ? (
           <div className="card" style={{ padding: 18 }}>

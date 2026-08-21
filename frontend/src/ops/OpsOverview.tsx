@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { AdminPlatform } from "../api";
 import { useApp, useAdmin } from "../ctx";
 import { faNum, pct, rial } from "../fmt";
@@ -5,9 +6,25 @@ import { Empty, Loading, Section } from "../components/ui";
 
 const SEV: Record<string, string> = { high: "chip-bad", medium: "chip-warn", low: "chip-mute" };
 
+// ZB-026: Control Center had no way to drill down from platform-level KPIs to the merchants
+// behind them. Contract (may 404 until the backend agent ships it — handled gracefully below).
+type MerchantRow = {
+  merchant_key: string; category_title: string; sessions: number; gmv: number;
+  paid_unverified_amount: number; paid_unverified: number; no_attempt_rate: number | null; recovered_gmv: number;
+};
+type MerchantsResp = { rows: MerchantRow[] };
+const SORTS: { id: string; label: string }[] = [
+  { id: "unverified", label: "تاییدنشده" },
+  { id: "no_attempt", label: "بدون اقدام" },
+  { id: "gmv", label: "فروش موفق" },
+  { id: "recovered", label: "بازیابی‌شده" },
+];
+
 export default function OpsOverview() {
   const { period } = useApp();
   const p = useAdmin<AdminPlatform>("admin/platform", { usePeriod: true });
+  const [sort, setSort] = useState<string>("gmv");
+  const merchants = useAdmin<MerchantsResp>("admin/merchants", { usePeriod: true, extra: { sort, limit: "20" } });
 
   if (p.loading) return <Loading rows={3} />;
   if (p.error || !p.data) return <Empty title="خطا در دریافت داده پلتفرم" body={p.error ?? ""} />;
@@ -74,6 +91,43 @@ export default function OpsOverview() {
           تمرکز: ۵ پذیرندهٔ برتر {pct(p.data.concentration.top5_share)} از فروش موفق · ناهنجاری‌ها:
           {" "}{faNum(p.data.anomalies.reversed_sessions)} جلسهٔ Reversed، {faNum(p.data.anomalies.verified_wo_ok_try)} جلسهٔ موفق بدون تلاش موفق (مستند در کیفیت داده).
         </p>
+      </Section>
+
+      <Section title="پذیرندگان" sub="پذیرندگانی که بیشترین نیاز به پیگیری یا بیشترین سهم را دارند.">
+        <div className="seg" role="group" aria-label="ترتیب فهرست پذیرندگان" style={{ marginBottom: 10 }}>
+          {SORTS.map((s) => (
+            <button key={s.id} aria-pressed={s.id === sort} onClick={() => setSort(s.id)}>{s.label}</button>
+          ))}
+        </div>
+        <div className="card tbl-wrap">
+          {merchants.loading ? <Loading rows={2} /> : merchants.error || !merchants.data?.rows.length ? (
+            <Empty title="فهرست پذیرندگان در دسترس نیست" body={merchants.error ?? "داده‌ای برای این بازه و ترتیب یافت نشد."} />
+          ) : (
+            <table className="tbl num">
+              <thead>
+                <tr>
+                  <th>پذیرنده</th><th>صنف</th><th>جلسه‌ها</th><th>فروش موفق</th>
+                  <th>تسویه‌شده تاییدنشده</th><th>انصراف پیش از پرداخت</th><th>نجات با تلاش مجدد</th>
+                </tr>
+              </thead>
+              <tbody>
+                {merchants.data.rows.map((r) => (
+                  <tr key={r.merchant_key}>
+                    <td>{r.merchant_key}</td>
+                    <td>{r.category_title}</td>
+                    <td>{faNum(r.sessions)}</td>
+                    <td>{rial(r.gmv, false)}</td>
+                    <td>{rial(r.paid_unverified_amount, false)}
+                      <span style={{ color: "var(--ink-3)" }}> ({faNum(r.paid_unverified)})</span>
+                    </td>
+                    <td>{pct(r.no_attempt_rate)}</td>
+                    <td>{rial(r.recovered_gmv, false)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </Section>
     </>
   );

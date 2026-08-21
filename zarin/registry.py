@@ -71,9 +71,17 @@ _M = [
            ("اگر تعداد همتایان کافی نباشد این مقایسه نمایش داده نمی‌شود.",)),
     Metric("gmv_decomposition", "تجزیه تغییر فروش", "تجزیه دقیق تغییر GMV به سه عامل: تعداد جلسه‌ها، نرخ تبدیل و مبلغ متوسط، با روش میانگین لگاریتمی (LMDI) که مجموع سهم‌ها دقیقاً برابر کل تغییر است.",
            "ΔGMV = Σ L(G₂,G₁)·ln(fᵢ₂/fᵢ₁)", "merchant-period"),
-    Metric("opportunity", "فرصت قابل بازیابی", "برآورد بازه‌ای ارزش قابل بازیابی: جلسه‌های در معرض × شکاف تا خط پایه همتایان × نرخ تبدیل و تیکت خود پذیرنده. جمع سادهٔ مبالغ ناموفق نیست.",
-           "excess_rate × sessions × conv(own) × median_ticket(own)", "merchant-period",
-           ("بازه از خط پایه میانه (کف) و چارک برتر (سقف) همتایان ساخته می‌شود؛ ادعای علیت ندارد.",)),
+    # The formula string below is what the evidence drawer prints next to the number. It MUST stay
+    # identical to what insights._gap_card actually computes — it previously described an older
+    # estimator (conv(own) × ticket(own), p25/p75 band) that the code had stopped using, so the
+    # drawer contradicted the computation printed beside it (ZB-007/ZB-011/ZB-014/ZB-017).
+    Metric("opportunity", "فرصت قابل بازیابی",
+           "برآورد سناریویی ارزش قابل بازیابی: شکاف نرخ شما تا میانهٔ همتایان × تعداد جلسه‌ها × سهمی از شکاف که واقعاً بسته می‌شود × میانهٔ مبلغ همان جلسه‌های ازدست‌رفته. جمع سادهٔ مبالغ ناموفق نیست.",
+           "(your_rate − peer_median) × sessions × recovery_fraction[0.5 … 0.75 … 1.0] × median_ticket(lost outcome)",
+           "merchant-period",
+           ("بازه، سناریوی محافظه‌کارانه تا خوش‌بینانه است (چه سهمی از شکاف بسته می‌شود) و بازه اطمینان آماری نیست.",
+            "هر برآورد ریالی حداکثر تا کل فروش موفق همان دوره سقف‌گذاری می‌شود؛ اگر سقف بخورد با برچسب «سقف واقع‌بینانه» نشان داده می‌شود.",
+            "ادعای علیت ندارد: شکاف با همتایان هم‌زمانی است، نه اثبات علت.")),
 ]
 
 REGISTRY: dict[str, Metric] = {m.id: m for m in _M}

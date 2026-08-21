@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { get } from "../api";
 import { IconHome, IconServer, ZMark } from "../components/ui";
 
 type WS = "merchant" | "ops";
@@ -80,7 +81,16 @@ export default function Login({ onLogin }: { onLogin: (ws: WS) => void }) {
                 <p className="login-note">با حساب زرین‌پال خود وارد شوید؛ نیازی به ثبت‌نام جداگانه نیست.</p>
               </form>
             ) : (
-              <form onSubmit={(e) => { e.preventDefault(); onLogin(target); }}>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                // Auth contract with the backend: exchange the completed (demo) login for a
+                // session token. The endpoint may not exist yet in the challenge build — the demo
+                // must keep working either way, so failures are ignored silently.
+                get<{ token?: string }>("auth/session", { scope: target }, "POST")
+                  .then((r) => { if (r?.token) { try { sessionStorage.setItem("zb_token", r.token); } catch { /* storage blocked */ } } })
+                  .catch(() => {});
+                onLogin(target);
+              }}>
                 <p style={{ margin: "0 0 14px", fontSize: "0.85rem", color: "var(--ink-2)", textAlign: "center" }}>
                   کد ۵ رقمی پیامک‌شده به <b dir="ltr" className="num">{phoneShown}</b> را وارد کنید
                 </p>

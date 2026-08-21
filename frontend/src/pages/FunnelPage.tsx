@@ -3,14 +3,16 @@ import { useData } from "../ctx";
 import { faNum, pct, rial } from "../fmt";
 import { FunnelViz, HourHeat } from "../components/charts";
 import { Empty, EvBtn, Loading, Section } from "../components/ui";
+import { Term, TIPS } from "../components/Tooltip";
 
-const OUTCOME_META: [string, string, string, string][] = [
-  ["verified", "تایید نهایی", "chip-good", "verified"],
-  ["paid_unverified", "تسویه‌شده بدون تایید", "chip-warn", "paid_unverified"],
-  ["no_attempt", "بدون اقدام به پرداخت", "chip-mute", "no_attempt"],
-  ["abandoned_inbank", "رهاشده در بانک", "chip-bad", "abandoned_inbank"],
-  ["failed_bank", "خطای صریح بانکی", "chip-bad", "failed_bank"],
-  ["reversed", "برگشت‌خورده", "chip-mute", "reversed"],
+// [outcome key, visible label, chip class, evidence sample-outcome, TIPS key]
+const OUTCOME_META: [string, string, string, string, keyof typeof TIPS][] = [
+  ["verified", "تایید نهایی", "chip-good", "verified", "verified"],
+  ["paid_unverified", "تسویه‌شده بدون تایید", "chip-warn", "paid_unverified", "paid"],
+  ["no_attempt", "بدون اقدام به پرداخت", "chip-mute", "no_attempt", "noattempt"],
+  ["abandoned_inbank", "رهاشده در بانک", "chip-bad", "abandoned_inbank", "inbank"],
+  ["failed_bank", "خطای صریح بانکی", "chip-bad", "failed_bank", "failedbank"],
+  ["reversed", "برگشت‌خورده", "chip-mute", "reversed", "reversed"],
 ];
 
 export default function FunnelPage() {
@@ -27,9 +29,9 @@ export default function FunnelPage() {
           <FunnelViz stages={d.stages} />
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, alignItems: "center" }}>
             {OUTCOME_META.filter(([key]) => key !== "reversed" || (d.outcomes[key] ?? 0) > 0)
-              .map(([key, label, cls]) => (
+              .map(([key, label, cls, , tip]) => (
                 <span className={`chip ${cls}`} key={key}>
-                  {label} —&nbsp;<b className="num">{pct((d.outcomes[key] ?? 0) / total)}</b>
+                  <Term label={label} tip={tip} /> —&nbsp;<b className="num">{pct((d.outcomes[key] ?? 0) / total)}</b>
                   <span className="num" style={{ opacity: 0.75 }}>&nbsp;({faNum(d.outcomes[key] ?? 0)} جلسه)</span>
                 </span>
               ))}
@@ -53,6 +55,9 @@ export default function FunnelPage() {
               <b className="num" style={{ fontSize: "var(--fs-l)" }}>{pct(d.rates.conv)}</b>
             </div>
             <hr style={{ border: 0, borderTop: "1px solid var(--line)" }} />
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+              <Term label="بازیابی با تلاش مجدد" tip="recovery" />
+            </div>
             <p style={{ fontSize: "var(--fs-s)", color: "var(--ink-2)" }}>
               از <b className="num">{faNum(d.recovery.first_fail_pool)}</b> جلسه با تلاش اولِ ناموفق،{" "}
               <b className="num">{faNum(d.recovery.recovered)}</b> جلسه ({pct(d.recovery.recovery_rate)}) در نهایت موفق شد و{" "}
@@ -94,7 +99,7 @@ export default function FunnelPage() {
       </Section>
 
       <div className="grid-2">
-        <Section title="عملکرد درگاه‌های پرداخت (PSP)" sub="نرخ موفقیت تلاش‌ها روی ترافیک خود شما. انتخاب PSP سمت زرین‌پال است؛ اگر شکاف بزرگ است با پشتیبانی مطرح کنید.">
+        <Section title={<Term label="عملکرد درگاه‌های پرداخت (PSP)" tip="psp" />} sub="نرخ موفقیت تلاش‌ها روی ترافیک خود شما. انتخاب PSP سمت زرین‌پال است؛ اگر شکاف بزرگ است با پشتیبانی مطرح کنید.">
           <div className="card tbl-wrap">
             {d.psp.length ? (
               <table className="tbl num">

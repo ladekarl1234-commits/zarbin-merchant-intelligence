@@ -35,7 +35,7 @@ export function ZMark({ size = 34 }: { size?: number }) {
   );
 }
 
-export function Section(p: { title: string; sub?: string; children: React.ReactNode }) {
+export function Section(p: { title: React.ReactNode; sub?: string; children: React.ReactNode }) {
   return (
     <section className="section">
       <h2>{p.title}</h2>
@@ -45,13 +45,15 @@ export function Section(p: { title: string; sub?: string; children: React.ReactN
   );
 }
 
-/** the signature affordance: «این عدد از کجا آمد؟» */
+/** the signature affordance: «این عدد از کجا آمد؟». When no visible label text is given
+ *  (icon-only KPI strips), falls back to a real ≥24×24 icon hit area instead of an empty,
+ *  zero-size button — the aria-label always carries the accessible name either way. */
 export function EvBtn(p: { title: string; items: Evidence[]; sampleOutcome?: string; label?: string }) {
   const { openEvidence } = useApp();
   return (
     <button type="button" className="ev-btn" onClick={() => openEvidence(p.title, p.items, p.sampleOutcome)}
             aria-label={`نحوه محاسبه ${p.title}`}>
-      {p.label ?? "محاسبه"}
+      {p.label || <IconSearch />}
     </button>
   );
 }

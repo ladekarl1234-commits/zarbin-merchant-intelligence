@@ -20,11 +20,22 @@ def record(method: str, path: str, status: int, latency_ms: float) -> None:
                "latency_ms": round(latency_ms, 2), "t": time.time()})
 
 
+def _trackable(path: str) -> bool:
+    return path.startswith("/api/") and not path.startswith("/api/docs") and path != "/api/openapi.json"
+
+
 async def middleware(request, call_next):
     t0 = time.perf_counter()
-    resp = await call_next(request)
     path = request.url.path
-    if path.startswith("/api/") and not path.startswith("/api/docs") and path != "/api/openapi.json":
+    try:
+        resp = await call_next(request)
+    except Exception:
+        # An unhandled exception never reaches call_next's return, so without this the
+        # request vanishes from telemetry and error_rate stays pinned at 0 (ZB-021).
+        if _trackable(path):
+            record(request.method, path, 500, (time.perf_counter() - t0) * 1000)
+        raise
+    if _trackable(path):
         record(request.method, path, resp.status_code, (time.perf_counter() - t0) * 1000)
     return resp
 

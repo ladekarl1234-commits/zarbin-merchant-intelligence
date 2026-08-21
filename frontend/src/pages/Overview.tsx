@@ -4,6 +4,13 @@ import { deltaPct, faNum, pct, rial } from "../fmt";
 import InsightCard from "../components/InsightCard";
 import { TrendChart } from "../components/charts";
 import { Empty, EvBtn, Loading, Section } from "../components/ui";
+import { Term } from "../components/Tooltip";
+
+// ZB-003: silence in a healthy account is fine to call good news; silence with real volume and
+// a poor funnel (low conversion) is not — this is a light client-side heuristic (conv is what the
+// overview KPIs already carry), not the backend's authoritative low-sample gate.
+const POOR_FUNNEL_MIN_SESSIONS = 30;
+const POOR_FUNNEL_CONV = 0.35;
 
 function Delta({ cur, prev, goodUp = true }: { cur: number | null; prev: number | null | undefined; goodUp?: boolean }) {
   if (prev == null) return null;
@@ -41,26 +48,26 @@ export default function Overview() {
 
       <div className="stats" role="list" aria-label="شاخص‌های کلیدی">
         <div className="stat" role="listitem">
-          <span className="k">فروش موفق <EvBtn title="فروش موفق" items={[ov.data.evidence.gmv]} sampleOutcome="verified" label="" /></span>
+          <span className="k"><Term label="فروش موفق" tip="gmv" /> <EvBtn title="فروش موفق" items={[ov.data.evidence.gmv]} sampleOutcome="verified" label="" /></span>
           <div className="v num">{rial(k.gmv, false)}<span className="u">ریال</span></div>
           <Delta cur={k.gmv} prev={p?.gmv} />
         </div>
         <div className="stat" role="listitem">
-          <span className="k">پرداخت موفق <EvBtn title="پرداخت‌های موفق" items={[ov.data.evidence.gmv]} sampleOutcome="verified" label="" /></span>
+          <span className="k"><Term label="پرداخت موفق" tip="verify" /> <EvBtn title="پرداخت‌های موفق" items={[ov.data.evidence.gmv]} sampleOutcome="verified" label="" /></span>
           <div className="v num">{faNum(k.verified)}</div>
           <Delta cur={k.verified} prev={p?.verified} />
         </div>
         <div className="stat" role="listitem">
-          <span className="k">نرخ تبدیل <EvBtn title="نرخ تبدیل" items={[ov.data.evidence.conv]} label="" /></span>
+          <span className="k"><Term label="نرخ تبدیل" tip="conv" /> <EvBtn title="نرخ تبدیل" items={[ov.data.evidence.conv]} label="" /></span>
           <div className="v num">{pct(k.conv)}</div>
           <Delta cur={k.conv} prev={p?.conv} />
         </div>
         <div className="stat" role="listitem">
-          <span className="k">میانه مبلغ تراکنش <EvBtn title="میانه مبلغ تراکنش" items={[ov.data.evidence.median_ticket]} sampleOutcome="verified" label="" /></span>
+          <span className="k"><Term label="میانه مبلغ تراکنش" tip="median" /> <EvBtn title="میانه مبلغ تراکنش" items={[ov.data.evidence.median_ticket]} sampleOutcome="verified" label="" /></span>
           <div className="v num">{rial(k.median_ticket, false)}<span className="u">ریال</span></div>
         </div>
         <div className="stat" role="listitem">
-          <span className="k">مشتریان پرداخت‌کننده <EvBtn title="مشتریان" items={[ov.data.evidence.customers]} sampleOutcome="verified" label="" /></span>
+          <span className="k"><Term label="مشتریان پرداخت‌کننده" tip="customers" /> <EvBtn title="مشتریان" items={[ov.data.evidence.customers]} sampleOutcome="verified" label="" /></span>
           <div className="v num">{faNum(k.customers)}</div>
         </div>
       </div>
@@ -75,8 +82,18 @@ export default function Overview() {
 
       <Section title="مهم‌ترین فرصت‌های شما" sub="رتبه‌بندی بر اساس اثر مالی × اطمینان ÷ زحمت اجرا. فقط مواردی که شواهد کافی دارند نمایش داده می‌شوند.">
         {ins.loading ? <Loading rows={2} /> : !ins.data?.cards.length ? (
-          <Empty title="فرصت قابل اتکایی پیدا نشد"
-                 body="در این دوره هیچ شکاف معناداری نسبت به همتایان یا خط پایه خودتان دیده نمی‌شود — این خودش خبر خوبی است." />
+          k.sessions >= POOR_FUNNEL_MIN_SESSIONS && k.conv != null && k.conv < POOR_FUNNEL_CONV ? (
+            <>
+              <Empty title="فرصت مشخصی برای پیشنهاد پیدا نشد، اما مسیر پرداخت شما ضعیف است"
+                     body={`نرخ تبدیل این دوره ${pct(k.conv)} است — این خودش خبر خوبی نیست. برای بررسی اینکه مشتری دقیقاً کجای مسیر از دست می‌رود، صفحه «مسیر پرداخت» را ببینید.`} />
+              <div style={{ marginTop: 10 }}>
+                <button type="button" className="btn" onClick={() => { location.hash = "#/funnel"; }}>مشاهده مسیر پرداخت</button>
+              </div>
+            </>
+          ) : (
+            <Empty title="فرصت قابل اتکایی پیدا نشد"
+                   body="در این دوره هیچ شکاف معناداری نسبت به همتایان یا خط پایه خودتان دیده نمی‌شود — این خودش نشانه خوبی است." />
+          )
         ) : (
           <div style={{ display: "grid", gap: 14 }}>
             {ins.data.cards.slice(0, 4).map((c, i) => <InsightCard key={c.id} card={c} rank={i + 1} />)}

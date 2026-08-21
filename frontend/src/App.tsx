@@ -59,7 +59,7 @@ function useRoute(): [string, (page: string) => void] {
 }
 
 function Shell({ workspace, onLogout }: { workspace: WS; onLogout: () => void }) {
-  const { meta, merchant, setMerchant, presetId, setPresetId, presets } = useApp();
+  const { meta, merchant, setMerchant, presetId, setPresetId, presets, metaError, retryMeta } = useApp();
   const ws = workspace;
   const [page, go] = useRoute();
   const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.innerWidth < 860);
@@ -68,6 +68,23 @@ function Shell({ workspace, onLogout }: { workspace: WS; onLogout: () => void })
     window.addEventListener("resize", on);
     return () => window.removeEventListener("resize", on);
   }, []);
+
+  // ZB-022: a merchant workspace is unusable without `meta` (no merchant to fetch data for) — show
+  // a retryable error instead of leaving every page stuck on an endless skeleton. Ops doesn't
+  // depend on meta at all, so it's unaffected.
+  if (ws === "merchant" && !meta && metaError) {
+    return (
+      <div style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 24 }}>
+        <div className="empty" style={{ maxWidth: 420 }} role="alert">
+          <b>خطا در بارگذاری اطلاعات اولیه</b>
+          مشکلی در ارتباط با سرور پیش آمد و اطلاعات پایه بارگذاری نشد.
+          <div style={{ marginTop: 12 }}>
+            <button type="button" className="btn btn-brand" onClick={retryMeta}>تلاش دوباره</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const nav = ws === "ops" ? OPS : MERCHANT;
   const items = nav.filter((n) => !n.header);
@@ -163,7 +180,7 @@ export default function App() {
   });
   const login = (ws: WS) => { try { sessionStorage.setItem("zb_ws", ws); } catch { /* storage blocked */ } setSession(ws); };
   const logout = () => {
-    try { sessionStorage.removeItem("zb_ws"); } catch { /* storage blocked */ }
+    try { sessionStorage.removeItem("zb_ws"); sessionStorage.removeItem("zb_token"); } catch { /* storage blocked */ }
     location.hash = "";
     setSession(null);
   };

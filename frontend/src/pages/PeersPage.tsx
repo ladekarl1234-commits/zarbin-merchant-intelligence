@@ -3,6 +3,7 @@ import { useData } from "../ctx";
 import { faNum, pct } from "../fmt";
 import { PercentileRow } from "../components/charts";
 import { Empty, EvBtn, Loading, Section } from "../components/ui";
+import { Term } from "../components/Tooltip";
 
 const METRIC_FA: Record<string, { name: string; hint: string }> = {
   conv: { name: "نرخ تبدیل نهایی", hint: "سهم جلسه‌هایی که به پرداخت موفق رسید" },
@@ -20,7 +21,7 @@ export default function PeersPage() {
 
   return (
     <>
-      <Section title="مقایسه با همتایان" sub="مقایسه فقط با پذیرندگانی که واقعاً شبیه شما هستند — نه میانگین کل بازار.">
+      <Section title={<Term label="مقایسه با همتایان" tip="peers" />} sub="مقایسه فقط با پذیرندگانی که واقعاً شبیه شما هستند — نه میانگین کل بازار.">
         <div className="card" style={{ padding: 20, marginBottom: 18 }}>
           <h3 style={{ fontSize: "var(--fs-m)", marginBottom: 6 }}>چرا این پذیرندگان همتای شما هستند؟</h3>
           <p style={{ fontSize: "var(--fs-s)", color: "var(--ink-2)" }}>{d.group.rule_fa}</p>
@@ -43,7 +44,7 @@ export default function PeersPage() {
               if (r.suppressed || r.percentile == null) {
                 return (
                   <div className="card" style={{ padding: "16px 20px" }} key={r.metric}>
-                    <b>{m.name}</b>
+                    <b>{r.metric === "conv" ? <Term label={m.name} tip="conv" /> : m.name}</b>
                     <p style={{ fontSize: "var(--fs-s)", color: "var(--ink-3)" }}>داده کافی برای این مقایسه وجود ندارد.</p>
                   </div>
                 );
@@ -53,7 +54,7 @@ export default function PeersPage() {
               return (
                 <div className="card" style={{ padding: "16px 20px", display: "grid", gap: 10 }} key={r.metric}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-                    <b>{m.name}</b>
+                    <b>{r.metric === "conv" ? <Term label={m.name} tip="conv" /> : m.name}</b>
                     <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{m.hint}</span>
                     <span className={`chip ${strong ? "chip-good" : weak ? "chip-bad" : "chip-mute"} num`} style={{ marginInlineStart: "auto" }}>
                       بهتر از {faNum(r.percentile)}٪ از {faNum(r.n_peers!)} همتا

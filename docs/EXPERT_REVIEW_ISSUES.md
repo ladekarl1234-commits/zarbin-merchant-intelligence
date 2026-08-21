@@ -19,7 +19,7 @@ overall assessment.
 
 ### ZB-001 · No authn/authz on any merchant data endpoint; tenant scoping is a client-supplied parameter
 
-**Lens:** `security` · **Severity:** CRITICAL · **Effort:** large · **Verification:** CONFIRMED
+**Lens:** `security` · **Severity:** CRITICAL · **Effort:** large · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/api.py:97-234 (all /api/* merchant routes); frontend/src/ctx.tsx:29-40 (merchant picker); frontend/src/pages/Login.tsx:83
 - **Observed:** `curl -s http://localhost:8630/api/meta` returns all merchants with GMV/session counts unauthenticated. `curl '.../api/evidence/sessions?m=M156&limit=2'` returns session-level rows (session_key, amount, outcome, PSP, statuses) for an arbitrary merchant key. The only gate is Login.tsx, which is pure frontend state: the OTP form's `onSubmit` calls `onLogin(target)` with no validation (even an empty code proceeds) and writes `sessionStorage.zb_ws`; no request ever carries a credential. README.md:144 describes this as "Single-tenant, no enforced auth (queries already scoped)" — scoping by an attacker-controllable `m` parameter is not authorization.
@@ -33,7 +33,7 @@ overall assessment.
 
 ### ZB-002 · Process-wide RLock serializes every DuckDB query — hard concurrency ceiling
 
-**Lens:** `scalability` · **Severity:** CRITICAL · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `scalability` · **Severity:** CRITICAL · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/db.py:14,63 (`_lock = threading.RLock()`, `with _lock:` in `q()`)
 - **Observed:** 8 parallel `curl /api/customers?m=M156`: individual `time_starttransfer` 0.38/0.49/0.64/0.78/0.98/1.25/1.31/1.38 s, wall 1,535 ms — a perfectly linear staircase matching 8 × the ~160 ms solo cost. Every `q()`/`q1()` holds one global lock, and every FastAPI route is a sync `def`, so the anyio threadpool provides no real parallelism.
@@ -51,7 +51,7 @@ What does not hold:
 
 ### ZB-003 · 37% of merchants see an empty dashboard; the empty state calls a broken funnel "good news"
 
-**Lens:** `business` · **Severity:** CRITICAL · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `business` · **Severity:** CRITICAL · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:135 (generate) + frontend/src/pages/Overview.tsx:77-80 (Empty state)
 - **Observed:** Ran generate() for all 343 merchants over the full period: 126 (37%) return zero cards, 193 (56%) return zero opportunity cards. Card-count histogram: {0:126, 1:89, 2:42, 3:40, 4:29, 5:13, 6:2, 7:2}. Thresholds cause it — MIN_SESSIONS_INSIGHT plus a ≥500-session peer pool (peers.py:17) that only 81 of 343 merchants clear, and ≥5 peers required per gap card. Worse, the empty state reads «فرصت قابل اتکایی پیدا نشد … این خودش خبر خوبی است» — yet M89 (63 sessions, 0% conversion, 78% no-attempt) and 12 other zero-card merchants with ≥50 sessions and <25% conversion get exactly that message.
@@ -63,7 +63,7 @@ What does not hold:
 
 ### ZB-004 · Grounding guard is digit-only: invented causality and advice pass verbatim
 
-**Lens:** `ai-grounding` · **Severity:** CRITICAL · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `ai-grounding` · **Severity:** CRITICAL · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/ai/gateway.py:56-60 (is_grounded), :99 (only gate before returning LLM text)
 - **Observed:** With a fake provider returning «افت فروش شما به دلیل کلاهبرداری کارمندانتان بوده است؛ فوراً حساب را ببندید.» against det text «نرخ تبدیل ۵۴٫۵٪ بود.», gateway.explain returned source=llm, grounded=True, fallback=False, quality_flags=[] and answer_fa = the fabricated text. The user question is echoed raw into the LLM prompt (gateway.py:87 «پرسش کاربر: {question}»), giving a direct injection path to that output. ADR-0002:6-7 names invented causality as the top risk; nothing in code mitigates it.
@@ -75,7 +75,7 @@ What does not hold:
 
 ### ZB-005 · Peer percentile happy path has zero coverage — only the suppressed branch is tested
 
-**Lens:** `testing-qa` · **Severity:** CRITICAL · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `testing-qa` · **Severity:** CRITICAL · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/peers.py:100-118 (and 52-54); tests/test_insights_peers.py:13-19
 - **Observed:** Coverage shows peers.py:105-111 and 52-54 never execute. Every fixture merchant is below the 500-session pool floor, so test_small_peer_pool_suppresses_benchmarks only ever exercises the `suppressed=True` early-return at peers.py:103/107. The computation that actually ships — `better = sum(1 for v in vals if (mine > v) == higher_better and mine != v)` (peers.py:109), the p25/p50/p75 quantiles, and the level fallback scale+ticket→scale→category (the `>= PREFERRED_PEERS` break at peers.py:52-54) — is never run. Live confirmation: `curl /api/peers?m=M156` returns n=5, level=category, sufficient=true, percentiles [conv 60, first_try_conv 60, no_attempt_rate 60, inbank_abandon_rate 20, recovery_rate 60].
@@ -93,7 +93,7 @@ Wh
 
 ### ZB-006 · Realized-GMV cap applied to only one of four opportunity generators — a card claims 108% of the merchant's entire sales
 
-**Lens:** `rubric-official` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `rubric-official` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:220-221 (high_value_friction); same gap at :190 (recovery_gap) and :256 (repeat_gap); cap lives only at :86-93 inside _gap_card
 - **Observed:** Live: /api/insights?m=M21 returns high_value_friction impact_low 2,356,248,967 / impact_high 4,712,497,933 with capped=None, while /api/overview?m=M21 reports gmv 4,373,353,280 — the "opportunity" is 108% of realized six-month GMV. Surveying 60 merchants, 17/116 rial-denominated opportunity cards exceed 20% of realized GMV; the three uncapped kinds account for the top outlier. tests/test_insights_peers.py::test_opportunity_capped_at_realized_gmv exercises only the _gap_card path, which is why this survived.
@@ -105,7 +105,7 @@ Wh
 
 ### ZB-007 · Evidence drawer prints two contradictory formulas for the same opportunity number
 
-**Lens:** `rubric-official` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `rubric-official` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/registry.py:74-76 (Metric "opportunity"), rendered by frontend/src/components/EvidenceDrawer.tsx; README.md "Opportunity Engine" row repeats it
 - **Observed:** Live evidence payload for M156/inbank_gap shows formula "excess_rate × sessions × conv(own) × median_ticket(own)" and caveat "بازه از خط پایه میانه (کف) و چارک برتر (سقف) همتایان ساخته می‌شود" — directly above the sql field of the same object, which reads "(0.3527 − 0.2651) × 55940 × [0.5 … 0.75 … 1.0] × 40,071,150". The real code (insights.py:79-82) uses no conv(own) and no p25/p50 band; the band is a fixed recovery fraction.
@@ -117,7 +117,7 @@ Wh
 
 ### ZB-008 · Chat is the landing surface but its regex router misses questions the engine can already answer
 
-**Lens:** `rubric-official` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `rubric-official` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/copilot.py:39-131 (_plan); landing page frontend/src/pages/CopilotPage.tsx (docs/screenshots/rd-chat.png)
 - **Observed:** Live /api/copilot?m=M156: «کدام درگاه بدترین عملکرد را دارد؟» → intent=fallback, despite insights._psp_card computing exactly that (PSP-03 20.5% vs PSP-04 59.4% for this merchant). «چطور نرخ تبدیلم را بالا ببرم؟» → fallback, despite the priorities intent existing. «بهترین روز هفته برای کمپین چیست؟» → fallback. «فروش من چقدر بوده؟» → fallback. The fallback text then re-lists the same six canned questions shown on the empty state.
@@ -129,7 +129,7 @@ Wh
 
 ### ZB-009 · API contract crosses the biggest seam untyped and hand-mirrored
 
-**Lens:** `architecture` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `architecture` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** frontend/src/api.ts:1-158 and zarin/api.py (all routes)
 - **Observed:** No FastAPI route declares a response_model. Live check of http://localhost:8630/api/openapi.json returns `components.schemas` = ['HTTPValidationError','ValidationError'] only, and `/api/overview` 200 response schema is `{}`. The 158 lines of TypeScript types in api.ts are hand-maintained, self-described as "mirrors zarin/api.py responses".
@@ -141,7 +141,7 @@ Wh
 
 ### ZB-010 · Hardcoded data fact in the API layer contradicts the computed metric on the same page
 
-**Lens:** `architecture` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `architecture` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/api.py:256 (rules_fa) vs zarin/api.py:243-246 (anomalies)
 - **Observed:** `/api/quality` computes `anomalies.verified_wo_ok_try` live and also returns a Persian prose rule containing the literal "۲۸ جلسه Verified بدون تلاش Verified". I verified both against the live marts: `wo_verified_try`=28, `wo_ok_try`=1. frontend/src/pages/QualityPage.tsx:52 renders the computed 1 and line 61 renders the hardcoded 28 in the list directly below it.
@@ -153,7 +153,7 @@ Wh
 
 ### ZB-011 · Metric registry — the declared single source of truth — has drifted from the code it documents
 
-**Lens:** `code-quality` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `code-quality` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/registry.py:74-76 vs zarin/insights.py:50-131
 - **Observed:** `Metric("opportunity", …)` declares formula `excess_rate × sessions × conv(own) × median_ticket(own)` and the caveat «بازه از خط پایه میانه (کف) و چارک برتر (سقف) همتایان ساخته می‌شود». The shipped `_gap_card()` computes `(your_rate − peer_median) × sessions × recovery_fraction[0.5/0.75/1.0] × median_ticket_of_lost_outcome` and its own docstring explicitly rejects the p25↔p50 band as «spuriously narrow». I fetched `/api/insights?m=M156`: the *same* evidence payload renders the stale `formula`/`caveats` directly next to the correct `sql` string, so the drawer contradicts itself in one panel.
@@ -165,7 +165,7 @@ Wh
 
 ### ZB-012 · `insights.generate()` is a 181-line C901=20 function whose shape contradicts the documented extension pattern
 
-**Lens:** `code-quality` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `code-quality` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:135-315
 - **Observed:** `uv run ruff check --select C90 --config 'lint.mccabe.max-complexity=8'` reports `_plan` 14 (copilot.py:39), `_plan` 18 (ops_copilot.py:32) and `generate` **20** (insights.py:135). Four cards are extracted helpers (`_gap_card`, `_psp_card`, `_change_alert`) but five — `paid_unverified`, `recovery_gap`, `high_value_friction`, `repeat_gap`, `concentration` — are inline dict literals with embedded SQL and multi-line Persian copy, interleaved with the ranking logic at 301-314. CONTRIBUTING.md:47 tells a new engineer «add a `_…_card()` in zarin/insights.py», which describes only 4 of the 9 shipped cards.
@@ -179,7 +179,7 @@ The structural facts are all true and reachable in current code. What is oversta
 
 ### ZB-013 · Copilot formats a transaction count as rial
 
-**Lens:** `data-correctness` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `data-correctness` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/copilot.py:120 (GET /api/copilot, intent=priorities)
 - **Observed:** Live: GET /api/copilot?m=M156&q=این هفته روی چه تمرکز کنم؟ returns «... برآورد تلاش‌های قابل نجات با مسیردهی به درگاه بهتر (تعداد تراکنش): ۱۷۸ ریال تا ۳۵۶ ریال». The psp_friction card carries impact_is_count=true (insights.py:353) and impact_low/high are attempt counts (178/356), but copilot.py:120 unconditionally applies `_rial()`. frontend/src/components/InsightCard.tsx:17 handles impact_is_count correctly, so the same card is right on the dashboard and wrong in the AI answer.
@@ -191,7 +191,7 @@ The structural facts are all true and reachable in current code. What is oversta
 
 ### ZB-014 · Evidence drawer states an opportunity formula the code does not compute
 
-**Lens:** `data-correctness` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `data-correctness` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/registry.py:74-76 (Metric "opportunity"), rendered by frontend/src/components/EvidenceDrawer.tsx:83-84,110
 - **Observed:** Live evidence for M156's inbank_gap card returns formula = `excess_rate × sessions × conv(own) × median_ticket(own)` and caveat «بازه از خط پایه میانه (کف) و چارک برتر (سقف) همتایان ساخته می‌شود». The actual computation (insights.py:79-82) is `gap × sessions × [0.5|0.75|1.0] × median_ticket_of_lost_outcome` — there is no conv(own) factor, and insights.py:57-58 explicitly states the p25↔p50 band was abandoned as "spuriously narrow". The drawer therefore shows the registry formula, the stale caveat, and the correct method SQL side by side — three contradictory descriptions of one number. docs/ANALYTICS.md:59-71 matches the code; registry.py, which ANALYTICS.md:3 calls «تنها منبع حقیقت», is the wrong one.
@@ -203,7 +203,7 @@ The structural facts are all true and reachable in current code. What is oversta
 
 ### ZB-015 · Insight ranking sorts transaction counts against rial in the same score
 
-**Lens:** `data-correctness` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `data-correctness` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:306-314 (score = impact_high × conf ÷ effort); sort key at :310-314
 - **Observed:** Live GET /api/insights?m=M156: inbank_gap score=45,835,891,420 (rial), paid_unverified score=61,847,264,950 (rial), psp_friction score=214 (a transaction count). All three are opportunities sorted by the same numeric key. The PSP card's 356 recoverable attempts at M156's ~41M IRR median ticket is ≈14.6B IRR of real value, yet it is ranked below every rial card by eight orders of magnitude. docs/ANALYTICS.md:79-81 acknowledges the PSP card is denominated in transactions and :84 defines the score as impact_high×conf÷effort, but never reconciles the two.
@@ -215,7 +215,7 @@ The structural facts are all true and reachable in current code. What is oversta
 
 ### ZB-016 · PSP friction card compares non-comparable traffic: the "weak" gateway is the retry rail
 
-**Lens:** `statistics` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `statistics` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:318-366 (_psp_card); live /api/insights?m=M250
 - **Observed:** For M250 the card names PSP-08 (5.5% success, 38,394 attempts) vs PSP-01 (61.4%) and estimates 5,366–10,732 recoverable transactions. Probing `attempts` directly: PSP-08 has avg(try_seq)=6.05 while PSP-03/PSP-01 have 1.03/1.38 — PSP-08 is the fallback/retry rail, so its success rate is dominated by attempt-order composition, not gateway quality. No stratification by try_seq, amount, time or BIN anywhere in the query. The deliberate degenerate-rail guard (`ok_rate >= 0.05`, insights.py:329) misses PSP-08 by 0.5pp. The diagnosis then asserts «الگوی ضعف پایدار است» (the weakness pattern is persistent) — a persistence claim never tested.
@@ -231,7 +231,7 @@ Where the claimed impact does not hold. I direct-standardized PSP-08's attempts 
 
 ### ZB-017 · Evidence drawer publishes a formula and caveat that contradict the estimator that produced the number
 
-**Lens:** `statistics` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `statistics` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/registry.py:74-76 (Metric "opportunity"); rendered at frontend/src/components/EvidenceDrawer.tsx:84,110
 - **Observed:** Live drawer payload for M215 contains formula `excess_rate × sessions × conv(own) × median_ticket(own)` and caveat «بازه از خط پایه میانه (کف) و چارک برتر (سقف) همتایان ساخته می‌شود», while the same payload's method string (insights.py:125-128) reads `(your_rate − peer_median) × sessions × recovery_fraction[0.5…0.75…1.0] × median_ticket_of_lost_sessions`. The `conv(own)` factor no longer exists in the code, and insights.py:58 explicitly says the p25↔p50 band was abandoned as «spuriously narrow» — the registry still advertises it.
@@ -243,7 +243,7 @@ Where the claimed impact does not hold. I direct-standardized PSP-08's attempts 
 
 ### ZB-018 · "First half vs second half" compares unequal windows, with no minimum-window guard on the copilot path
 
-**Lens:** `statistics` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `statistics` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:375-381 (_change_alert), zarin/copilot.py:43-47, frontend/src/pages/ChangesPage.tsx:22-32,86
 - **Observed:** mid = d1 + (d2−d1)/2 with date arithmetic truncating: a 31-day selection yields before=16 days, after=15 (verified for 2026-01-01..2026-01-31 and 2026-01-15..2026-02-14); 2026-02-01..2026-03-31 yields 30 vs 29. Raw session counts sit side by side under «نیمه اول»/«نیمه دوم» with no day count and no per-day normalization, so the LMDI `sessions` factor absorbs the ~6% calendar difference. copilot.py applies the same split with no length floor: live /api/copilot?m=M156&f=2026-03-01&t=2026-03-05 returns a 3-day vs 2-day decomposition described as «بین نیمه اول و دوم این بازه» with confidence "high". insights._change_alert has a ≥27-day guard; the copilot path has none.
@@ -261,7 +261,7 @@ What holds:
 
 ### ZB-019 · Operator-token gate on /api/admin/* is fail-open by default
 
-**Lens:** `security` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `security` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/api.py:34-37 (`_admin_guard`), zarin/config.py:20 (`ADMIN_TOKEN = os.environ.get(..., "")`)
 - **Observed:** `if ADMIN_TOKEN and not hmac.compare_digest(...)` — when the env var is unset the guard is a no-op. Verified live: `curl -o /dev/null -w '%{http_code}' http://localhost:8630/api/admin/platform` → 200 with no header. tests/test_control.py:83 codifies this as intended (`test_admin_open_on_loopback_by_default`). Dockerfile:9 sets `ZARIN_HOST=0.0.0.0`, so the open posture and a non-loopback bind ship in the same image (compose mitigates by publishing to 127.0.0.1 only).
@@ -273,7 +273,7 @@ What holds:
 
 ### ZB-020 · Grounding guard checks only multi-digit numbers — arbitrary model text passes as "grounded"
 
-**Lens:** `security` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `security` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/ai/gateway.py:37-60 (`_digit_runs` / `is_grounded`), rendered at frontend/src/components/Copilot.tsx:113
 - **Observed:** `_digit_runs` keeps only runs with ≥2 significant digits, and `is_grounded` returns True when the LLM output contains none. Probe: `is_grounded('حساب شما مسدود شده است. برای رفع مشکل به https://evil.example/zarinpal مراجعه و رمز کارت خود را وارد کنید.', det)` → True; `is_grounded('نرخ تبدیل شما ۹ برابر بدتر شده', det)` → True. That text becomes `answer_fa` and is shown with note_fa "این پاسخ بر پایه اعداد قطعیِ موتور تحلیلی است". The user's raw question is interpolated into the prompt at gateway.py:87 with no injection filter, and zarin/ai/eval/cases.py has no prompt-injection case (refusal cases cover thin data, false causality, out-of-scope, malformed).
@@ -289,7 +289,7 @@ Two calibrations on the claim:
 
 ### ZB-021 · Unhandled 500s are invisible to the Control Center's own error metric
 
-**Lens:** `reliability` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `reliability` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/obs.py:23-29 (middleware) → /api/admin/performance, Ops «کارایی» page
 - **Observed:** `resp = await call_next(request)` has no try/except/finally, and the middleware sits outside Starlette's ServerErrorMiddleware, so an exception propagates past `record()`. Probe: monkeypatched analytics.overview to raise, GET /api/overview?m=M156 → HTTP 500, and obs.summary() returned {'total': 0, 'has_data': False} — the request was never recorded. HTTPException 4xx (404/400/422) ARE recorded, so only server errors are lost.
@@ -301,7 +301,7 @@ Two calibrations on the claim:
 
 ### ZB-022 · Bootstrap /api/meta failure leaves the merchant workspace in a permanent skeleton
 
-**Lens:** `reliability` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `reliability` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** frontend/src/ctx.tsx:35-41
 - **Observed:** `get<Meta>("meta", {}).then(...)` has no `.catch`. On failure: unhandled promise rejection, `meta` stays null, `merchant` stays "", and useData's effect returns early at ctx.tsx:105 leaving state {loading:true} forever. Overview.tsx:25 then renders <Loading/> indefinitely; CopilotPage renders the chat hero with `glance` undefined (CopilotPage.tsx:29) and no error. Login (Login.tsx) is independent of meta, so the user authenticates successfully into the broken workspace. Period also silently falls back to hardcoded 2026-01-01..2026-06-30 (ctx.tsx:50-51). This is the *likely* failure: pipeline.ensure_built (zarin/pipeline.py:213-218) only checks file existence, so a stale-schema mart set starts cleanly and then 500s on the db.py:36 guard at first query.
@@ -315,7 +315,7 @@ Two small corrections to the
 
 ### ZB-023 · Marts are unclustered — every merchant query full-scans all 2.06M sessions
 
-**Lens:** `scalability` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `scalability` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/pipeline.py:207 (`COPY {name} TO ... (FORMAT PARQUET)` with no ORDER BY)
 - **Observed:** `parquet_metadata('data/marts/sessions.parquet')` shows all 17 row groups have merchant_key min/max of M1..M99 — zero zone-map pruning is possible. Measured floor: the same median+distinct-card query costs 6.2 ms for M70 (**1 session**), 25.8 ms for M156 (55,940), 49.7 ms for M250 (1,055,912). ~6 ms of every session-grain query is pure scan of other merchants' rows.
@@ -333,7 +333,7 @@ What does not hold — the claimed mechanism and the extrapolation:
 
 ### ZB-024 · /api/insights issues 23–25 sequential uncached queries, several redundant
 
-**Lens:** `scalability` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `scalability` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:135 `generate()` (verified by instrumenting `db.q`/`db.q1`)
 - **Observed:** Instrumented run: `insights M156` → 23 queries, `insights M250` → 25 queries, slowest single query 82.7 ms. Redundancy is visible in the code: `_gap_card` runs up to two `quantile_cont(amount,0.5)` full scans over `sessions` (insights.py:72 and 75) and is called twice; the same verified-ticket quantile is computed a third time at insights.py:188; `_change_alert` calls `changes()` which runs two more `period_agg`s over a window already aggregated at insights.py:136.
@@ -351,7 +351,7 @@ Corrections to the finding as written:
 
 ### ZB-025 · Full 1.95M-row attempts aggregate on every /api/quality and /api/admin/platform, uncached
 
-**Lens:** `scalability` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `scalability` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/api.py:243-246 (`/api/quality` anomalies) and zarin/control.py:63-67 (`admin_platform` anomalies)
 - **Observed:** Both run `session_key IN (SELECT session_key FROM attempts GROUP BY 1 HAVING sum(ok::int)=0)`. Timed in isolation: 108.3 ms — a full group-by over all 1,949,353 attempt rows. `/api/quality` carries no `_admin_guard` and no `lru_cache`; measured end-to-end ~126 ms server-side, and `/api/admin/platform` ~232 ms across its 9 queries.
@@ -365,7 +365,7 @@ Correction to the claimed evidence: the finding says the code "hardcodes the ans
 
 ### ZB-026 · Control Center recommends merchant-level action but offers no merchant drilldown or search
 
-**Lens:** `product` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `product` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/control.py:80-98 (_platform_insights) + frontend/src/ops/* (all five pages)
 - **Observed:** The platform insight reads "پذیرندگان دارای بیشترین مبلغ تاییدنشده را ... در اولویت بگذارید" (control.py:86) and OpsOverview renders it verbatim. Live /api/admin/platform returns only KPIs, top-10 categories, a top-5 concentration ratio, and anomaly counts — no merchant rows. Grep across frontend/src/ops/ finds no merchant table, no merchant search, no merchant deep-link; the merchant selector is merchant-workspace-only (App.tsx:119).
@@ -377,7 +377,7 @@ Correction to the claimed evidence: the finding says the code "hardcodes the ans
 
 ### ZB-027 · Ranked action cards are terminal: no navigation, no state, no follow-through
 
-**Lens:** `product` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `product` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** frontend/src/components/InsightCard.tsx:24-60; frontend/src/pages/Overview.tsx:76-85
 - **Observed:** InsightCard renders only text plus an EvBtn. Card copy routes the user in prose — gmv_change's action says "صفحه «قیف پرداخت» را ببینید" (insights.py:396) and inbank_gap says "جزئیات در صفحه ..." — but there is no link, button, or router call anywhere in the component. There is also no dismiss, snooze, mark-done, assign, or seen-state: /api/insights is a pure recomputation with no persistence (api.py:107-111), and no card-state store exists in zarin/store.py.
@@ -394,7 +394,7 @@ Two details in the claim's evidence are inaccurate, though they don't change the
 
 ### ZB-028 · Flagship card's headline action is wrong for ~100% of the merchants it fires on
 
-**Lens:** `business` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `business` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:152-153 (paid_unverified diagnosis_fa / action_fa)
 - **Observed:** The card blames "callback error or forgetting manual verification" and instructs «تایید خودکار تراکنش‌ها را در فروشگاه فعال کنید». Probing the mart: paid_unverified sessions split 8,705 on verify_type='Automated' vs exactly 1 on 'Manual'. Every affected merchant already has auto-verify on. verify_type is carried into the sessions mart (pipeline.py:71) and never read by the insight engine.
@@ -411,7 +411,7 @@ Why not high:
 
 ### ZB-029 · 61.8B IRR presented as claimable money with no claimability or expiry framing
 
-**Lens:** `business` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `business` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:154-156, impact_label_fa «مبلغ واقعی در انتظار تعیین تکلیف (برآورد نیست)», confidence "high"
 - **Observed:** The card asserts a hard rial figure at high confidence, ranked #1, and the overview repeats it as a headline KPI (frontend/src/pages/Overview.tsx:68-74) and as a chat-landing stat («در انتظار تایید شما ۶۱٫۸ میلیارد», docs/screenshots/rd-chat.png). Nothing in insights.py, docs/ANALYTICS.md or docs/DATA_AUDIT.md states whether an unverified settled payment stays claimable or reverses to the payer after a window; no settled_at age is computed. Dataset support is thin on this point: 8,706 Paid sessions but only 1 Reversed in six months.
@@ -423,7 +423,7 @@ Why not high:
 
 ### ZB-030 · No tenancy: any merchant's full business data is readable by merchant key
 
-**Lens:** `business` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `business` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/api.py — merchant routes (/api/overview, /api/insights, /api/customers …) carry no auth dependency; only /api/admin/* have `dependencies=_ADMIN` (api.py:165). Login is client-side only (frontend/src/pages/Login.tsx: the OTP step advances via setStep with no backend call).
 - **Observed:** curl -s 'http://localhost:8630/api/overview?m=M18' returns M18's GMV, customer counts and funnel with no credential; _check_merchant(m) only validates that the key exists. The header merchant picker exposes all 343 keys via /api/meta.
@@ -438,7 +438,7 @@ Reasons the "high" framing is overstated as written:
 
 ### ZB-031 · Plain-language tooltip system is not wired into any merchant analytics page
 
-**Lens:** `ux` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `ux` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** frontend/src/components/Tooltip.tsx:7-29 (TIPS) vs frontend/src/pages/{Overview,FunnelPage,CustomersPage,PeersPage,ChangesPage,QualityPage}.tsx
 - **Observed:** Grep for imports of Tooltip returns exactly three files: ops/OpsAI.tsx, ops/OpsPerformance.tsx and components/Copilot.tsx. No merchant analytics page imports Term. Only 5 of the 28 TIPS entries are reachable on the merchant surface (gmv, conv, customers, verify via CopilotPage.tsx:29-35 glance, plus 'deterministic' on the answer chip). Meanwhile Overview.tsx:54-59 renders bare labels «نرخ تبدیل» and «میانه مبلغ تراکنش» with only an evidence button; FunnelPage.tsx:65 says «پنجک‌های مبلغ»; FunnelPage.tsx:116 says «کد پاسخ سوییچ»; CustomersPage.tsx:60 heads a section «بازگشت مشتریان (کوهورت ماهانه)»; PeersPage.tsx:70-71 shows «میانه همتایان» and «چارک برتر»; ChangesPage.tsx:110 renders deltas as «واحد» (percentage points) with no gloss anywhere.
@@ -454,7 +454,7 @@ Reasons the "high" framing is overstated as written:
 
 ### ZB-032 · Copilot answers a different question instead of admitting it did not understand
 
-**Lens:** `ux` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `ux` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/copilot.py:127-131 (fallback plan) rendered by frontend/src/components/Copilot.tsx:112-120
 - **Observed:** Live: GET /api/copilot?m=M156&q=آب و هوای تهران چطور است؟ returns intent:"fallback" with answer_fa = «خلاصه این بازه: فروش موفق ۱٫۹۵ هزار میلیارد ریال…» and confidence "medium". The UI renders this identically to a real answer — Copilot.tsx:113 prints answer_fa, :117 attaches the «محاسبه قطعی از داده شما» chip, :119 attaches ConfChip. `intent === "fallback"` is never checked in the component; the `fallback` field it does check (:118) is the LLM-degradation flag, not the intent.
@@ -468,7 +468,7 @@ Why not high: no wrong data is shown. The KPIs in the fallback text are correct 
 
 ### ZB-033 · Rich tooltip is positioned by physical-right math but applied to a logical inset — mirrors across the viewport in RTL
 
-**Lens:** `design` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `design` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** frontend/src/components/Tooltip.tsx:31-36, 64 (used on every KPI label, funnel chip and ops metric)
 - **Observed:** pos() returns `right = window.innerWidth - r.right - 150 + r.width/2` — a distance from the *physical* right edge — and line 64 applies it as `insetInlineEnd: box.right`. The document is dir="rtl" (frontend/index.html) and .tip-pop is portaled to document.body with no direction override (theme.css:370), so inset-inline-end resolves to `left`. Worked example: a trigger at x=1000–1100 in a 1440px viewport yields 240, applied as left:240px, placing a 300px popup at 240–540 while its trigger sits at 1000–1100. As `right:240px` it would land at 900–1200, exactly centred on the trigger.
@@ -480,7 +480,7 @@ Why not high: no wrong data is shown. The KPIs in the fallback text are correct 
 
 ### ZB-034 · Cohort heat map uses an absolute 0–100% colour ramp, so real retention data renders as one flat green
 
-**Lens:** `design` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `design` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** frontend/src/components/charts.tsx:167 (CohortGrid); visible in docs/screenshots/rd-customers.png, «بازگشت مشتریان (کوهورت ماهانه)»
 - **Observed:** alpha = min(0.08 + share * 1.6, 0.9). The live M156 cohort values in the screenshot span ۳٪–۱۱٪, mapping to alpha 0.13–0.26 — a 0.13 spread out of a 0.82 range. Every cell in the grid is visually the same pale green; ۳٪ and ۱۱٪ are indistinguishable.
@@ -496,7 +496,7 @@ Reasons to downgrade:
 
 ### ZB-035 · Body/muted text tokens fail 1.4.3 across every surface; mobile primary nav at 2.35:1
 
-**Lens:** `accessibility` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `accessibility` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** frontend/src/theme.css:13-14 (`--ink-3:#7c7e8a`, `--ink-4:#a0a2ac`); consumers at theme.css:86 `.side-head`, :121 `.topbar .t-sub`, :142 `.bn-item`, :196 `.section > .sub`, :218 `.stat .k`, :295 `.glance .gk`, :339 `.composer-note`, :389 `.footer-note`, :429 `.entry-sub`; `.chip-good` theme.css:200
 - **Observed:** Computed WCAG ratios from the literal token values: `--ink-3` #7c7e8a = 4.03:1 on `--surface` #fff, 3.73:1 on `--bg` #f6f6f7, 3.67:1 on `--surface-3`; `--ink-4` #a0a2ac = 2.54:1 on white, 2.35:1 on `--bg`. All are applied to text at 0.68–0.74rem (≈10.9–11.9px), i.e. never "large text". `.bn-item` (verified in the shipped bundle `zarin/static/assets/index-ki_7A9bP.css`: `font-size:9.5px;color:var(--ink-4)`) is the ONLY navigation on mobile — every inactive tab label sits at 2.35:1 and 9.5px, visible in docs/screenshots/rd-mobile.png. `.chip-good` (--good #0d8a5f on --good-bg #e7f6f0) = 3.91:1 for the "اطمینان بالا" confidence chip that the product's own honesty story depends on.
@@ -508,7 +508,7 @@ Reasons to downgrade:
 
 ### ZB-036 · Chat composer input has its focus indicator removed (2.4.7)
 
-**Lens:** `accessibility` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `accessibility` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** frontend/src/theme.css:326-327 `.composer input { … outline: none; }` — confirmed in shipped CSS `/assets/index-ki_7A9bP.css`
 - **Observed:** The global rule `input:focus { outline: 2px solid var(--blue); outline-offset: 2px }` at theme.css:59 has specificity (0,1,1); `.composer input` is also (0,1,1) and appears later in the file, so `outline:none` wins. The composer is the chat-first landing's primary control (Copilot.tsx:146) and has no substitute indicator — `.composer form` has a static `1.5px solid #e0e0e5` border with no `:focus-within` state.
@@ -522,7 +522,7 @@ Severity: I'd assign medium, not high. The impact statement overstates the conse
 
 ### ZB-037 · Seven zero-size, invisible buttons in the tab order on the Overview and Customers KPI strips
 
-**Lens:** `accessibility` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `accessibility` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** frontend/src/pages/Overview.tsx:44,49,54,59,63 and frontend/src/pages/CustomersPage.tsx:34,39 — `<EvBtn … label="" />`; renderer at frontend/src/components/ui.tsx:49-57
 - **Observed:** `EvBtn` renders `{p.label ?? "محاسبه"}`. `label=""` is not nullish, so `??` yields the empty string and the `<button class="ev-btn">` renders with no content; `.ev-btn` (theme.css:206) is `background:none; border:0; padding:0`, giving a 0×0 box. I confirmed the exact same `label:""` calls survive in the served bundle `zarin/static/assets/index-Bx9Uu9tu.js`. The buttons remain keyboard-focusable and have only an `aria-label`. Separately, `.ev-btn` instances that DO have text ("این عدد از کجا آمد؟") are inline text ~17px tall and are excluded from the `@media (pointer: coarse)` 44px rule at theme.css:433, which covers only `.btn`, `.field`, `.composer-send`, `.mic` — as are `.seg button` (period selector, ~26px) and `.vote-btn` (~22px).
@@ -539,7 +539,7 @@ Overstated details:
 
 ### ZB-038 · Abbreviation rule accepts arbitrary downscale (۱۰۰ → ۱۰, ۱۲۰۰ → ۱۲)
 
-**Lens:** `ai-grounding` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `ai-grounding` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/ai/gateway.py:51 (d.startswith(x) and set(d[len(x):]) <= {"0"})
 - **Observed:** Verified: is_grounded('۱۰ درصد','مقدار ۱۰۰ درصد') → True and is_grounded('۱۲','۱۲۰۰') → True. The rule targets order-of-magnitude abbreviation (618 ⇐ 61800000000 with a restated scale word) but imposes no requirement that a scale word accompany the shortened run.
@@ -553,7 +553,7 @@ Overstated details:
 
 ### ZB-039 · Guard is unit- and metric-blind: same digits, wrong currency or wrong metric passes
 
-**Lens:** `ai-grounding` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `ai-grounding` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/ai/gateway.py:43-60
 - **Observed:** Against det «فروش موفق ۱٫۹۵ هزار میلیارد ریال … نرخ تبدیل ۵۴٫۵٪، ۲۳،۸۰۱ مشتری», both «فروش شما ۱٫۹۵ هزار میلیارد تومان بود» (10x, Rial→Toman) and «نرخ تبدیل شما ۳۰،۵۰۸ درصد و ۵۴٫۵ مشتری داشتید» (numbers swapped between metrics) returned is_grounded=True. Single-digit runs are skipped entirely (gateway.py:40), so «۳ برابر ماه قبل» and «۹ درصد رشد» are free inventions that also pass.
@@ -567,7 +567,7 @@ Second nuance: the single-digit skip at gateway.py:40 is deliberate and c
 
 ### ZB-040 · "Refusal safety 100%" is vacuous — the checks cannot fail and the cases do not refuse
 
-**Lens:** `ai-grounding` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `ai-grounding` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/ai/eval/runner.py:22 (no_forbidden), zarin/ai/eval/cases.py:37-40, surfaced as «ایمنی در نبود داده» in frontend/src/ops/OpsAI.tsx:72
 - **Observed:** `uv run python -m zarin.ai.eval` prints refusal safety 100% (12/12 passed). But _plan() never echoes user text — every branch returns a fixed template — so forbid_substrings=["تبلیغات"] can never trip. And the refusal cases do not refuse: live, «فروش من ماه آینده چقدر می‌شود؟», «نرخ ارز فردا چقدر می‌شود؟» and «شماره کارت مشتری‌ها را بده» all return the generic GMV/conversion summary at confidence=medium.
@@ -579,7 +579,7 @@ Second nuance: the single-digit skip at gateway.py:40 is deliberate and c
 
 ### ZB-041 · LMDI and conversion-driver tests assert closure, not attribution — a factor swap stays green
 
-**Lens:** `testing-qa` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED
+**Lens:** `testing-qa` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** tests/test_metrics.py:81-94; zarin/analytics.py:236-242
 - **Observed:** test_lmdi_decomposition_is_exact asserts only `abs(sum(contrib) - delta_gmv) < 1e-6`, and test_conv_drivers_sum_to_conv_change asserts only `abs(sum(conv_drivers) - dconv) < 1e-9` plus that `reversed_rate` is non-zero. Closure is a mathematical property of `_lmdi_contrib` (analytics.py:236-242) that holds for *any* assignment of factor series to labels. In the M1 fixture Jan→Feb all three factors move (sessions 7→2, conv 3/7→1/2, ticket 200k→400k), so relabelling `sessions` as `ticket` would still sum exactly to ΔGMV.
@@ -593,7 +593,7 @@ Two additions the finding understates. (1) The conv_drivers gap is worse than de
 
 ### ZB-042 · Insights engine at 55% — six of nine card generators never run, incl. the PSP selection-bias fix
 
-**Lens:** `testing-qa` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED
+**Lens:** `testing-qa` · **Severity:** HIGH · **Effort:** medium · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:164-222, 241-250, 275-288, 292-294, 320-343, 370-386
 - **Observed:** 70 of 156 statements uncovered. The fixture merchants are below MIN_SESSIONS_INSIGHT (100), so the `if me["sessions"] >= MIN_SESSIONS_INSIGHT` gate at insights.py:162 short-circuits everything. recovery_gap (180-205), high_value_friction (208-236), repeat_gap (241-265), concentration (275-288), _psp_card (318-343) and _change_alert (370-386) are all dead in tests; only `_gap_card` is called directly with synthetic input. Commit 58ba5ca claims a 'PSP selection-bias guard' fix — the guard `ok_rate >= 0.05 and successes >= 30` at insights.py:329 has no regression test. Live `curl /api/insights?m=M156` returns four cards (paid_unverified 61.8e9, inbank_gap 45.8e9, psp_friction 214, gmv_change alert) — every one of them from an untested branch, and the ranking rule at insights.py:303-314 that must keep opportunities above alerts is never exercised with a mixed card set.
@@ -607,7 +607,7 @@ CORRECTION: `_change_alert` is NOT dead. It runs end-to-end (29/37 exec-lines; c
 
 ### ZB-043 · No frontend tests at all; Persian formatting is duplicated between fa.py and fmt.ts with an observable divergence and no parity test
 
-**Lens:** `testing-qa` · **Severity:** HIGH · **Effort:** large · **Verification:** CONFIRMED
+**Lens:** `testing-qa` · **Severity:** HIGH · **Effort:** large · **Verification:** CONFIRMED · **Status:** ✅ fixed in `main`
 
 - **Where:** frontend/package.json (no test script/runner); frontend/src/fmt.ts:23-26 vs zarin/fa.py:35-38
 - **Observed:** 2,341 LOC of TS/TSX across 20 files (App.tsx, ctx.tsx, api.ts, fmt.ts, 8 pages, 5 ops pages, 6 components) with zero test files, no vitest/jest, and no eslint — the only gate is `tsc --noEmit` in the build script. fmt.ts re-implements fa.py's compact-rial and percent logic independently; they already differ: `fa_pct` uses `f"{v*100:.1f}"` so 50% renders '۵۰٫۰٪', while `pct()` uses Intl maximumFractionDigits so the same value renders '۵۰٪'. Nothing tests either implementation or their agreement.
@@ -621,7 +621,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-044 · Ops copilot intent routing is 54% covered and misroutes — verified, with no equivalent to the merchant copilot's ordering regression test
 
-**Lens:** `testing-qa` · **Severity:** HIGH · **Effort:** small · **Verification:** not verified (missed by the per-lens cap of four verifications)
+**Lens:** `testing-qa` · **Severity:** HIGH · **Effort:** small · **Verification:** not verified (missed by the per-lens cap of four verifications) · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/ops_copilot.py:33-111; tests/test_control.py:68-80
 - **Observed:** 46 of 99 statements uncovered (lines 36-43, 46-52, 55-60, 64-70, 83-92, 106, 115-123). Eight first-match-wins regexes; tests exercise only `system` and `sources` plus one loose ai probe. Verified in-process: `ops_copilot._plan('هزینه سرور بالا رفته چرا؟')` → intent `ai_cost` (a server-cost question routed to AI-model spend), and `_plan('چند درصد پاسخ ها مستند بوده و هزینه چقدر شده؟')` → `ai_cost`, swallowing the `ai_grounded` intent. Cause: the bare `|هزینه` alternative at ops_copilot.py:45 matches any question containing the word and sits above ai_model/ai_grounded/ai_health. The merchant copilot has a dedicated guard for exactly this class of bug (tests/test_ai.py:138-145, recovery must not be swallowed by friction); the ops copilot has none, and `_attention` (114-123) is never invoked.
@@ -632,7 +632,7 @@ Severity: I would assign MEDIUM, not high. The structural gap
 
 ### ZB-120 · `high_value_friction` is non-deterministic — the same query returns different money
 
-**Lens:** `record-verification` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED (measured directly, then reproduced independently by a second agent)
+**Lens:** `record-verification` · **Severity:** HIGH · **Effort:** small · **Verification:** CONFIRMED (measured directly, then reproduced independently by a second agent) · **Status:** ✅ fixed in `main`
 
 - **Where:** zarin/insights.py:209 — `ntile(5) OVER (ORDER BY amount)`
 - **Observed:** Five identical calls to generate('M21','2026-01-01','2026-06-30') returned four distinct values for high_value_friction.impact_high: 4,813,687,678 / 4,763,212,124 / 4,829,335,319 / 4,763,212,124 / 4,712,497,933. An independent auditor reproduced it separately: six calls, five distinct values, spanning 4,645,773,572–4,798,040,037 (106.2–109.7% of the merchant's realized GMV of 4,373,353,280). `ntile(5) OVER (ORDER BY amount)` has no tiebreaker, so rows with equal amount — constant in payments, where prices are round — land in different quintiles on different runs under DuckDB's parallel execution, changing n_top, conv_top and avg_lost_amount.

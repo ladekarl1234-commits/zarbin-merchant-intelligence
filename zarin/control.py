@@ -6,11 +6,23 @@ telemetry; nothing here is fabricated — an empty telemetry ring yields has_dat
 """
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+
 from . import obs
 from .ai import telemetry as ai_telemetry
+from .config import MARTS_DIR
 from .db import q, q1
 from .fa import fa_num, fa_pct
 from .sources import registry
+
+
+@lru_cache(maxsize=1)
+def _dq_sidecar() -> dict | None:
+    """Pipeline-computed anomaly artifact (zarin/pipeline.py:build). None if a mart
+    dir predates it — callers must fall back to a live query (ZB-025)."""
+    p = MARTS_DIR / "data_quality.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
 def platform(f: str, t: str) -> dict:
@@ -60,12 +72,7 @@ def platform(f: str, t: str) -> dict:
     }
 
     # window-scoped to match the KPIs' grain (an all-time count next to windowed KPIs misleads)
-    anomalies = q1("""SELECT
-        (SELECT count(*) FROM sessions WHERE outcome='reversed' AND d BETWEEN $f AND $t) AS reversed_sessions,
-        (SELECT count(*) FROM sessions WHERE session_status='Verified' AND outcome='verified'
-           AND d BETWEEN $f AND $t
-           AND session_key IN (SELECT session_key FROM attempts GROUP BY 1 HAVING sum(ok::int)=0)) AS verified_wo_ok_try""",
-        {"f": f, "t": t})
+    anomalies = _windowed_anomalies(f, t)
 
     return {
         "period": {"from": f, "to": t},
@@ -75,6 +82,52 @@ def platform(f: str, t: str) -> dict:
         "anomalies": anomalies,
         "insights": _platform_insights(kpis, conc),
     }
+
+
+def _windowed_anomalies(f: str, t: str) -> dict:
+    """reversed_sessions + verified_wo_ok_try, scoped to [f, t]. Prefers the pipeline
+    sidecar (Python-filters a ~dozens-of-rows list) over the live correlated subquery
+    that used to re-aggregate all 1.95M attempt rows on every call (ZB-025)."""
+    dq = _dq_sidecar()
+    if dq is not None:
+        wo_ok = sum(1 for s in dq["bad_sessions"] if s["wo_ok_try"] and f <= s["d"] <= t)
+        reversed_sessions = q1(
+            "SELECT count(*) AS n FROM sessions WHERE outcome='reversed' AND d BETWEEN $f AND $t",
+            {"f": f, "t": t})["n"]
+        return {"reversed_sessions": reversed_sessions, "verified_wo_ok_try": wo_ok}
+    return q1("""SELECT
+        (SELECT count(*) FROM sessions WHERE outcome='reversed' AND d BETWEEN $f AND $t) AS reversed_sessions,
+        (SELECT count(*) FROM sessions WHERE session_status='Verified' AND outcome='verified'
+           AND d BETWEEN $f AND $t
+           AND session_key IN (SELECT session_key FROM attempts GROUP BY 1 HAVING sum(ok::int)=0)) AS verified_wo_ok_try""",
+        {"f": f, "t": t})
+
+
+_MERCHANT_SORT = {
+    "unverified": "paid_unverified_amount DESC",
+    "no_attempt": "no_attempt_rate DESC NULLS LAST",
+    "gmv": "gmv DESC",
+    "recovered": "recovered_gmv DESC",
+}
+
+
+def merchants(sort: str, limit: int) -> dict:
+    """Merchant-level drilldown behind the Control Center's recommended actions (ZB-026)."""
+    order = _MERCHANT_SORT.get(sort, _MERCHANT_SORT["unverified"])
+    rows = q(f"""
+        WITH rec AS (
+            SELECT merchant_key,
+                   coalesce(sum(amount) FILTER (WHERE recovered AND outcome='verified'), 0) AS recovered_gmv
+            FROM sessions GROUP BY 1
+        )
+        SELECT ms.merchant_key, ms.category_title, ms.sessions, ms.gmv,
+               ms.paid_unverified_amount, ms.paid_unverified,
+               ms.no_attempt / nullif(ms.sessions, 0) AS no_attempt_rate,
+               coalesce(rec.recovered_gmv, 0) AS recovered_gmv
+        FROM merchant_stats ms LEFT JOIN rec USING (merchant_key)
+        ORDER BY {order}
+        LIMIT {int(limit)}""")
+    return {"rows": rows}
 
 
 def _platform_insights(k: dict, conc: dict) -> list[dict]:

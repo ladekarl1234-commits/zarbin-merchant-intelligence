@@ -7,6 +7,7 @@ Grain contract (verified by the audit and re-asserted here on every build):
 """
 from __future__ import annotations
 
+import json
 import sys
 import time
 from pathlib import Path
@@ -203,8 +204,41 @@ def build(data_path: Path = DATA_PATH, out_dir: Path = MARTS_DIR, quiet: bool = 
         raise ValueError(f"attempt rows lost: {b[0]} != {b[3]}")
     # GMV counted once per session may differ from attempt-level sum only by the
     # ~28 audited Verified-sessions-without-Verified-try (session-level is authoritative).
+    # ORDER BY merchant_key(, d) so parquet row-group min/max zone maps let a per-merchant
+    # query prune most row groups instead of scanning the whole platform (ZB-023).
+    _MART_ORDER = {
+        "sessions": "merchant_key, d", "attempts": "merchant_key, d",
+        "merchant_daily": "merchant_key, d", "customers": "merchant_key",
+    }
     for name in ("sessions", "attempts", "merchant_daily", "customers", "merchant_stats"):
-        con.execute(f"COPY {name} TO '{(out_dir / f'{name}.parquet').as_posix()}' (FORMAT PARQUET)")
+        order = f" ORDER BY {_MART_ORDER[name]}" if name in _MART_ORDER else ""
+        con.execute(
+            f"COPY (SELECT * FROM {name}{order}) TO "
+            f"'{(out_dir / f'{name}.parquet').as_posix()}' (FORMAT PARQUET)"
+        )
+
+    # --- data-quality anomaly counts: computed once here (data-version-invariant), not
+    # on every /api/quality or /api/admin/platform hit (ZB-025). Tiny sidecar: the "bad"
+    # session set is ~dozens of rows, so control.py can window-filter it in Python instead
+    # of re-aggregating all 1.95M attempt rows per request.
+    bad = con.execute("""
+        SELECT session_key, d,
+               NOT EXISTS (SELECT 1 FROM attempts a WHERE a.session_key = s.session_key AND a.ok) AS wo_ok_try,
+               NOT EXISTS (SELECT 1 FROM attempts a WHERE a.session_key = s.session_key AND a.try_status = 'Verified') AS wo_verified_try
+        FROM sessions s WHERE session_status = 'Verified' AND outcome = 'verified'
+          AND (NOT EXISTS (SELECT 1 FROM attempts a WHERE a.session_key = s.session_key AND a.ok)
+               OR NOT EXISTS (SELECT 1 FROM attempts a WHERE a.session_key = s.session_key AND a.try_status = 'Verified'))
+    """).fetchall()
+    reversed_sessions = con.execute("SELECT count(*) FROM sessions WHERE outcome = 'reversed'").fetchone()[0]
+    data_quality = {
+        "verified_wo_ok_try": sum(1 for r in bad if r[2]),
+        "verified_wo_verified_try": sum(1 for r in bad if r[3]),
+        "reversed_sessions": reversed_sessions,
+        "bad_sessions": [{"session_key": r[0], "d": str(r[1]), "wo_ok_try": bool(r[2]),
+                          "wo_verified_try": bool(r[3])} for r in bad],
+    }
+    (out_dir / "data_quality.json").write_text(json.dumps(data_quality), encoding="utf-8")
+
     if not quiet:
         print(f"marts built in {time.time()-t0:.1f}s -> {out_dir}")
         print(f"  raw rows {b[0]:,} | sessions {b[2]:,} | GMV(session) {b[5]:,} IRR")
