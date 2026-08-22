@@ -77,8 +77,11 @@ export default function Copilot({ heroTitle, heroSub, glance, suggestions, place
     setTurns((t) => t.map((x) => (x.id === id ? { ...x, polishing: true } : x)));
     try {
       const better = await polish(q);
+      // Belt-and-braces with the server-side guard: never replace a correct answer with an
+      // empty one. A free model returning an empty completion is routine, not exotic.
+      const usable = better.source === "llm" && (better.answer_fa || "").trim().length > 0;
       setTurns((t) => t.map((x) => (x.id === id
-        ? { ...x, polishing: false, a: better.source === "llm" ? better : x.a }
+        ? { ...x, polishing: false, a: usable ? better : x.a }
         : x)));
     } catch {
       setTurns((t) => t.map((x) => (x.id === id ? { ...x, polishing: false } : x)));

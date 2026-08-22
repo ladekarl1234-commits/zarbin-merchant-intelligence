@@ -24,6 +24,22 @@ def _trackable(path: str) -> bool:
     return path.startswith("/api/") and not path.startswith("/api/docs") and path != "/api/openapi.json"
 
 
+def _label(request) -> str:
+    """The ROUTE, not the URL.
+
+    `record` keyed on the raw path, and the ring holds 8,000 events. Any caller could
+    therefore GET /api/aaa1 … /api/aaa9000 — each a 404, each a distinct key — and both evict
+    every real measurement and inflate /api/admin/performance's endpoint list 200x. Bucketing
+    unmatched paths under one label makes the ring bounded by the number of routes, which is
+    a constant, instead of by the number of URLs a stranger can invent.
+    """
+    route = request.scope.get("route")
+    tmpl = getattr(route, "path", None)
+    if not tmpl or "{path" in tmpl:
+        return "<unmatched>"
+    return tmpl
+
+
 async def middleware(request, call_next):
     t0 = time.perf_counter()
     path = request.url.path
@@ -33,11 +49,11 @@ async def middleware(request, call_next):
         # An unhandled exception never reaches call_next's return, so without this the
         # request vanishes from telemetry and error_rate stays pinned at 0 (ZB-021).
         if _trackable(path):
-            record(request.method, path, 500, (time.perf_counter() - t0) * 1000)
+            record(request.method, _label(request), 500, (time.perf_counter() - t0) * 1000)
         raise
     dt_ms = (time.perf_counter() - t0) * 1000
     if _trackable(path):
-        record(request.method, path, resp.status_code, dt_ms)
+        record(request.method, _label(request), resp.status_code, dt_ms)
     # Server-Timing carries the server's OWN cost to the client, so a latency number can be
     # attributed instead of guessed: measuring a deployment from a laptop otherwise mixes
     # ~400 ms of client RTT into every figure and makes the app look ten times slower than
@@ -75,6 +91,10 @@ def summary() -> dict:
         endpoints.append({
             "path": path, "count": len(es),
             "error_rate": round(errs / len(es), 4),
+            # 4xx was aggregated platform-wide but never per endpoint, so `attention` could
+            # not see a route answering every single call with a 400 — a broken client or a
+            # renamed parameter looked exactly like a healthy endpoint.
+            "client_error_rate": round(sum(1 for x in es if 400 <= x["status"] < 500) / len(es), 4),
             "p50": _pct(lats, 0.5), "p95": _pct(lats, 0.95), "p99": _pct(lats, 0.99),
         })
     endpoints.sort(key=lambda x: (x["p95"] or 0), reverse=True)
@@ -85,6 +105,10 @@ def summary() -> dict:
         if ep["error_rate"] > 0:
             attention.append({"severity": "high", "path": ep["path"],
                               "fa": f"مسیر {ep['path']} نرخ خطای سرور {fa_pct(ep['error_rate'])} دارد"})
+        elif ep["client_error_rate"] > 0.5 and ep["count"] >= 10:
+            attention.append({"severity": "medium", "path": ep["path"],
+                              "fa": (f"بیش از نیمی از درخواست‌های {ep['path']} با خطای کلاینت رد می‌شوند "
+                                     f"({fa_pct(ep['client_error_rate'])}) — احتمالاً قرارداد ورودی شکسته است")})
         elif (ep["p95"] or 0) > 1500:
             attention.append({"severity": "medium", "path": ep["path"],
                               "fa": f"مسیر {ep['path']} کند است (p95 برابر {fa_num(ep['p95'])} میلی‌ثانیه)"})
@@ -97,6 +121,13 @@ def summary() -> dict:
         "latency_ms": {"p50": _pct(lat_all, 0.5), "p95": _pct(lat_all, 0.95), "p99": _pct(lat_all, 0.99)},
         "endpoints": endpoints,
         "attention": attention,
+        # Said out loud, because the panel looks like site-wide traffic and is not: this ring
+        # is per process and non-durable, and a CDN hit never reaches the origin at all. On
+        # the deployed build most read traffic is served from the edge, so these counts are
+        # ORIGIN requests, which is a strict subset of what users did.
+        "scope_fa": ("این اعداد فقط درخواست‌هایی را می‌شمارند که به همین نمونهٔ سرور رسیده‌اند؛ "
+                     "پاسخ‌های ارائه‌شده از CDN و نمونه‌های دیگر در آن نیستند."),
+        "scope": "origin-requests-this-instance",
     }
 
 

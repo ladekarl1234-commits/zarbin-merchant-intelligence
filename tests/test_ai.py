@@ -230,3 +230,60 @@ def test_recovery_question_routes_to_recovery_not_friction():
     assert d["intent"] == "recovery"
     d2 = copilot.answer("M1", "چرا پرداخت‌ها شکست می‌خورند؟", "2026-01-01", "2026-01-31", use_llm=False)
     assert d2["intent"] == "friction"
+
+
+# --- guard checks added after the round-1 expert panel ---------------------------------
+
+def test_grounding_guard_rejects_an_empty_completion():
+    """An empty completion satisfies every other check trivially — it invents no number,
+    asserts nothing, adds no novel word — so it was 'grounded', and the client swapped it in,
+    blanking a correct answer. Free models return empty completions routinely."""
+    assert gateway.grounding_failure("", DET) == "empty_output"
+    assert gateway.grounding_failure("   \n ", DET) == "empty_output"
+
+
+def test_grounding_guard_rejects_a_moved_timeframe():
+    """Every digit correct, every unit correct, and a six-month total relabelled as one day.
+    Nothing else in the guard can see it, because a period word is neither a number nor a
+    causal claim."""
+    det = f"در این بازه فروش موفق {fa_money(61_800_000_000)} بود"
+    assert gateway.grounding_failure(f"فروش دیروز شما {fa_money(61_800_000_000)} بود", det) == "temporal_scope_change"
+    assert gateway.grounding_failure(f"فروش این ماه شما {fa_money(61_800_000_000)} بود", det) == "temporal_scope_change"
+    # a period word the ENGINE used may be repeated
+    det2 = f"فروش این ماه شما {fa_money(61_800_000_000)} بود"
+    assert gateway.grounding_failure(f"این ماه {fa_money(61_800_000_000)} فروختید", det2) is None
+
+
+def test_grounding_guard_rejects_a_substituted_statistic():
+    """Median and mean are different numbers on a skewed payment distribution. Swapping the
+    word keeps every digit, every unit and every surrounding token, so neither the unit check
+    nor anchor overlap can see it."""
+    det = f"میانه مبلغ هر پرداخت موفق {fa_money(41_400_000)} است"
+    assert gateway.grounding_failure(f"میانگین مبلغ هر پرداخت موفق {fa_money(41_400_000)} است",
+                                     det) == "statistic_substitution"
+    assert gateway.grounding_failure(f"متوسط مبلغ هر پرداخت موفق {fa_money(41_400_000)} است",
+                                     det) == "statistic_substitution"
+    assert gateway.grounding_failure(f"میانه مبلغ هر پرداخت {fa_money(41_400_000)} است", det) is None
+
+
+def test_grounding_guard_is_permutation_blind_and_says_so():
+    """A KNOWN LIMIT, pinned so it cannot be forgotten or silently 'fixed' by a change that
+    also breaks faithful rephrasing.
+
+    Two figures with the same unit can be swapped between their metrics and both still trace.
+    An anchor-overlap guard was built and measured against this and removed: it rejected
+    faithful rephrasings («فروش موفق ۶۱٫۸ میلیارد» → «مجموع آن ۶۱٫۸ میلیارد» shares no content
+    word with the original label), and a guard that rejects good rephrasings turns the LLM
+    path into a silent no-op — worse than the attack. If someone re-adds a metric-binding
+    check, this test should start failing, and tests/test_grounding_calibration.py's faithful
+    corpus must still pass."""
+    det = (f"فروش موفق {fa_money(1_950_000_000_000)} و مبلغ پرداخت تاییدنشده "
+           f"{fa_money(61_800_000_000)} است")
+    swapped = (f"فروش موفق {fa_money(61_800_000_000)} و مبلغ پرداخت تاییدنشده "
+               f"{fa_money(1_950_000_000_000)} است")
+    assert gateway.grounding_failure(swapped, det) is None   # documented gap, not an oversight
+    assert gateway.grounding_failure(det, det) is None
+    # the same swap ACROSS unit families is still caught — that is what the unit check is for
+    det2 = f"فروش موفق {fa_money(61_800_000_000)} با نرخ تبدیل {fa_pct(0.545)}"
+    assert gateway.grounding_failure(f"فروش موفق {fa_pct(0.545)} با نرخ تبدیل ۶۱٫۸ درصد",
+                                     det2) == "ungrounded_number"

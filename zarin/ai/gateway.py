@@ -147,6 +147,16 @@ def _unsupported_sentence(llm_norm: str, det_norm: str) -> bool:
         if len(novel) >= _SENT_NOVEL_MIN and len(novel) / len(content) > _SENT_NOVEL_RATIO:
             return True
     return False
+# Period words. A rephrasing may not introduce one the engine did not use: the deterministic
+# answer says "in this window" and carries no timeframe of its own, so a model that helpfully
+# writes «فروش دیروز شما ...» has relabelled a six-month total as one day — with every digit
+# intact, every unit correct, and «اطمینان بالا» beside it. Nothing else in this guard can see
+# that, because a period word is not a number and not a causal claim.
+_PERIOD_WORDS = tuple(w.replace(" ", "") for w in (
+    "دیروز", "امروز", "فردا", "دیشب", "امشب", "این هفته", "هفته گذشته", "هفته پیش",
+    "این ماه", "ماه گذشته", "ماه پیش", "ماه جاری", "امسال", "پارسال", "سال گذشته",
+    "سال جاری", "این فصل", "فصل گذشته", "هفته اخیر", "ماه اخیر", "روز اخیر", "ساعت گذشته",
+))
 _NUM_RE = re.compile(r"\d+(?:\.\d+)?")
 # Content the model must never introduce: an answer about payments has no business containing a
 # link, an email or a phone number — those are classic injected/hallucinated payloads (ZB-020).
@@ -163,8 +173,27 @@ _NOVEL_RATIO = 0.85
 _NOVEL_MIN = 8
 
 
-def _values(text: str) -> list[tuple[str, float]]:
-    """Extract (unit_family, value) pairs, resolving Persian scale words to real magnitudes."""
+# The words that name a number sit on BOTH sides of it in Persian: «نرخ تبدیل ۵۴٫۵٪» puts the
+# metric before, «۲۳٬۸۰۱ پرداخت» puts it after. A backwards-only window rejected a faithful
+# rephrasing that merely reordered the clauses, so the anchor is a symmetric window.
+_ANCHOR_CHARS = 40
+
+# Statistic names that change WHICH number a figure is, while every other word around it stays
+# the same — so neither the unit check nor the anchor-overlap check can see the substitution.
+# «میانه مبلغ هر پرداخت ۴۱٫۴ میلیون» rewritten as «میانگین مبلغ هر پرداخت ۴۱٫۴ میلیون» is a
+# different statistic reported as the same figure, and on a skewed payment distribution the two
+# are not close. Checked like polarity: introducing one the engine never used is a rejection;
+# re-using one it did is not. Deliberately short — «مجموع» and «بیشترین» are ordinary Persian
+# and budgeting them would reject faithful prose.
+_STATISTIC_MARKERS = tuple(m.replace(" ", "") for m in (
+    "میانگین", "متوسط", "میانه", "حداکثر", "حداقل", "بیشینه", "کمینه"))
+
+
+def _values(text: str) -> list[tuple[str, float, str]]:
+    """Extract (unit_family, value, anchor) triples, resolving Persian scale words.
+
+    `anchor` is the raw text immediately preceding the number — the metric it is attached to.
+    """
     # _norm FIRST. This was the one comparison that skipped it, and skipping it defeated the whole
     # numeric layer: «ميليارد ريال» in Arabic script matched neither _SCALE nor _UNITS, so the
     # number lost both its scale and its unit — and an empty unit traces to ANY family. That let
@@ -189,12 +218,33 @@ def _values(text: str) -> list[tuple[str, float]]:
                 break
         if not unit and mult == 1.0 and val.is_integer() and val <= _BARE_INT_IGNORE:
             continue      # ordinal / list marker, not a quantitative claim
-        out.append((unit, val * mult))
+        out.append((unit, val * mult,
+                    t[max(0, m.start() - _ANCHOR_CHARS):m.start()]
+                    + " " + t[m.end():m.end() + _ANCHOR_CHARS]))
     return out
 
 
-def _traces(unit: str, val: float, det: list[tuple[str, float]]) -> bool:
-    for d_unit, d_val in det:
+def _traces(unit: str, val: float, det: list[tuple[str, float, str]], anchor: str = "") -> bool:
+    """True if (unit, val) restates one of the engine's numbers.
+
+    KNOWN LIMIT — the check is permutation-blind. An answer holding «میانه مبلغ ۴۱٫۴ میلیون
+    ریال» and «فروش موفق ۱٫۹۵ هزار میلیارد ریال» can be rewritten with the two figures swapped
+    and both still trace: same digits, same unit, different fact.
+
+    An anchor-overlap version of this was built and measured, and then removed. Requiring the
+    words around a number to overlap between the two texts rejected faithful rephrasings at an
+    unacceptable rate — «فروش موفق ۶۱٫۸ میلیارد» restated as «مجموع آن ۶۱٫۸ میلیارد» shares no
+    content word with the original label, and a guard that rejects good rephrasings degrades
+    the whole LLM path into a silent no-op, which is a worse outcome than the attack it
+    prevents. Bag-of-words anchors cannot separate "relabelled" from "rephrased".
+
+    What IS enforced instead, because each is decidable: unit families (rial ≠ toman ≠ percent
+    ≠ count), scale-word magnitude, decimal position, polarity in both directions, timeframe
+    words, and statistic names (median ≠ mean). The residual — a same-unit swap between two
+    metrics whose names were both rewritten — is recorded in docs/EVALUATION.md rather than
+    papered over. `anchor` is still captured so a future check has the data to use.
+    """
+    for d_unit, d_val, _d_anchor in det:
         if unit and d_unit and unit != d_unit:
             continue      # same digits, different unit → not the same fact
         hi = max(abs(val), abs(d_val)) or 1.0
@@ -210,13 +260,20 @@ def grounding_failure(llm_text: str, deterministic_text: str) -> str | None:
     and unit swaps all passed as "grounded" (ZB-004/ZB-020/ZB-038/ZB-039). It now checks four
     things: forbidden payloads, length inflation, numeric value+unit tracing, and novel content.
     """
+    # An empty (or whitespace) completion trivially satisfies every check below: it invents
+    # no number, asserts nothing, and adds no novel word. It was therefore "grounded", and the
+    # client swapped it in — blanking a correct answer. Free models return empty completions
+    # routinely (a reasoning model that spends its whole budget on hidden tokens returns one
+    # every time), so this is the common case, not the exotic one.
+    if not llm_text.strip():
+        return "empty_output"
     if _FORBIDDEN.search(llm_text):
         return "forbidden_content"
     if len(llm_text) > max(120, len(deterministic_text) * _LEN_FACTOR):
         return "length_inflation"
     det_vals = _values(deterministic_text)
-    for unit, val in _values(llm_text):
-        if not _traces(unit, val, det_vals):
+    for unit, val, anchor in _values(llm_text):
+        if not _traces(unit, val, det_vals, anchor):
             return "ungrounded_number"
     # A cause, an instruction or a negation the engine never asserted. Two complementary checks:
     # markers catch insertions INSIDE a copied sentence (no boundary for the next check to see),
@@ -226,6 +283,12 @@ def grounding_failure(llm_text: str, deterministic_text: str) -> str | None:
     for marker in _ASSERTION_MARKERS:
         if llm_tight.count(marker) > det_tight.count(marker):
             return "unsupported_assertion"
+    for marker in _STATISTIC_MARKERS:
+        if marker in llm_tight and marker not in det_tight:
+            return "statistic_substitution"
+    for word in _PERIOD_WORDS:
+        if word in llm_tight and word not in det_tight:
+            return "temporal_scope_change"
     for marker in _POLARITY_MARKERS:
         llm_n, det_n = llm_tight.count(marker), det_tight.count(marker)
         if llm_n < det_n or (det_n == 0 and llm_n > 0):

@@ -20,6 +20,8 @@ from collections import OrderedDict
 
 from starlette.responses import Response
 
+from .config import REQUIRE_AUTH
+
 # Deterministic, side-effect-free reads.
 #
 # NOT here, deliberately:
@@ -47,6 +49,10 @@ CACHEABLE = frozenset({
 # stays short so a browser tab reloaded after a redeploy re-validates quickly.
 _CDN_CACHE = "public, max-age=60, s-maxage=31536000, stale-while-revalidate=86400"
 _NO_STORE = "no-store"
+# When tenant scoping is enforced, a merchant response is PRIVATE. `public, s-maxage` on it
+# would license a shared CDN to hold one merchant's money for a year and hand it to the next
+# caller of the same URL.
+_PRIVATE = "private, no-store"
 
 MAX_ENTRIES = 512
 MAX_BODY_BYTES = 2_000_000   # a body larger than this is not worth the resident memory
@@ -93,6 +99,23 @@ def _put(key: str, body: bytes, ctype: str) -> None:
 
 async def middleware(request, call_next):
     path = request.url.path
+    # THE hazard of caching in middleware, and the reason /api/admin/* is excluded above:
+    # Starlette runs middleware ABOVE the route's dependency graph, so a cache hit answers
+    # before `_merchant_scope` ever executes. With ZARIN_REQUIRE_AUTH=1 — the documented
+    # production posture and the recorded fix for ZB-001/ZB-030 — that made the tenant guard
+    # inert: one authenticated request warmed a URL, and every later anonymous or
+    # wrong-merchant request to the same URL got a 200 with the full body. Verified by
+    # pipeline/_panel/cache_auth_probe.py before this guard existed.
+    #
+    # The same reasoning that excluded /api/admin/* applies to every merchant route, so in
+    # that mode nothing is cached and nothing is marked publicly cacheable. The demo default
+    # (REQUIRE_AUTH off, single tenant, `m=` is the scope) keeps the cache, because there is
+    # no principal to key it by and no tenant boundary to cross.
+    if REQUIRE_AUTH:
+        resp = await call_next(request)
+        if path.startswith("/api/"):
+            resp.headers["Cache-Control"] = _PRIVATE
+        return resp
     if request.method != "GET" or path not in CACHEABLE:
         resp = await call_next(request)
         if path.startswith("/api/") and "cache-control" not in resp.headers:

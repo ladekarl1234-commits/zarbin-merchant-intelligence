@@ -441,3 +441,14 @@ input:focus, button:focus-visible, a:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Recharts needs dir="ltr" on the chart wrapper so its geometry and `reversed` axes work,
+   but that also forces the bidi base direction of the TICK TEXT — so every Persian label on
+   the flagship trend chart rendered backwards. `plaintext` resolves each label by its own
+   first strong character, which leaves the chart geometry LTR and the Persian labels RTL. */
+.recharts-cartesian-axis-tick-value,
+.recharts-cartesian-axis-tick-value tspan,
+.recharts-label,
+.recharts-legend-item-text {
+  unicode-bidi: plaintext;
+}

@@ -541,6 +541,12 @@ def _card_absolute_funnel(ctx: _Ctx):
 
 
 def _card_change_alert(ctx: _Ctx):
+    # Every sibling generator gates on MIN_SESSIONS_INSIGHT; this one did not. It published a
+    # growth/decline verdict, named a single driver, and attached a prescriptive action at a
+    # hardcoded confidence="high" from as few as 2 sessions — for 59 of 343 merchants. A
+    # two-session "conversion improved, keep doing that" is a coin flip with an imperative.
+    if (ctx.me.get("sessions") or 0) < MIN_SESSIONS_INSIGHT:
+        return None
     """GMV change between two EQUAL halves of the period.
 
     An odd-length window used to be split into unequal halves, so the sessions factor was

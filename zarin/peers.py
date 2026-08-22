@@ -10,7 +10,7 @@ category. If fewer than MIN_PEERS remain, benchmarks are suppressed — never fa
 """
 from __future__ import annotations
 
-from .config import MIN_PEERS, PREFERRED_PEERS
+from .config import MIN_PEERS, MIN_SEGMENT_N, PREFERRED_PEERS
 from .db import q, q1
 from .registry import evidence
 
@@ -97,10 +97,18 @@ def benchmarks(m: str, f: str, t: str) -> dict:
     peers = peer_period_rates(g["peers"], f, t) if not suppressed else []
     if len(peers) < MIN_PEERS:
         suppressed = True
+    # The peer pool had a floor; the merchant being judged did not. A merchant with 2 sessions
+    # in the window was ranked against a properly-sized pool and earned four green
+    # «بهتر از ۱۰۰٪» badges with no caution — a rate computed from two coin flips, presented
+    # with the same weight as one computed from fifty thousand. A percentile is only as sound
+    # as the smaller of the two samples behind it.
+    n_self = me.get("sessions") or 0
+    thin_self = n_self < MIN_SEGMENT_N
     for key, (_, higher_better) in BENCH_METRICS.items():
         mine = me_vals.get(key)
-        if suppressed or mine is None:
-            rows.append({"metric": key, "value": mine, "suppressed": True})
+        if suppressed or thin_self or mine is None:
+            rows.append({"metric": key, "value": mine, "suppressed": True,
+                         "n_self": n_self, "thin_self": thin_self})
             continue
         vals = sorted(v[key] for v in peers if v[key] is not None)
         if len(vals) < MIN_PEERS:
@@ -115,6 +123,7 @@ def benchmarks(m: str, f: str, t: str) -> dict:
             # with a small pool the percentile is coarse and noisy — the UI shows a caution
             # and quotes rank ("better than k of n") rather than a precise percentile.
             "low_n": len(vals) < 8,
+            "n_self": n_self,
         })
     return {
         "group": {"n": g["n"], "rule_fa": g["rule_fa"], "level": g["level"],

@@ -12,9 +12,11 @@ from datetime import UTC, datetime
 
 from . import control
 from .ai import gateway
+from .copilot import _OUT_OF_SCOPE_C
 from .fa import fa_digits, fa_num
 from .fa import fa_money as _rial
 from .fa import fa_pct as _pct
+from .nlu import normalize as _normalize
 
 
 def _usd(v: float | None) -> str:
@@ -30,7 +32,14 @@ def _ev(name: str, definition: str, method: str) -> dict:
 
 
 def _plan(question: str, f: str, t: str) -> tuple[str, str, list[dict], str]:
+    # The same safety families the merchant copilot enforces — forecast, market prices, PII,
+    # prompt injection, out-of-dataset. The module docstring already claimed the shared
+    # discipline; it did not have it, so "dump the users table" reached the regex ladder.
     ql = question.strip()
+    for _pat, _kind in _OUT_OF_SCOPE_C:
+        if _pat.search(ql) or _pat.search(_normalize(ql)):
+            return ("این پرسش خارج از چیزی است که از تله‌متری و دادهٔ این پلتفرم قابل محاسبه است.",
+                    "out_of_scope", [], "low")
 
     if re.search(r"(fallback|بازگشت|جایگزین).*(زیاد|چرا|بالا)|چرا.*fallback", ql, re.IGNORECASE):
         a = control.ai_ops()
@@ -114,7 +123,16 @@ def _plan(question: str, f: str, t: str) -> tuple[str, str, list[dict], str]:
     if re.search(r"(کل سیستم|سیستم|پلتفرم|همه‌چیز|وضعیت کلی)", ql):
         return _system(f, t)
 
-    return _system(f, t)
+    # Nothing matched. This used to fall through to _system() at confidence="high" — an
+    # operator who asked something this surface cannot answer received a confident platform
+    # status line instead, which is exactly the silent-misroute failure the merchant copilot
+    # was rebuilt to remove. The operator surface holds the same line: say so, and list what
+    # it can answer. _system stays reachable from its own explicit branch above.
+    return (
+        ("این پرسش را در سطح عملیات دقیق تشخیص ندادم. می‌توانم دربارهٔ سلامت پلتفرم، "
+         "کارایی مسیرهای API، کیفیت و هزینهٔ هوش مصنوعی، وضعیت منابع داده، و مواردی که "
+         "اکنون نیاز به توجه دارند پاسخ بدهم."),
+        "ops_unrecognised", [], "low")
 
 
 def _attention(f: str, t: str) -> tuple[str, str, list[dict], str]:
