@@ -1,6 +1,6 @@
 export const meta = {
-  name: 'zarbin-expert-panel-r1',
-  description: 'Round-1 expert judging panel: 16 independent lenses score the deployed Zarbin, then every critical/high finding is adversarially verified',
+  name: 'zarbin-expert-panel',
+  description: 'Expert judging panel: 16 independent lenses score the deployed Zarbin, then every critical/high finding is adversarially verified. Pass {round, commit} as args.',
   phases: [
     { title: 'Judge', detail: '16 independent expert lenses' },
     { title: 'Verify', detail: 'adversarial refutation of each critical/high finding' },
@@ -211,7 +211,8 @@ const scores = ok.map(r => ({ lens: r.lens, score: r.score, confidence: r.confid
 const mean = scores.length ? scores.reduce((a, b) => a + b.score, 0) / scores.length : null
 
 return {
-  round: 1,
+  round: (args && args.round) || 1,
+  commit: (args && args.commit) || null,
   lenses: ok.map(r => ({
     lens: r.lens, score: r.score, confidence: r.confidence, summary: r.summary,
     not_higher_because: r.not_higher_because, not_lower_because: r.not_lower_because,

@@ -149,6 +149,25 @@ CI: [.github/workflows/ci.yml](.github/workflows/ci.yml) (Python + frontend jobs
 
 ---
 
+## Measured results — before and after
+
+Full record with every reproduce-command: **[docs/EVALUATION.md](docs/EVALUATION.md)**.
+
+| | before | after |
+|---|---:|---:|
+| Right-question accuracy, 129 blind Persian questions | 0.318 | **0.954** |
+| Answered a *different* question than the one asked | 0.528 | **0.022** |
+| Answered a question it should have refused | 0.375 | **0.050** |
+| Deployed numbers recomputed from the raw dataset | — | **240/240 exact** |
+| Server-side latency p50 / p95, 71 live endpoint cases | — | **19 ms / 325 ms** |
+| Non-2xx across the full live probe | — | **0/71** |
+| Tests | 137 | **180** |
+
+The "before" is not a description of the old router — it is the old router, executed on the
+same questions by the same scorer (`zarin/ai/eval/retrieval.py`). The question sets were
+written by labellers denied access to the repository and double-labelled with disagreements
+dropped. Reproduce: `uv run python -m zarin.ai.eval.retrieval -v`.
+
 ## Independent expert review
 
 This repository carries its own audit. Commit `75de6bb` was evaluated by a panel of **15 specialized

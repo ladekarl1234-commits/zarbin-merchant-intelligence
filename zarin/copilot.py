@@ -302,10 +302,19 @@ def _ans_repeat(m, f, t, q=''):
         return _Plan("در این بازه مشتری پرداخت موفقی ثبت نشده است.", "repeat", refs, "low")
     share = s["repeat_txns"] / s["txns"] if s["txns"] else None
     gshare = s["repeat_gmv"] / s["gmv"] if s["gmv"] else None
+    # «۲۳٬۸۰۱ مشتری (۲۳٬۸۰۱ مشتری جدید) ... تکراری ۳۵٫۸٪» is three true numbers that read as a
+    # contradiction: "new" means first-ever purchase inside the window, and over the full data
+    # range that is everyone, while "repeat" means more than one purchase inside the window.
+    # Two different clocks. Say which, instead of printing both and hoping.
+    if s["new_customers"] >= s["customers"]:
+        head = (f"{fa_num(s['customers'])} مشتری در این بازه پرداخت موفق داشتند و همگی اولین "
+                "خریدشان در همین بازه بوده است (بازه، کل تاریخچهٔ داده را پوشش می‌دهد)")
+    else:
+        head = (f"{fa_num(s['customers'])} مشتری در این بازه پرداخت موفق داشتند که "
+                f"{fa_num(s['new_customers'])} نفرشان اولین خریدشان را همین‌جا انجام دادند")
     return _Plan(
-        f"{fa_num(s['customers'])} مشتری در این بازه پرداخت موفق داشتند "
-        f"({fa_num(s['new_customers'])} مشتری جدید). "
-        f"مشتریان تکراری {_pct(share)} از تراکنش‌ها و {_pct(gshare)} از فروش را ساخته‌اند. "
+        head + f". از میان همین مشتری‌ها، آن‌هایی که بیش از یک بار خرید کردند "
+        f"{_pct(share)} از تراکنش‌ها و {_pct(gshare)} از فروش را ساخته‌اند. "
         "(تحلیل مشتری فقط پرداخت‌کنندگان موفق همین پذیرنده را می‌بیند.)", "repeat", refs, "medium")
 
 
