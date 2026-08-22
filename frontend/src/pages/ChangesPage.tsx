@@ -20,17 +20,12 @@ export default function ChangesPage() {
   const { merchant, period } = useApp();
   const [state, setState] = useState<{ data: Changes | null; loading: boolean; error: string | null }>({ data: null, loading: true, error: null });
 
-  const windows = useMemo(() => {
-    // integer-day midpoint, matching the backend insight card (zarin/insights._change_alert)
-    // so the Changes page and the "GMV change" insight quote the same split.
-    const f = new Date(period.f + "T12:00:00");
-    const t = new Date(period.t + "T12:00:00");
-    const spanDays = Math.round((t.getTime() - f.getTime()) / 86400000);
-    const mid = new Date(f.getTime() + Math.floor(spanDays / 2) * 86400000);
-    const mid2 = new Date(mid.getTime() + 86400000);
-    const iso = (x: Date) => x.toISOString().slice(0, 10);
-    return { f1: period.f, t1: iso(mid), f2: iso(mid2), t2: period.t };
-  }, [period]);
+  // The split is the SERVER's. This page used to compute it here in TypeScript, and the two
+  // implementations disagreed — the backend insight card drops the middle day of an odd span
+  // (ZB-018) and this did not, so the same merchant's ΔGMV differed by 9.06 billion IRR
+  // depending on which screen you read it from. /api/changes now derives the halves from f/t
+  // with the same function the card uses, and returns the boundaries it chose.
+  const windows = useMemo(() => ({ f: period.f, t: period.t }), [period]);
 
   useEffect(() => {
     if (!merchant) return;

@@ -307,13 +307,17 @@ raised as critical or high did not survive an agent whose only job was to dispro
 | high | `ai-grounding` | An empty LLM completion is "grounded" and the client swaps it in, blanking a correct answer | **fixed** |
 | medium | `scalability` | Control Center performance telemetry is a per-instance in-memory ring and is blind to every CDN hit | **fixed** |
 
-Everything marked **fixed** landed in commit `7b75252`, with the reasoning in that commit
-message and a regression test where the defect was testable. The three still open are the
-larger ones — a windowed operator drilldown, unifying the two "what changed" window splits,
-and rebuilding amount bands on distinct prices rather than row rank — and are the round-2
-queue.
+**All 17 are now fixed** — 14 in `7b75252`, the three larger ones after it:
 
-**On the 295/300 target.** Round 1 scored 256. Closing the confirmed findings should move
+| finding | fix | verified |
+|---|---|---|
+| Operator drilldown showed lifetime figures under a windowed header | `control.merchants(sort, limit, f, t)` aggregates the same session rows over the same window as every other operator route | live: full range top-2 GMV `1,951,081,768,030 / 968,621,609,500`, May–June `775,803,171,840 / 400,423,250,000` |
+| Changes page and the GMV-change card split the window differently — 9.06 B IRR apart | the client-side split is deleted; `/api/changes?f=&t=` derives the halves with the same `_equal_halves` the card uses and returns the boundaries it chose | live: `f1 2026-01-01 · t1 2026-03-31 · f2 2026-04-02 · t2 2026-06-30`, and the explicit form gives an identical `delta_gmv` |
+| Amount bands were equal-COUNT over tied prices — 84 published bands had `lo == hi`, and four bands holding one price quoted four different rates | bands are cut on quantile **values**, so every session at a given price stays in one band | 81 merchants, 354 bands: **1** with `lo == hi` (M67, which sells at exactly one price — that band is the truth) and **0** overlapping price ranges |
+
+Each carries a regression test. 191 tests.
+
+**On the 295/300 target.** Round 1 scored 256, before any of these fixes. Closing the confirmed findings should move
 correctness and UX, but a rigorous panel does not award 98%: analytical depth is capped at
 44/60 by things that are real work rather than defects (no statistical uncertainty on the
 opportunity bands, four materialised columns that drive no analysis), and the panel deducts

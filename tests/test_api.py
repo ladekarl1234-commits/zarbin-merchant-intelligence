@@ -87,3 +87,61 @@ def test_path_traversal_serves_index_not_arbitrary_file():
         assert b"PAR1" not in content[:64]         # must not be a parquet file
         assert b"<div id=\"root\">" in content or b"<!doctype" in content.lower() \
             or content == b""  # served index.html (or empty when built html differs) — never the file
+
+
+from itertools import pairwise
+
+# --- round-1 panel: the three findings that outlived the first fix batch ----------------
+
+def test_amount_bands_are_cut_on_values_not_row_rank():
+    """ntile(5) is equal-COUNT, so with tied prices the SAME amount landed in several bands,
+    each publishing its own conversion rate — 84 bands platform-wide had lo == hi, and up to
+    four bands containing one price quoted four different rates. Bands are now cut on
+    quantile VALUES, which keeps every session with a given amount in one band."""
+    fu = client.get("/api/funnel?m=MPSP&f=2026-04-01&t=2026-04-30").json()
+    bands = fu["amount_bands"]
+    assert bands, "fixture should produce at least one band"
+    # a single price may legitimately be its own band, but only when it is the ONLY band
+    if len(bands) > 1:
+        assert all(b["lo"] != b["hi"] for b in bands), bands
+    # and no two bands may share a price
+    for a, b in pairwise(bands):
+        assert a["hi"] < b["lo"], (a, b)
+
+
+def test_operator_drilldown_respects_the_selected_window():
+    """The table read lifetime `merchant_stats` while every KPI beside it was windowed, so
+    changing the period moved every number on the page except the rows in the table."""
+    wide = client.get("/api/admin/merchants?sort=gmv&limit=100").json()
+    narrow = client.get("/api/admin/merchants?sort=gmv&limit=100&f=2026-01-01&t=2026-01-31").json()
+    assert narrow["period"] == {"from": "2026-01-01", "to": "2026-01-31"}
+    wide_by = {r["merchant_key"]: r["sessions"] for r in wide["rows"]}
+    narrow_by = {r["merchant_key"]: r["sessions"] for r in narrow["rows"]}
+    shared = set(wide_by) & set(narrow_by)
+    assert shared, "expected at least one merchant in both windows"
+    assert any(narrow_by[k] < wide_by[k] for k in shared), (wide_by, narrow_by)
+    # and the ranking itself must be able to change — with lifetime figures it could not
+    assert [r["merchant_key"] for r in wide["rows"][:5]] != [r["merchant_key"] for r in narrow["rows"][:5]]
+
+
+def test_changes_derives_one_split_server_side():
+    """Two screens split the same window differently and disagreed about the same delta.
+    /api/changes now derives the halves itself, with the same function the insight card
+    uses, and reports the boundaries it chose."""
+    d = client.get("/api/changes?m=M1&f=2026-01-01&t=2026-02-28").json()
+    w = d["windows"]
+    assert w["f1"] == "2026-01-01" and w["t2"] == "2026-02-28"
+    # the two halves are equal length and do not overlap
+    from datetime import date
+    a = (date.fromisoformat(w["t1"]) - date.fromisoformat(w["f1"])).days
+    b = (date.fromisoformat(w["t2"]) - date.fromisoformat(w["f2"])).days
+    assert a == b, w
+    assert date.fromisoformat(w["f2"]) > date.fromisoformat(w["t1"]), w
+    # asking explicitly for the same halves must give the identical answer
+    e = client.get(f"/api/changes?m=M1&f1={w['f1']}&t1={w['t1']}&f2={w['f2']}&t2={w['t2']}").json()
+    assert e["delta_gmv"] == d["delta_gmv"]
+
+
+def test_changes_rejects_an_unsplittable_window_and_partial_arguments():
+    assert client.get("/api/changes?m=M1&f=2026-01-01&t=2026-01-10").status_code == 400
+    assert client.get("/api/changes?m=M1&f1=2026-01-01").status_code == 400

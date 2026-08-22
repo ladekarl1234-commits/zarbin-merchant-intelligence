@@ -161,7 +161,7 @@ Full record with every reproduce-command: **[docs/EVALUATION.md](docs/EVALUATION
 | Deployed numbers recomputed from the raw dataset | — | **240/240 exact** |
 | Server-side latency p50 / p95, 71 live endpoint cases | — | **19 ms / 325 ms** |
 | Non-2xx across the full live probe | — | **0/71** |
-| Tests | 137 | **187** |
+| Tests | 137 | **191** |
 | Expert panel — competition rubric | 236/300 | **256/300** |
 | Expert panel — mean dimension score | — | 69.1/100 |
 
@@ -172,8 +172,8 @@ dropped. Reproduce: `uv run python -m zarin.ai.eval.retrieval -v`.
 
 A **16-lens expert panel** then judged the deployed system: 141 findings, of which the 40
 critical/high were each handed to a separate agent briefed to *refute* them — **17 confirmed,
-23 refuted**. Every confirmed critical and all but three highs are fixed in `7b75252`,
-including a cache layer that answered merchant routes before the tenant guard. Full record
+23 refuted** — and all 17 are fixed, including a cache layer that answered merchant routes
+before the tenant guard. Full record
 with each lens's reasoning: **[docs/EXPERT_PANEL.md](docs/EXPERT_PANEL.md)**.
 
 ## Independent expert review

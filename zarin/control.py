@@ -110,31 +110,47 @@ def _windowed_anomalies(f: str, t: str) -> dict:
 
 
 _MERCHANT_SORT = {
-    "unverified": "paid_unverified_amount DESC",
+    "unverified": "w.paid_unverified_amount DESC",
     "no_attempt": "no_attempt_rate DESC NULLS LAST",
-    "gmv": "gmv DESC",
-    "recovered": "recovered_gmv DESC",
+    "gmv": "w.gmv DESC NULLS LAST",
+    "recovered": "w.recovered_gmv DESC",
 }
 
 
-@lru_cache(maxsize=32)
-def merchants(sort: str, limit: int) -> dict:
-    """Merchant-level drilldown behind the Control Center's recommended actions (ZB-026)."""
+@lru_cache(maxsize=64)
+def merchants(sort: str, limit: int, f: str, t: str) -> dict:
+    """Merchant-level drilldown behind the Control Center's recommended actions (ZB-026).
+
+    WINDOWED. This read `merchant_stats`, which is lifetime, while the page around it carries
+    the operator's selected period and `platform(f, t)` beside it is windowed — so picking
+    "last 30 days" changed every KPI on the screen and none of the rows in the table, and the
+    table's own numbers could not be reconciled with the totals directly above them. The
+    aggregation now comes from the same session rows over the same window as everything else
+    on the page.
+    """
     order = _MERCHANT_SORT.get(sort, _MERCHANT_SORT["unverified"])
     rows = q(f"""
-        WITH rec AS (
+        WITH w AS (
             SELECT merchant_key,
-                   coalesce(sum(amount) FILTER (WHERE recovered AND outcome='verified'), 0) AS recovered_gmv
-            FROM sessions GROUP BY 1
+                   count(*) AS sessions,
+                   sum(amount) FILTER (WHERE outcome='verified') AS gmv,
+                   count(*) FILTER (WHERE outcome='paid_unverified') AS paid_unverified,
+                   coalesce(sum(amount) FILTER (WHERE outcome='paid_unverified'), 0)
+                       AS paid_unverified_amount,
+                   count(*) FILTER (WHERE outcome='no_attempt') AS no_attempt,
+                   coalesce(sum(amount) FILTER (WHERE recovered AND outcome='verified'), 0)
+                       AS recovered_gmv
+            FROM sessions WHERE d BETWEEN $f AND $t GROUP BY 1
         )
-        SELECT ms.merchant_key, ms.category_title, ms.sessions, ms.gmv,
-               ms.paid_unverified_amount, ms.paid_unverified,
-               ms.no_attempt / nullif(ms.sessions, 0) AS no_attempt_rate,
-               coalesce(rec.recovered_gmv, 0) AS recovered_gmv
-        FROM merchant_stats ms LEFT JOIN rec USING (merchant_key)
-        ORDER BY {order}
-        LIMIT {int(limit)}""")
-    return {"rows": rows}
+        SELECT w.merchant_key, ms.category_title, w.sessions, w.gmv,
+               w.paid_unverified_amount, w.paid_unverified,
+               w.no_attempt / nullif(w.sessions, 0) AS no_attempt_rate,
+               w.recovered_gmv
+        FROM w JOIN merchant_stats ms USING (merchant_key)
+        -- merchant_key breaks ties so the table is the same table between identical calls
+        ORDER BY {order}, w.merchant_key
+        LIMIT {int(limit)}""", {"f": f, "t": t})
+    return {"rows": rows, "period": {"from": f, "to": t}}
 
 
 def _platform_insights(k: dict, conc: dict) -> list[dict]:

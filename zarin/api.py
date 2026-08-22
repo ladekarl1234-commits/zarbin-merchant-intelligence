@@ -26,6 +26,7 @@ from .config import (
     REQUIRE_AUTH,
     STATIC_DIR,
 )
+from .copilot import _equal_halves
 from .db import q, q1
 from .fa import fa_num
 
@@ -282,13 +283,40 @@ def get_peers(m: str = Depends(_merchant_scope), f: str | None = None, t: str | 
 
 
 @app.get("/api/changes", response_model=ChangesResponse)
-def changes(f1: str, t1: str, f2: str, t2: str, m: str = Depends(_merchant_scope)):
+def changes(m: str = Depends(_merchant_scope),
+            f1: str | None = None, t1: str | None = None,
+            f2: str | None = None, t2: str | None = None,
+            f: str | None = None, t: str | None = None):
+    """Decompose a GMV move between two windows.
+
+    Two ways to ask. Explicit (`f1,t1,f2,t2`) is unchanged. Derived (`f,t`) splits the window
+    into two equal halves SERVER-SIDE with `copilot._equal_halves` — the same function the
+    "GMV change" insight card uses.
+
+    That second form exists because the Changes page used to compute the split itself in
+    TypeScript, and the two implementations disagreed: the card dropped the middle day of an
+    odd span (ZB-018) and the page did not, so the same merchant's ΔGMV differed by 9.06
+    billion IRR depending on which screen you read it from. One split, derived once, and the
+    response says which boundaries were used.
+    """
     _check_merchant(m)
+    if not any((f1, t1, f2, t2)):
+        lo, hi = _dates(m, f, t)
+        halves = _equal_halves(lo, hi)
+        if not halves:
+            raise HTTPException(400, "window too short to split into two comparable halves "
+                                     "(28 days minimum); pass f1,t1,f2,t2 explicitly")
+        a_end, b_start, _half = halves
+        f1, t1, f2, t2 = lo, a_end, b_start, hi
+    elif not all((f1, t1, f2, t2)):
+        raise HTTPException(400, "give all four of f1,t1,f2,t2 — or none, and f/t instead")
     # reassign the NORMALIZED dates (not just validate) so basic-form ISO like 20260101
     # reaches DuckDB as canonical YYYY-MM-DD instead of raising a 500 — mirrors _dates().
     f1, t1 = _valid_date(f1, "f1"), _valid_date(t1, "t1")
     f2, t2 = _valid_date(f2, "f2"), _valid_date(t2, "t2")
-    return analytics.changes(m, f1, t1, f2, t2)
+    out = analytics.changes(m, f1, t1, f2, t2)
+    out["windows"] = {"f1": f1, "t1": t1, "f2": f2, "t2": t2}
+    return out
 
 
 @app.get("/api/copilot")
@@ -349,11 +377,17 @@ _MERCHANT_SORTS = {"unverified", "no_attempt", "gmv", "recovered"}
 
 
 @app.get("/api/admin/merchants", dependencies=_ADMIN)
-def admin_merchants(sort: str = "unverified", limit: int = Query(20, ge=1, le=100)):
-    """Merchant drilldown behind the Control Center's recommended actions (ZB-026)."""
+def admin_merchants(sort: str = "unverified", limit: int = Query(20, ge=1, le=100),
+                    f: str | None = None, t: str | None = None):
+    """Merchant drilldown behind the Control Center's recommended actions (ZB-026).
+
+    Takes the window, like every other operator route. Without it the table showed lifetime
+    figures under a header that named the selected period.
+    """
     if sort not in _MERCHANT_SORTS:
         raise HTTPException(400, f"unknown sort: {sort!r} (expected one of {sorted(_MERCHANT_SORTS)})")
-    return control.merchants(sort, limit)
+    f, t = _dates("", f, t)
+    return control.merchants(sort, limit, f, t)
 
 
 @app.get("/api/admin/performance", dependencies=_ADMIN)

@@ -74,6 +74,8 @@ export type Changes = {
   before: { from: string; to: string; sessions: number; conv: number; ticket: number; gmv: number };
   after: { from: string; to: string; sessions: number; conv: number; ticket: number; gmv: number };
   delta_gmv: number; decomposable: boolean;
+  /** The halves the SERVER chose, so the page can name them instead of assuming them. */
+  windows?: { f1: string; t1: string; f2: string; t2: string };
   contrib: { sessions?: number; conv?: number; ticket?: number };
   conv_drivers: Record<string, number>;
   evidence: Evidence;

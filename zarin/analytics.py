@@ -104,18 +104,35 @@ def funnel(m: str, f: str, t: str) -> dict:
                          count(*) FILTER (WHERE outcome='verified') AS verified
                   FROM sessions WHERE {PERIOD_SQL} GROUP BY hour ORDER BY hour""", p)
 
+    # Bands are cut on VALUES, not on row rank.
+    #
+    # ntile(5) is equal-COUNT: with 17k sessions sharing one amount it puts the identical
+    # price in several different bands, and each of them then reports its own conversion
+    # rate. Live, that produced 84 published bands whose lo == hi, and up to four "amount
+    # bands" containing exactly the same price quoting four different rates — a merchant
+    # asked to read a price effect off pure partition noise.
+    #
+    # Cutting on quantile VALUES keeps every session with a given amount in one band, which
+    # is the only way the statement "orders around X convert at Y" can be true. The cost is
+    # that bands are no longer equal-sized: a dominant price makes one band large, and ties
+    # can collapse two cut points into one. Both are handled — degenerate bands are dropped
+    # by the DISTINCT on cut points, and small bands by the existing MIN_SEGMENT_N filter.
     bands_sql = f"""
-        WITH b AS (
-          -- session_key breaks ties: payment amounts repeat constantly, and without a total
-          -- order tied rows fall into different quintiles between runs, silently moving the
-          -- per-band conversion shown to the merchant (same defect class as ZB-120).
-          SELECT amount, outcome, ntile(5) OVER (ORDER BY amount, session_key) AS band
-          FROM sessions WHERE {PERIOD_SQL})
+        WITH s AS (SELECT amount, outcome FROM sessions WHERE {PERIOD_SQL}),
+        cuts AS (SELECT DISTINCT unnest(quantile_cont(amount, [0.2, 0.4, 0.6, 0.8])) AS c FROM s),
+        b AS (SELECT amount, outcome,
+                     (SELECT count(*) FROM cuts WHERE s.amount > cuts.c) AS band
+              FROM s)
         SELECT band, min(amount) AS lo, max(amount) AS hi, count(*) AS sessions,
                count(*) FILTER (WHERE outcome='verified') / count(*) AS conv
         FROM b GROUP BY band ORDER BY band"""
     bands = q(bands_sql, p)
+    # A band whose lo == hi is a single price, not a range; publishing it as one invites
+    # exactly the reading the cut-on-values change exists to prevent. Keep it only when it
+    # is the merchant's whole distribution (one price, one band), where it is the truth.
     bands = [b for b in bands if b["sessions"] >= MIN_SEGMENT_N]
+    if len(bands) > 1:
+        bands = [b for b in bands if b["lo"] != b["hi"]]
 
     psp_sql = f"""
         SELECT psp_code, count(*) AS attempts, avg(ok::int) AS ok_rate
