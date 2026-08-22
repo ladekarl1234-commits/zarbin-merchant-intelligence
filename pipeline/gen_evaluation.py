@@ -1,4 +1,4 @@
-"""Generate docs/EVALUATION.md from docs/evaluation_rounds.json.
+"""Generate docs/EXPERT_PANEL.md from docs/evaluation_rounds.json.
 
 Two modes, mirroring pipeline/gen_expert_review.py:
 
@@ -23,7 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = ROOT / "docs" / "evaluation_rounds.json"
-OUT = ROOT / "docs" / "EVALUATION.md"
+OUT = ROOT / "docs" / "EXPERT_PANEL.md"
 
 LENS_TITLE = {
     "rubric-official": "Official competition rubric (300 pts)",
@@ -98,7 +98,12 @@ def render(archive: dict) -> str:
     L = []
     A = L.append
 
-    A("# Independent evaluation — before and after")
+    A("# Expert judging panel — the record")
+    A("")
+    A("> The measured before/after (retrieval, data correctness, latency) is in")
+    A("> **[EVALUATION.md](EVALUATION.md)**. This document is the panel: sixteen independent")
+    A("> expert lenses, their scores, and every critical/high finding that survived being")
+    A("> handed to a separate agent briefed to refute it.")
     A("")
     A("> Machine-generated from `docs/evaluation_rounds.json` by `pipeline/gen_evaluation.py`.")
     A("> Every number below comes from the archive; the two clearly-labelled prose sections at")

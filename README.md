@@ -161,12 +161,20 @@ Full record with every reproduce-command: **[docs/EVALUATION.md](docs/EVALUATION
 | Deployed numbers recomputed from the raw dataset | — | **240/240 exact** |
 | Server-side latency p50 / p95, 71 live endpoint cases | — | **19 ms / 325 ms** |
 | Non-2xx across the full live probe | — | **0/71** |
-| Tests | 137 | **180** |
+| Tests | 137 | **187** |
+| Expert panel — competition rubric | 236/300 | **256/300** |
+| Expert panel — mean dimension score | — | 69.1/100 |
 
 The "before" is not a description of the old router — it is the old router, executed on the
 same questions by the same scorer (`zarin/ai/eval/retrieval.py`). The question sets were
 written by labellers denied access to the repository and double-labelled with disagreements
 dropped. Reproduce: `uv run python -m zarin.ai.eval.retrieval -v`.
+
+A **16-lens expert panel** then judged the deployed system: 141 findings, of which the 40
+critical/high were each handed to a separate agent briefed to *refute* them — **17 confirmed,
+23 refuted**. Every confirmed critical and all but three highs are fixed in `7b75252`,
+including a cache layer that answered merchant routes before the tenant guard. Full record
+with each lens's reasoning: **[docs/EXPERT_PANEL.md](docs/EXPERT_PANEL.md)**.
 
 ## Independent expert review
 
@@ -211,7 +219,11 @@ software itself, so it is not a production-readiness verdict.)*
 - **[docs/PLATFORM_BOOK.md](docs/PLATFORM_BOOK.md)** — why this exists and why it's built this way.
 - **[docs/ADR/](docs/ADR/)** — stack · deterministic-vs-LLM · OpenRouter free policy · source adapters.
 - **[docs/DEPLOYMENT_SPEC.md](docs/DEPLOYMENT_SPEC.md)** — local + production-shaped deployment.
-- **[docs/EXPERT_REVIEW.md](docs/EXPERT_REVIEW.md)** — 15-agent expert audit: scores, findings, assessment.
+- **[docs/EVALUATION.md](docs/EVALUATION.md)** — the measured before/after, with a reproduce-command per figure.
+- **[docs/EXPERT_PANEL.md](docs/EXPERT_PANEL.md)** — the 16-lens panel: scores, reasoning, confirmed + refuted findings.
+- **[docs/RETRIEVAL.md](docs/RETRIEVAL.md)** — how the copilot decides which question it is answering.
+- **[docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md)** — the serverless deployment and the four constraints that shaped it.
+- **[docs/EXPERT_REVIEW.md](docs/EXPERT_REVIEW.md)** — the earlier 15-agent audit (commit `75de6bb`).
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · **[docs/ANALYTICS.md](docs/ANALYTICS.md)** ·
   **[docs/DATA_AUDIT.md](docs/DATA_AUDIT.md)** · **[docs/DESIGN.md](docs/DESIGN.md)** ·
   **[CONTRIBUTING.md](CONTRIBUTING.md)** · **[docs/JURY_REVIEW.md](docs/JURY_REVIEW.md)** ·

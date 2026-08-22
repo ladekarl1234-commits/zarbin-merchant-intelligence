@@ -225,3 +225,97 @@ Named, not buried.
    against human experts. Treat the deltas as more meaningful than the absolutes.
 7. **Peer-group construction and opportunity magnitudes are unverified** by the independent
    audit (only the cap invariant was checked).
+
+---
+
+## 7. The expert judging panel (round 1)
+
+Sixteen independent expert lenses scored the deployed system in parallel and in isolation —
+no lens saw another's output. Every `critical` and `high` finding was then handed to a
+**separate agent briefed to refute it**, defaulting to refuted when it could not be
+reproduced. 56 agents in total.
+
+Full record, including each lens's reasoning and every refutation:
+**[EXPERT_PANEL.md](EXPERT_PANEL.md)**. Raw archive: `docs/evaluation_rounds.json`.
+Re-run: `pipeline/panel.js` through the Workflow orchestrator.
+
+| | round 1 |
+|---|---:|
+| Commit judged | `5acf9e1` |
+| Mean dimension score | **69.1** / 100 |
+| **Competition rubric** | **256 / 300** (previous panel on `75de6bb`: 236) |
+| Findings raised | 141 — 10 critical · 42 high · 55 medium · 34 low |
+| Critical/high sent for adversarial re-check | 40 |
+| — **confirmed** | **17** |
+| — **refuted** | **23** |
+
+The 58% refutation rate is the point of the second stage. A panel of language models grades
+on plausibility unless something forces reproduction; more than half of what the lenses
+raised as critical or high did not survive an agent whose only job was to disprove it.
+
+### The rubric
+
+| Criterion | Max | previous panel | round 1 |
+|---|---:|---:|---:|
+| Actionability & novelty of insights | 90 | 76 | **81** |
+| Correctness & traceability | 75 | 58 | **65** |
+| Analytical depth | 60 | 41 | **44** |
+| Non-technical UX | 45 | 36 | **38** |
+| Technical quality & executability | 30 | 25 | **28** |
+| **Total** | **300** | **236** | **256** |
+
+### Dimension scores
+
+| Lens | Score |
+|---|---:|
+| `rubric-official` | 85 |
+| `architecture` | 81 |
+| `data-correctness` | 79 |
+| `security` | 78 |
+| `code-quality` | 76 |
+| `product` | 73 |
+| `design` | 68 |
+| `testing-qa` | 68 |
+| `business` | 66 |
+| `ux` | 66 |
+| `scalability` | 65 |
+| `accessibility` | 64 |
+| `ai-grounding` | 62 |
+| `reliability` | 61 |
+| `retrieval-eval` | 58 |
+| `statistics` | 56 |
+
+### The 17 confirmed findings, and what happened to them
+
+| Sev | Lens | Finding | Status |
+|---|---|---|---|
+| critical | `reliability` | Response cache answers merchant routes before the auth dependency, leaking another tenant's money (defeats the recorded ZB-001/ZB-030 fix) | **fixed** |
+| critical | `ux` | LLM polish rewrites the answer's TIME FRAME, so a 6-month total is shown to the merchant as "yesterday's sales" — with اطمینان بالا | **fixed** |
+| critical | `ai-grounding` | Grounding guard is permutation-blind: the LLM can rebind engine numbers to the wrong metric and pass as "grounded" — observed live as median→mean | **fixed** |
+| high | `architecture` | Response cache runs above the auth dependency: with REQUIRE_AUTH on, a warmed merchant URL is served to anyone, and marked publicly cacheable for a ye | **fixed** |
+| high | `code-quality` | ops_copilot.py never received the routing rewrite its own docstring claims it shares with the merchant copilot | **fixed** |
+| high | `data-correctness` | Control Center merchant table silently ignores the selected window and shows 6-month lifetime figures under a windowed header | open |
+| high | `data-correctness` | Changes page and the GMV-change insight card split the window differently: the same merchant's ΔGMV differs by 9.06 billion IRR on two screens | open |
+| high | `statistics` | gmv_change alert asserts a causal driver at confidence "high" with no sample-size gate — live card built on 2 sessions | **fixed** |
+| high | `statistics` | Amount quintiles are equal-count over tied prices: 84 published bands have lo==hi, and four "amount bands" containing the identical price report four  | open |
+| high | `reliability` | Anonymous callers can evict the request-telemetry ring and inflate the operator response 200x; "attention" is blind to 4xx | **fixed** |
+| high | `product` | Ops copilot has no refusal path — every unmatched question returns the platform status line at confidence=high | **fixed** |
+| high | `product` | Merchant copilot answers "how much money did I lose?" with total successful sales, at confidence=high | **fixed** |
+| high | `ux` | «اطمینان بالا» growth verdicts and prescriptive advice generated from 2–15 transactions, for 59 of 343 merchants | **fixed** |
+| high | `ux` | Peer benchmarking applies a sample floor to the peers but none to the merchant being judged — 2 transactions earns four green "بهتر از ۱۰۰٪" badges wi | **fixed** |
+| high | `design` | Every axis label on the flagship trend chart reads backwards in Persian | **fixed** |
+| high | `ai-grounding` | An empty LLM completion is "grounded" and the client swaps it in, blanking a correct answer | **fixed** |
+| medium | `scalability` | Control Center performance telemetry is a per-instance in-memory ring and is blind to every CDN hit | **fixed** |
+
+Everything marked **fixed** landed in commit `7b75252`, with the reasoning in that commit
+message and a regression test where the defect was testable. The three still open are the
+larger ones — a windowed operator drilldown, unifying the two "what changed" window splits,
+and rebuilding amount bands on distinct prices rather than row rank — and are the round-2
+queue.
+
+**On the 295/300 target.** Round 1 scored 256. Closing the confirmed findings should move
+correctness and UX, but a rigorous panel does not award 98%: analytical depth is capped at
+44/60 by things that are real work rather than defects (no statistical uncertainty on the
+opportunity bands, four materialised columns that drive no analysis), and the panel deducts
+for a demo-grade auth gate that is deliberate. Reporting 256 and the gap honestly is worth
+more than a number tuned to a target.
