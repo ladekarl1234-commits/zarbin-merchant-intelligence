@@ -19,7 +19,20 @@ FREE_ALLOWLIST: frozenset[str] = frozenset()
 # Never allowed, even though they look "meta": these route to (and bill for) paid models.
 BANNED = frozenset({"openrouter/auto", "openrouter/free", "auto"})
 
-DEFAULT_FREE_MODEL = "deepseek/deepseek-chat-v3-0324:free"
+# Chosen by measurement, not reputation. Against five real deterministic answers from this
+# product, rephrased and then judged by our own grounding guard:
+#
+#   nvidia/nemotron-3-super-120b-a12b:free   4/5 grounded   avg 3.2s   p95 5.1s   <- default
+#   nvidia/nemotron-3-nano-30b-a3b:free      0/5            avg 1.7s   (flips negations)
+#   cohere/north-mini-code:free              0/5            avg 10.9s
+#   google/gemma-4-31b-it:free               n/a            HTTP 429 on every call
+#   z-ai/glm-5.2:free                        n/a            HTTP 429 on every call
+#
+# The previous default, `deepseek/deepseek-chat-v3-0324:free`, no longer exists on
+# OpenRouter's free tier: every call 404s and falls back. A default that is silently dead
+# is worse than no default, because the fallback path hides it — which is why the model
+# id is now backed by a recorded measurement and why `pipeline/bench_models.py` re-runs it.
+DEFAULT_FREE_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 
 
 def is_free(model: str) -> bool:

@@ -68,6 +68,22 @@ def reset() -> None:
         _con = None
     if hasattr(_local, "cur"):
         del _local.cur
+    invalidate_derived()
+
+
+def invalidate_derived() -> None:
+    """Drop everything memoised *over* the marts.
+
+    Swapping MARTS_DIR without this leaves the response cache and every lru_cache
+    answering from the previous dataset — `reset()` would look like it worked and
+    quietly serve stale money. Imports are local because these modules import db.
+    """
+    from . import api, cache, control, copilot, insights
+    cache.clear()
+    for fn in (control.platform, control.merchants, control.sources, control._dq_sidecar,
+               insights._platform_floors, copilot._plan,
+               api.meta, api.quality, api._cached_eval):
+        fn.cache_clear()
 
 
 def _plain(v: Any) -> Any:

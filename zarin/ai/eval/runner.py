@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from ... import copilot
 from ...db import q1
+from . import retrieval
 from .cases import CASES, Case
 
 
@@ -62,9 +63,25 @@ def run_eval(merchant: str | None = None) -> dict:
         "language_quality": None,      # requires human / LLM-judge — not auto-scored (honest)
         "business_usefulness": None,   # requires human — not auto-scored (honest)
     }
+    # Routing quality on the 120-question held-out set, alongside the pre-retrieval router
+    # as a baseline. Kept in the same payload because "did the copilot answer the question
+    # that was asked" is the first thing AI-Ops has to be able to see; the per-case checks
+    # above only ever look at questions the product already knew how to route.
+    routing = retrieval.compare()
+    indicators["routing_accuracy"] = routing["after"]["exact_accuracy"]
+    indicators["routing_misroute_rate"] = routing["after"]["answerable"]["misrouted"]
+    indicators["routing_unsafe_rate"] = routing["after"]["out_of_scope"]["unsafe"]
+
     return {
         "merchant": merchant, "period": {"from": f, "to": t},
         "total": n, "passed": sum(1 for r in results if r["passed"]),
         "indicators": indicators, "cases": results,
+        "routing": {
+            "n": routing["after"]["n"],
+            "before": {k: routing["before"][k] for k in ("exact_accuracy", "answerable", "out_of_scope", "by_family")},
+            "after": {k: routing["after"][k] for k in ("exact_accuracy", "answerable", "out_of_scope", "by_family")},
+            "delta": routing["delta"],
+            "note_fa": "مجموعه ارزیابی مسیریابی، مستقل از بانک نمونه‌های موتور و بدون دیدن کد نوشته شده است.",
+        },
         "note_fa": "ارزیابی قطعی و آفلاین است. کیفیت زبانی و سودمندی کسب‌وکاری با قضاوت انسانی سنجیده می‌شوند و اینجا نمره خودکار نمی‌گیرند.",
     }

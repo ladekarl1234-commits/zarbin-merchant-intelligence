@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict
 
-from . import analytics, auth, control, copilot, insights, obs, ops_copilot, peers
+from . import analytics, auth, cache, control, copilot, insights, obs, ops_copilot, peers
 from .ai import telemetry as ai_telemetry
 from .ai.eval import run_eval
 from .config import (
@@ -30,7 +30,11 @@ from .db import q, q1
 from .fa import fa_num
 
 app = FastAPI(title="Zarbin — زرین‌بین", docs_url="/api/docs", openapi_url="/api/openapi.json")
-app.middleware("http")(obs.middleware)  # request telemetry → Control Center Product Performance
+# Registration order matters: Starlette runs the LAST-registered middleware outermost, so
+# obs must be registered after cache to keep seeing every request — including the ones the
+# cache answers, which are exactly the requests Product Performance should show as fast.
+app.middleware("http")(cache.middleware)  # deterministic-read cache + CDN cache headers
+app.middleware("http")(obs.middleware)    # request telemetry → Control Center Product Performance
 
 
 # --- Response contracts (ZB-009) -----------------------------------------------
@@ -131,28 +135,33 @@ def _merchant_scope(m: str, authorization: str | None = Header(default=None)) ->
     return m
 
 
+def _ops_session(authorization: str | None) -> bool:
+    claims = auth.verify(_bearer_token(authorization))
+    return bool(claims and claims.get("scope") == "ops")
+
+
 def _admin_guard(x_admin_token: str | None = Header(default=None),
                   authorization: str | None = Header(default=None)) -> None:
     """Operator gate for /api/admin/*.
 
     - ZARIN_ADMIN_TOKEN set and header matches -> always passes (back-compat).
-    - ZARIN_REQUIRE_AUTH=1 -> otherwise an ops-scope session token is required (ZB-001).
-    - ZARIN_ADMIN_TOKEN set but header wrong, REQUIRE_AUTH off -> 401 (unchanged).
-    - ZARIN_ADMIN_TOKEN unset and HOST not loopback -> 503: refuse rather than serve the
-      operator surface openly to the network (ZB-019, fail-closed instead of fail-open).
+      Wrong header -> 401, unless ZARIN_REQUIRE_AUTH=1 and an ops-scope session is present.
+    - No ZARIN_ADMIN_TOKEN, but ZARIN_REQUIRE_AUTH=1 *or* a non-loopback HOST -> a signed,
+      expiring ops-scope session token is required (ZB-001/ZB-019). A public deploy used to
+      get a flat 503 here, which took the whole operator surface off the air instead of
+      gating it; the gate is the session, and the demo's ops login mints one.
     - ZARIN_ADMIN_TOKEN unset and HOST loopback, REQUIRE_AUTH off -> open (demo default).
     """
-    if ADMIN_TOKEN and hmac.compare_digest(x_admin_token or "", ADMIN_TOKEN):
-        return
-    if REQUIRE_AUTH:
-        claims = auth.verify(_bearer_token(authorization))
-        if claims and claims.get("scope") == "ops":
+    if ADMIN_TOKEN:
+        if hmac.compare_digest(x_admin_token or "", ADMIN_TOKEN):
+            return
+        if REQUIRE_AUTH and _ops_session(authorization):
+            return
+        raise HTTPException(401, "operator token required for the Control Center API")
+    if REQUIRE_AUTH or not _is_loopback(HOST):
+        if _ops_session(authorization):
             return
         raise HTTPException(403, "ops session required")
-    if ADMIN_TOKEN:
-        raise HTTPException(401, "operator token required for the Control Center API")
-    if not _is_loopback(HOST):
-        raise HTTPException(503, "admin API disabled: set ZARIN_ADMIN_TOKEN before a non-loopback deploy")
 
 
 def _check_question(q_: str) -> str:
@@ -285,10 +294,35 @@ def changes(f1: str, t1: str, f2: str, t2: str, m: str = Depends(_merchant_scope
 @app.get("/api/copilot")
 def ask(q_: str = Query(alias="q"), m: str = Depends(_merchant_scope), f: str | None = None,
         t: str | None = None, surface: str = "merchant"):
+    """The answer. Deterministic, always — the LLM is never on this path.
+
+    Measured on the free-model policy this product is committed to: the best model that
+    OpenRouter's free tier actually serves adds 3.2s on average (5.1s p95) and its output
+    is discarded by the grounding guard about one time in five. Putting that in front of an
+    answer the engine already has in ~40ms would make every question slower and one in five
+    of them no better. `/api/copilot/polish` offers the same answer, rephrased, to a client
+    that has already rendered this one.
+    """
     _check_merchant(m)
     q_ = _check_question(q_)
     f, t = _dates(m, f, t)
-    return copilot.answer(m, q_, f, t, surface=surface)
+    return copilot.answer(m, q_, f, t, surface=surface, use_llm=False)
+
+
+@app.get("/api/copilot/polish")
+def polish(q_: str = Query(alias="q"), m: str = Depends(_merchant_scope), f: str | None = None,
+           t: str | None = None, surface: str = "merchant"):
+    """Optional second pass: the SAME deterministic answer, rephrased by the LLM.
+
+    Progressive enhancement. The client renders /api/copilot immediately and calls this
+    afterwards; if it returns `source == "llm"` the wording is swapped in, and if it is slow,
+    rate-limited, ungrounded or the key is absent, the client simply keeps what it already
+    showed. Every response is still grounding-guarded, so a swap can only ever change wording.
+    """
+    _check_merchant(m)
+    q_ = _check_question(q_)
+    f, t = _dates(m, f, t)
+    return copilot.answer(m, q_, f, t, surface=surface, use_llm=True)
 
 
 @app.post("/api/copilot/feedback")
@@ -350,9 +384,17 @@ def _cached_eval():
 
 @app.get("/api/admin/copilot", dependencies=_ADMIN)
 def admin_ask(q_: str = Query(alias="q"), f: str | None = None, t: str | None = None):
+    """Operator copilot. Deterministic for the same reason as the merchant one."""
     q_ = _check_question(q_)
     f, t = _dates("", f, t)
-    return ops_copilot.answer(q_, f, t)
+    return ops_copilot.answer(q_, f, t, use_llm=False)
+
+
+@app.get("/api/admin/copilot/polish", dependencies=_ADMIN)
+def admin_polish(q_: str = Query(alias="q"), f: str | None = None, t: str | None = None):
+    q_ = _check_question(q_)
+    f, t = _dates("", f, t)
+    return ops_copilot.answer(q_, f, t, use_llm=True)
 
 
 @app.post("/api/admin/copilot/feedback", dependencies=_ADMIN)
@@ -433,6 +475,11 @@ def quality():
     }
 
 
+# Vite fingerprints every asset filename, so the content behind a given /assets/* URL can
+# never change — a year at the edge with `immutable` is exactly right, and it is what keeps
+# a repeat page load off the origin entirely.
+_ASSET_CACHE = {"Cache-Control": "public, max-age=31536000, immutable"}
+
 if STATIC_DIR.exists():
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
 
@@ -440,11 +487,16 @@ if STATIC_DIR.exists():
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str):
+        # An unknown /api/* path must NOT fall through to the SPA. It used to: the catch-all
+        # answered `/api/typo` with index.html and HTTP 200, so a client bug (or a probe)
+        # got "success" and a body of HTML where JSON was contracted.
+        if path.startswith("api/"):
+            raise HTTPException(404, f"no such endpoint: /{path}")
         # Containment must be decided LEXICALLY, before any filesystem/network call.
         # Path.resolve() would open a handle first — and on Windows a "///host/share"
         # path becomes a UNC path that triggers an SMB connect (NTLM leak + threadpool
         # stall) at resolve() time, too late for is_relative_to. normpath is pure string.
         f = Path(os.path.normpath(_STATIC_BASE / path))
         if path and f.is_relative_to(_STATIC_BASE) and f.is_file():
-            return FileResponse(f)
-        return FileResponse(STATIC_DIR / "index.html")
+            return FileResponse(f, headers=_ASSET_CACHE if path.startswith("assets/") else None)
+        return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "public, max-age=0, must-revalidate"})

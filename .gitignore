@@ -18,3 +18,11 @@ pipeline/_*
 .claude/
 .coverage
 htmlcov/
+
+.vercel
+.env*
+
+# deploy artifact: a copy of zarin/static served straight from the CDN.
+# Rebuilt by the recipe in docs/DEPLOY_VERCEL.md; uploaded from the working tree,
+# never from git (see .vercelignore).
+public/

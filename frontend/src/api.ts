@@ -81,6 +81,9 @@ export type Changes = {
 
 export type CopilotAnswer = {
   answer_fa: string; intent: string; evidence: Evidence[]; note_fa: string;
+  // Present only when the router asked back instead of answering: the nearest questions it
+  // CAN answer, so "I didn't understand" costs the merchant one click instead of a retype.
+  suggestions_fa?: string[];
   confidence?: "high" | "medium" | "low";
   source?: "deterministic" | "llm"; grounded?: boolean; fallback?: boolean;
   quality_flags?: string[]; provider?: string | null; model?: string | null;
@@ -133,12 +136,23 @@ export type AdminSources = {
   cross_source_note_fa: string | null;
 };
 
+export type RoutingScore = {
+  exact_accuracy: number;
+  answerable: { n: number; exact: number; misrouted: number; missed: number };
+  out_of_scope: { n: number; safe: number | null; unsafe: number | null };
+  by_family: Record<string, { n: number; exact: number }>;
+};
+
 export type AdminEval = {
   merchant: string; period: { from: string; to: string }; total: number; passed: number;
   indicators: {
     deterministic_correctness: number; grounding_quality: number;
     refusal_safety: number | null; language_quality: null; business_usefulness: null;
+    routing_accuracy?: number; routing_misroute_rate?: number; routing_unsafe_rate?: number;
   };
+  routing?: { n: number; before: RoutingScore; after: RoutingScore;
+              delta: { exact_accuracy: number; misrouted: number; unsafe: number };
+              note_fa: string };
   cases: { id: string; dimension: string; intent: string; expected_intent: string;
            confidence: string | null; evidence_count: number; passed: boolean }[];
   note_fa: string;

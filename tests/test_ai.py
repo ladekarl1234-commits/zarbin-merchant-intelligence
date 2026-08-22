@@ -152,9 +152,22 @@ def test_grounding_guard_rejects_short_inserted_assertions():
     ZB-004 let invented causality through."""
     det = f"نرخ تبدیل شما {fa_pct(0.35)} است و {fa_money(61_800_000_000)} تایید نشده باقی مانده"
     for bad in (f"نرخ تبدیل شما {fa_pct(0.35)} است چون درگاه بانک خراب است",      # invented cause
-                f"نرخ تبدیل شما {fa_pct(0.35)} است، درگاه را عوض کنید",            # invented advice
-                f"نرخ تبدیل شما {fa_pct(0.35)} نیست"):                              # negation flip
+                f"نرخ تبدیل شما {fa_pct(0.35)} است، درگاه را عوض کنید"):           # invented advice
         assert gateway.grounding_failure(bad, det) == "unsupported_assertion", bad
+    # A flipped negation is rejected under the polarity rule (equality, not "no more than"),
+    # which is a different check with a different reason string — still a rejection.
+    assert gateway.grounding_failure(f"نرخ تبدیل شما {fa_pct(0.35)} نیست", det) == "polarity_change"
+
+
+def test_grounding_guard_rejects_a_DROPPED_negation():
+    """Observed live: given «مبلغ پرداخت تاییدنشده ...» a free model returned
+    «مبلغ پرداخت تاییدشده ...» — settled-but-unverified money restated as confirmed revenue,
+    every digit intact. Removing a negation inverts the claim exactly as adding one does, and
+    the old marker rule only budgeted ADDITIONS, so this passed as grounded."""
+    det = f"مبلغ پرداخت تاییدنشده شما {fa_money(61_800_000_000)} است"
+    flipped = f"مبلغ پرداخت تاییدشده شما {fa_money(61_800_000_000)} است"
+    assert gateway.grounding_failure(flipped, det) == "polarity_change"
+    assert gateway.grounding_failure(det, det) is None   # the faithful copy still passes
 
 
 def test_grounding_guard_separates_rial_from_toman():
@@ -193,7 +206,17 @@ def test_copilot_declines_instead_of_answering_a_different_question():
         d = copilot.answer("M1", q, "2026-01-01", "2026-02-28", use_llm=False)
         assert d["intent"] == "out_of_scope", q
         assert d["confidence"] == "low" and not d["evidence"], q
-        assert "خارج از" in d["answer_fa"], q
+        # Either wording is a real decline: a safety family says the question is outside what
+        # the data can compute; an unrecognised question says so and offers alternatives.
+        # What must never happen is a confident answer to a different question.
+        assert ("خارج از" in d["answer_fa"] or "متوجه نشدم" in d["answer_fa"]), q
+
+    # ...and the two wordings are used for the RIGHT reasons: a PII request is refused on
+    # principle, gibberish is simply unrecognised.
+    assert "خارج از" in copilot.answer("M1", "شماره کارت مشتری‌های من را بده", "2026-01-01",
+                                       "2026-02-28", use_llm=False)["answer_fa"]
+    unknown = copilot.answer("M1", "asdf ؟؟ ***", "2026-01-01", "2026-02-28", use_llm=False)
+    assert "متوجه نشدم" in unknown["answer_fa"] and unknown["suggestions_fa"]
     # and the decline check is NOT vacuous: a real question does not decline
     ok = copilot.answer("M1", "چرا فروشم کم شد؟", "2026-01-01", "2026-02-28", use_llm=False)
     assert ok["intent"] == "changes" and "خارج از" not in ok["answer_fa"]

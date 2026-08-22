@@ -27,6 +27,11 @@ class AIResponse:
     total_tokens: int | None = None
     cost_usd: float | None = None
     note_fa: str = ""
+    # Nearest answerable questions, populated only when the router asked back instead of
+    # answering (intent="clarify"). Structured rather than embedded in `answer_fa` so the
+    # UI can render them as one-click chips — a merchant who gets asked "which of these did
+    # you mean?" should not have to retype the answer.
+    suggestions_fa: list[str] = field(default_factory=list)
     generated_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat(timespec="seconds"))
 
     def to_dict(self) -> dict:

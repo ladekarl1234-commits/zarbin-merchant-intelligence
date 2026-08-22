@@ -33,7 +33,12 @@ OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.
 # Free-model policy: a model is allowed iff its id ends with ':free' (OpenRouter's
 # zero-price convention) OR is in FREE_ALLOWLIST. `openrouter/auto` is REJECTED —
 # OpenRouter bills auto-routing at the selected model's standard rate.
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-chat-v3-0324:free").strip()
+# Default lives in ai/models.py next to the measurement that chose it, so the id and the
+# evidence for it cannot drift apart.
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "").strip()
+# The LLM is never on the answer path (see /api/copilot/polish): the deterministic answer
+# has already been delivered by the time this fires, so the timeout only bounds how long the
+# optional polish may take before the client keeps what it has.
 OPENROUTER_TIMEOUT = float(os.environ.get("OPENROUTER_TIMEOUT", "20"))
 AI_MAX_TOKENS = int(os.environ.get("ZARIN_AI_MAX_TOKENS", "600"))
 

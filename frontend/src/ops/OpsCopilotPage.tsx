@@ -23,6 +23,7 @@ export default function OpsCopilotPage() {
       suggestions={PROMPTS}
       placeholder="مثلاً: چرا fallback زیاد شده؟"
       ask={(q) => get<CopilotAnswer>("admin/copilot", { q, f: period.f, t: period.t })}
+      polish={(q) => get<CopilotAnswer>("admin/copilot/polish", { q, f: period.f, t: period.t })}
       onFeedback={(a, useful) => get("admin/copilot/feedback", { intent: a.intent, useful: String(useful) }, "POST").catch(() => {})}
     />
   );

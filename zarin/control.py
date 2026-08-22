@@ -25,6 +25,11 @@ def _dq_sidecar() -> dict | None:
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
+# The marts are immutable for the life of the process, so platform/merchants/sources are
+# pure functions of their arguments — the window picker only ever asks for a handful of
+# distinct windows, and each one costs a full-platform scan of 2.06M sessions. Callers
+# treat the result as read-only (verified: every call site serialises it and returns).
+@lru_cache(maxsize=32)
 def platform(f: str, t: str) -> dict:
     total_merchants = q1("SELECT count(*) AS n FROM merchant_stats")["n"]
     agg = q1("""
@@ -112,6 +117,7 @@ _MERCHANT_SORT = {
 }
 
 
+@lru_cache(maxsize=32)
 def merchants(sort: str, limit: int) -> dict:
     """Merchant-level drilldown behind the Control Center's recommended actions (ZB-026)."""
     order = _MERCHANT_SORT.get(sort, _MERCHANT_SORT["unverified"])
@@ -160,6 +166,7 @@ def ai_ops() -> dict:
     return ai_telemetry.summary()
 
 
+@lru_cache(maxsize=8)
 def sources(f: str, t: str) -> dict:
     statuses = [a.status().to_dict() for a in registry()]
     # Cross-source (traffic→payment) insights require a connected web-analytics source

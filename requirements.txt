@@ -1,0 +1,5 @@
+# Runtime dependencies for the Vercel Python function. Deliberately NOT the dev
+# group (pytest/httpx/ruff) and NOT uvicorn — Vercel provides the ASGI server, so
+# shipping one would only add weight to a bundle that also carries 63 MB of marts.
+duckdb==1.5.5
+fastapi==0.141.1

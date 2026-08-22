@@ -15,7 +15,21 @@ share one deterministic intelligence platform:
 
 ---
 
-## ▶ Open the product
+## ▶ Live
+
+**🔗 https://zarbin-nine.vercel.app**
+
+| | |
+|---|---|
+| Merchant Workspace | log in via «فضای پذیرنده / مشتری» (demo gate: any phone, any 5-digit code) |
+| Control Center | log in via «مرکز کنترل عملیات» — mints a signed, expiring ops session |
+| Region | `fra1`, Vercel Python function + CDN-cached read API |
+| Server-side latency | **p50 19 ms · p95 325 ms** (`Server-Timing: app;dur=…` on every response) |
+| Whole dataset in the function | 2.06M sessions / 1.95M attempts as 63 MB of ZSTD parquet, queried in-process by DuckDB — no database server |
+
+Deployment recipe and the constraints it works around: **[docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md)**.
+
+## ▶ Or run it locally
 
 ```bash
 uv run zarin
@@ -42,7 +56,8 @@ No API key and no network are required — the product runs fully offline on the
 | **Explainable peers** | Peers matched by category + scale band + ticket band, ≥ pool size, suppressed when thin — with the *reason* shown. |
 | **What Changed?** | Exact decomposition of a GMV move into sessions × conversion × ticket (LMDI, sums exactly). |
 | **Evidence lineage** | Every number has a «محاسبه» button → definition, method, the **SQL that ran**, params, sample size, caveats, drill-through to source rows. |
-| **Grounded Copilot** | Deterministic answers; an optional LLM only *rephrases*. The grounding guard binds every number to its **value and unit**, rejects rescaled figures, injected links/emails/phones, length inflation and **invented causality**. Out-of-scope questions are declined, not answered with something else. Works offline. |
+| **Grounded Copilot** | Deterministic answers; an optional LLM only *rephrases*, and never on the answer path. The grounding guard binds every number to its **value and unit**, rejects rescaled figures, injected links/emails/phones, length inflation, **invented causality** and **flipped negations** (a free model really did turn «پرداخت تاییدنشده» into «تاییدشده» with every digit intact). Works offline. |
+| **It answers the question you asked** | The copilot's understanding layer is a three-stage router — safety families → ordered exact rules → offline TF-IDF retrieval over a 13-intent bank — with four honest outcomes: answer, ask back, "I didn't understand, here are three I can answer", or refuse *and name the limit*. On 129 blind Persian questions this took **32% → 95%** right-question accuracy, misrouting **53% → 2%**, and answering questions it should refuse **38% → 5%**. See **[docs/RETRIEVAL.md](docs/RETRIEVAL.md)**. |
 | **AI Operations** | Live AI quality separated into deterministic / grounding / language / usefulness — plus fallback, hallucination-risk, latency, tokens, **cost**. |
 | **Voice** | Persian voice-to-text on both copilots (Web Speech, graceful fallback). |
 | **Pluggable sources** | `DataSourceAdapter` — GA4 first (config-gated); web signals never confused with payment truth. |
@@ -113,8 +128,9 @@ Docker: `docker compose up`.
 ---
 
 ## Environment variables
-`OPENROUTER_API_KEY` (optional; enables LLM rephrasing) · `OPENROUTER_MODEL`
-(default `deepseek/deepseek-chat-v3-0324:free`, **free-model policy enforced**) ·
+`OPENROUTER_API_KEY` (optional; enables the `/api/copilot/polish` rephrasing pass — never the
+answer path) · `OPENROUTER_MODEL` (default `nvidia/nemotron-3-super-120b-a12b:free`, chosen by
+[measurement](zarin/ai/models.py), **free-model policy enforced**) ·
 `GA4_PROPERTY_ID` + `GOOGLE_APPLICATION_CREDENTIALS` (optional GA4) ·
 `ZARIN_ADMIN_TOKEN` (set → Control Center API requires `X-Admin-Token`) ·
 `ZARIN_PORT` (8630) · `ZARIN_HOST` · `ZARIN_DATA_PATH` · `ZARIN_MARTS_DIR` · `ZARIN_TELEMETRY_DIR`.
@@ -122,10 +138,12 @@ No secrets are committed; the dataset is git-ignored and absent from history.
 
 ## Testing
 ```bash
-uv run pytest -q                 # 56 tests
-uv run ruff check .              # lint
-cd frontend && npm run build     # tsc (strict) + vite
-uv run python -m zarin.ai.eval   # copilot eval: deterministic / grounding / refusal
+uv run pytest -q                        # 180 tests
+uv run ruff check .                     # lint
+cd frontend && npm run build            # tsc (strict) + vite
+uv run python -m zarin.ai.eval          # copilot eval: deterministic / grounding / refusal
+uv run python -m zarin.ai.eval.retrieval -v   # intent routing, before/after, two blind sets
+uv run python pipeline/calibrate_nlu.py       # leave-one-out calibration of the router constants
 ```
 CI: [.github/workflows/ci.yml](.github/workflows/ci.yml) (Python + frontend jobs).
 

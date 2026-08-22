@@ -42,6 +42,7 @@ export default function CopilotPage() {
       suggestions={PROMPTS}
       placeholder="مثلاً: چرا فروشم کم شد؟"
       ask={(q) => get<CopilotAnswer>("copilot", { m: merchant, q, f: period.f, t: period.t, surface: "merchant" })}
+      polish={(q) => get<CopilotAnswer>("copilot/polish", { m: merchant, q, f: period.f, t: period.t, surface: "merchant" })}
       onFeedback={(a, useful) =>
         get("copilot/feedback", { m: merchant, intent: a.intent, useful: String(useful), surface: "merchant" }, "POST").catch(() => {})}
     />

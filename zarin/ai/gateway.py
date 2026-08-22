@@ -82,7 +82,22 @@ def _norm(text: str) -> str:
 _ASSERTION_MARKERS = tuple(m.replace(" ", "") for m in (
     "چون", "زیرا", "به دلیل", "بخاطر", "به خاطر", "باعث", "علت", "دلیل", "ناشی از", "منجر به",
     "کنید", "بکنید", "پیشنهاد می کنم", "توصیه می کنم", "بهتر است", "لازم است", "راهکار", "راه حل",
-    "باید", "نیست", "نبوده", "نشده است", "ندارد", "نداریم", "ندارید", "خیر"))
+    "باید", "خیر"))
+# POLARITY markers are checked in BOTH directions, because a negation can be inverted either way:
+#
+#   DROPPED  (llm has fewer than the engine) — observed live, not hypothesised: given
+#     «مبلغ پرداخت تاییدنشده ...», nvidia/nemotron-3-nano-30b-a3b:free returned
+#     «مبلغ پرداخت تاییدشده ...» — settled-but-unverified money restated as confirmed revenue,
+#     every digit intact. A rule that only budgets ADDITIONS cannot see this.
+#   INTRODUCED (the engine used the marker zero times, the model uses it) — «... ۳۵٪ نیست».
+#
+# What is NOT flagged is a marker the engine already used being used again: a faithful
+# rephrasing that leads with the headline legitimately says «تاییدنشده» twice where the
+# engine said it once. Requiring equality rejected exactly that, and rejecting good
+# rephrasings is how the LLM path silently degrades to a no-op.
+_POLARITY_MARKERS = tuple(m.replace(" ", "") for m in (
+    "نیست", "نبوده", "نشده", "نشد", "ندارد", "نداریم", "ندارید", "نکرده", "نمی",
+    "تاییدنشده", "تایید نشده", "بدون تایید"))
 # NOT markers: «هیچ» and «بدون» are ordinary Persian function words, not negations — budgeting them
 # rejected faithful rephrasings («... تراکنش بدون تایید مانده است»). The sentences they appeared in
 # during round 2 are still caught, by sentence containment rather than by vocabulary.
@@ -211,6 +226,10 @@ def grounding_failure(llm_text: str, deterministic_text: str) -> str | None:
     for marker in _ASSERTION_MARKERS:
         if llm_tight.count(marker) > det_tight.count(marker):
             return "unsupported_assertion"
+    for marker in _POLARITY_MARKERS:
+        llm_n, det_n = llm_tight.count(marker), det_tight.count(marker)
+        if llm_n < det_n or (det_n == 0 and llm_n > 0):
+            return "polarity_change"
     if _unsupported_sentence(llm_norm, det_norm):
         return "unsupported_assertion"
     det_words = {w for w in _WORD_RE.findall(deterministic_text)}
@@ -228,7 +247,8 @@ def is_grounded(llm_text: str, deterministic_text: str) -> bool:
 
 def explain(*, question: str, merchant_scope: str, intent: str, deterministic_answer_fa: str,
             evidence: list[dict], confidence: str | None = None, surface: str = "merchant",
-            provider: AIProvider | None = None, _use_default: bool = True) -> AIResponse:
+            provider: AIProvider | None = None, _use_default: bool = True,
+            suggestions: list[str] | None = None) -> AIResponse:
     """Return a grounded AIResponse. Never raises for provider problems — it falls back."""
     if provider is None and _use_default:
         provider = default_provider()
@@ -236,7 +256,7 @@ def explain(*, question: str, merchant_scope: str, intent: str, deterministic_an
     base = AIResponse(
         answer_fa=deterministic_answer_fa, intent=intent, evidence=evidence,
         confidence=confidence or "medium", source="deterministic", grounded=True,
-        note_fa=_DETERMINISTIC_NOTE,
+        note_fa=_DETERMINISTIC_NOTE, suggestions_fa=list(suggestions or []),
     )
 
     if provider is None:  # offline / no key — intended path, not a failure
@@ -282,7 +302,7 @@ def explain(*, question: str, merchant_scope: str, intent: str, deterministic_an
         grounded=True, fallback=False, provider=comp.provider, model=comp.model,
         latency_ms=comp.latency_ms, prompt_tokens=comp.prompt_tokens,
         completion_tokens=comp.completion_tokens, total_tokens=comp.total_tokens,
-        cost_usd=comp.cost_usd, note_fa=_GROUNDING_NOTE,
+        cost_usd=comp.cost_usd, note_fa=_GROUNDING_NOTE, suggestions_fa=list(suggestions or []),
     )
     _emit(out, merchant_scope, surface, success=True)
     return out

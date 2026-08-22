@@ -32,7 +32,8 @@ function useVoice(onText: (t: string) => void) {
   return { supported, listening, toggle };
 }
 
-type Turn = { id: number; q: string; a?: CopilotAnswer; pending?: boolean; vote?: boolean };
+type Turn = { id: number; q: string; a?: CopilotAnswer; pending?: boolean; vote?: boolean;
+              polishing?: boolean };
 export type Prompt = { q: string; why?: string };
 export type GlanceItem = { k: string; v: string; d?: string; dColor?: string; tip?: keyof typeof TIPS };
 
@@ -43,10 +44,14 @@ export type CopilotProps = {
   suggestions: Prompt[];
   placeholder: string;
   ask: (q: string) => Promise<CopilotAnswer>;
+  /** Optional second pass: the SAME answer, rephrased by the LLM. Called only after the
+   *  deterministic answer is on screen. If it is slow, rate-limited, ungrounded or absent,
+   *  nothing happens — the merchant keeps the answer they already have. */
+  polish?: (q: string) => Promise<CopilotAnswer>;
   onFeedback?: (a: CopilotAnswer, useful: boolean) => void;
 };
 
-export default function Copilot({ heroTitle, heroSub, glance, suggestions, placeholder, ask, onFeedback }: CopilotProps) {
+export default function Copilot({ heroTitle, heroSub, glance, suggestions, placeholder, ask, polish, onFeedback }: CopilotProps) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const seq = useRef(0);
@@ -64,6 +69,20 @@ export default function Copilot({ heroTitle, heroSub, glance, suggestions, place
     catch { a = { answer_fa: "خطا در پردازش پرسش. لطفاً دوباره تلاش کنید.", intent: "error", evidence: [], note_fa: "" }; }
     setTurns((t) => t.map((x) => (x.id === id ? { ...x, a, pending: false } : x)));
     requestAnimationFrame(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }));
+
+    // Progressive enhancement. The answer above is already correct and already on screen;
+    // this only ever changes its WORDING, and only when the grounding guard accepted the
+    // rephrasing. A refusal has nothing to rephrase, so it is skipped.
+    if (!polish || a.intent === "out_of_scope" || a.intent === "clarify" || a.intent === "error") return;
+    setTurns((t) => t.map((x) => (x.id === id ? { ...x, polishing: true } : x)));
+    try {
+      const better = await polish(q);
+      setTurns((t) => t.map((x) => (x.id === id
+        ? { ...x, polishing: false, a: better.source === "llm" ? better : x.a }
+        : x)));
+    } catch {
+      setTurns((t) => t.map((x) => (x.id === id ? { ...x, polishing: false } : x)));
+    }
   };
   const vote = (id: number, useful: boolean) => {
     setTurns((t) => t.map((x) => (x.id === id ? { ...x, vote: useful } : x)));
@@ -123,15 +142,24 @@ export default function Copilot({ heroTitle, heroSub, glance, suggestions, place
                       ? <span className="chip chip-info">با کمک هوش مصنوعی</span>
                       : <Term label={<span className="src-chip"><span className="dot" />محاسبه قطعی از داده شما</span>} tip="deterministic" />}
                     {t.a!.fallback && <span className="chip chip-warn">پاسخ قطعی جایگزین شد</span>}
+                    {t.polishing && <span className="chip chip-mute">در حال روان‌تر کردن بیان…</span>}
                     {!outOfScope && t.a!.confidence && <ConfChip level={t.a!.confidence} />}
                   </div>
-                  {outOfScope && suggestions.length > 0 && (
-                    <div className="suggest" style={{ marginTop: 10 }}>
-                      {suggestions.slice(0, 4).map((p) => (
-                        <button key={p.q} type="button" onClick={() => run(p.q)}>{p.q}</button>
-                      ))}
-                    </div>
-                  )}
+                  {outOfScope && (() => {
+                    // Prefer the questions the retrieval layer actually found nearest to what
+                    // was asked; fall back to the page's static prompts when it offered none
+                    // (e.g. a request refused on safety grounds, where "try this instead" is
+                    // deliberately not offered).
+                    const retrieved = t.a!.suggestions_fa ?? [];
+                    const opts = retrieved.length ? retrieved : suggestions.slice(0, 4).map((p) => p.q);
+                    return opts.length > 0 && (
+                      <div className="suggest" style={{ marginTop: 10 }}>
+                        {opts.map((q) => (
+                          <button key={q} type="button" onClick={() => run(q)}>{q}</button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   <div className="ans-actions">
                     {t.a!.evidence.length > 0 && <EvBtn title="پاسخ زرین‌بین" items={t.a!.evidence} label="این عدد از کجا آمد؟" />}
                     {onFeedback && (

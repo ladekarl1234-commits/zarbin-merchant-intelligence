@@ -206,15 +206,23 @@ def build(data_path: Path = DATA_PATH, out_dir: Path = MARTS_DIR, quiet: bool = 
     # ~28 audited Verified-sessions-without-Verified-try (session-level is authoritative).
     # ORDER BY merchant_key(, d) so parquet row-group min/max zone maps let a per-merchant
     # query prune most row groups instead of scanning the whole platform (ZB-023).
+    # The sort key ends in the mart's UNIQUE key so a rebuild is byte-reproducible: without a
+    # tiebreaker DuckDB's parallel sort may order tied rows differently between runs, which
+    # changes the file hash (and the row order any un-ORDERed query returns).
     _MART_ORDER = {
-        "sessions": "merchant_key, d", "attempts": "merchant_key, d",
-        "merchant_daily": "merchant_key, d", "customers": "merchant_key",
+        "sessions": "merchant_key, d, session_key",
+        "attempts": "merchant_key, d, session_key, try_seq",
+        "merchant_daily": "merchant_key, d", "customers": "merchant_key, payer_card_key",
+        "merchant_stats": "merchant_key",
     }
+    # ZSTD over SNAPPY: 68 MB instead of 100 MB for byte-identical query results (verified
+    # endpoint-by-endpoint), which is what makes the whole dataset fit inside a serverless
+    # function bundle. Decompression cost is not measurable against the query time.
     for name in ("sessions", "attempts", "merchant_daily", "customers", "merchant_stats"):
-        order = f" ORDER BY {_MART_ORDER[name]}" if name in _MART_ORDER else ""
         con.execute(
-            f"COPY (SELECT * FROM {name}{order}) TO "
-            f"'{(out_dir / f'{name}.parquet').as_posix()}' (FORMAT PARQUET)"
+            f"COPY (SELECT * FROM {name} ORDER BY {_MART_ORDER[name]}) TO "
+            f"'{(out_dir / f'{name}.parquet').as_posix()}' "
+            "(FORMAT PARQUET, COMPRESSION ZSTD, COMPRESSION_LEVEL 15, ROW_GROUP_SIZE 122880)"
         )
 
     # --- data-quality anomaly counts: computed once here (data-version-invariant), not

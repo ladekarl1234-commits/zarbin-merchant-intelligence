@@ -14,16 +14,51 @@ surfaces over one deterministic intelligence platform**:
 ## Architecture (one shared semantic layer)
 ```
 DuckDB over Parquet marts  ─┐
-  zarin/pipeline.py (build) │
+  zarin/pipeline.py (build) │   ZSTD-15, sorted by merchant_key,d,<unique key>
   zarin/db.py (access)      ├─► analytics.py / insights.py / peers.py  (deterministic metrics)
   zarin/registry.py         │        │
-   (metric SoT + evidence)  │        ├─► copilot.py (merchant)  ─► ai/gateway.py ─► [optional] OpenRouter
-                            │        └─► ops_copilot.py (ops)   ─► ai/gateway.py
-  zarin/control.py ─ platform/performance/ai-ops/sources
-  zarin/obs.py ─ request telemetry     zarin/ai/telemetry.py ─ AI telemetry
+   (metric SoT + evidence)  │        ├─► nlu.py (intent retrieval) ─► copilot.py (merchant)
+                            │        │                                  └─► ai/gateway.py
+                            │        └─► ops_copilot.py (ops)         ─► ai/gateway.py
+  zarin/control.py ─ platform/performance/ai-ops/sources                       │
+  zarin/cache.py  ─ response cache + CDN Cache-Control                          ▼
+  zarin/obs.py ─ request telemetry     zarin/ai/telemetry.py ─ AI telemetry  [optional] OpenRouter
   zarin/sources/ ─ DataSourceAdapter (zarinpal=truth, ga4=gated)
   zarin/api.py (FastAPI) ─► /api/* + /api/admin/* + static SPA (React/Vite/TS)
 ```
+
+## Copilot routing — READ BEFORE TOUCHING copilot.py
+Three stages, precision first. Full rationale + measurements: `docs/RETRIEVAL.md`.
+1. **Safety families** (`_OUT_OF_SCOPE`): forecast · external_market · pii · injection ·
+   not_in_dataset · greeting. Run FIRST, against raw AND normalised text. Each one closed a
+   measured failure — without them the router answered 15 of 40 questions it should refuse.
+2. **Exact rules** (`_RULES`, ORDERED): rule-by-rule against raw AND normalised, never
+   all-rules-against-raw-first — spelling must not beat rule priority. The order encodes real
+   opinions: psp("which gateway") > peers("rank among") > changes > hours > recovery >
+   amount_bands > friction > … Do not reorder without re-running the retrieval eval.
+3. **Retrieval** (`nlu.py`): TF-IDF centroid over 13 intent documents (examples + anchors×4).
+   score ≥ ACCEPT → route · ≥ REJECT → clarify · below → unrecognised (offers alternatives).
+- **`out_of_scope` is NOT a retrievable class.** "Everything else" cannot be enumerated.
+- **Every constant in nlu.py is set by `pipeline/calibrate_nlu.py` (leave-one-out over the
+  bank ONLY).** Never tune them against `zarin/ai/eval/retrieval*_cases.py` — those measure
+  generalisation, and tuning on them destroys the only honest number in the project.
+- `route_detail()` is the single routing implementation. `_plan` and the evaluation both call
+  it; there is no second copy to drift.
+
+## Deployment invariants (Vercel) — `docs/DEPLOY_VERCEL.md`
+- `.vercelignore` MUST exist. Without it Vercel falls back to `.gitignore`, which excludes
+  `data/` — and the function ships with no marts.
+- `ZARIN_SESSION_SECRET` MUST be set: otherwise auth.py generates a per-process secret and
+  tokens break at random when a second instance warms up.
+- `ZARIN_TELEMETRY_DIR=/tmp/...` — everything else is read-only.
+- `ZARIN_HOST` non-loopback ⇒ `/api/admin/*` requires a signed ops-scope session.
+- The LLM is NEVER on the answer path. `/api/copilot` is deterministic; `/api/copilot/polish`
+  is the opt-in rephrasing pass the client calls after rendering. Measured: the best free
+  model adds 3.2s and is rejected by the grounding guard ~1 time in 5.
+- `zarin/cache.py` CACHEABLE must never include `/api/copilot` (telemetry side effect) or
+  `/api/admin/*` (the guard runs after middleware).
+- `db.reset()` calls `invalidate_derived()`. Any new `lru_cache` over the marts must be added
+  there, or swapping MARTS_DIR silently serves the previous dataset.
 
 ## Analytical invariants — NEVER break these
 - **Grain: 1 dataset row = 1 payment attempt. All metrics are session-grain.**
@@ -46,6 +81,12 @@ DuckDB over Parquet marts  ─┐
 - The **deterministic engine is the source of truth for every number.** The LLM may only
   rephrase. `ai/gateway.py` runs a **grounding guard**: any answer introducing a number the
   engine didn't compute is discarded and the deterministic text is returned (fallback).
+- **Polarity is checked in BOTH directions.** A model that DROPS a negation inverts the claim
+  exactly as one that adds it: observed live, «مبلغ پرداخت تاییدنشده» came back as
+  «تاییدشده» with every digit intact. `_POLARITY_MARKERS` flags a marker the engine used and
+  the model did not, and a marker the engine never used at all — but NOT a marker already
+  present being repeated, because rejecting faithful rephrasings is how the LLM path silently
+  degrades to a no-op.
 - With **no `OPENROUTER_API_KEY` the product runs fully offline** on the deterministic engine.
 - **Free-model policy** (`ai/models.py`): allowed iff model id ends `:free` (or in an explicit
   allowlist). `openrouter/auto` is REJECTED (it bills). A configured non-free model is forced to
@@ -56,8 +97,9 @@ DuckDB over Parquet marts  ─┐
 - The LLM cannot construct SQL; only bounded deterministic tools produce numbers.
 
 ## Important env vars
-`OPENROUTER_API_KEY` (optional; enables LLM rephrasing) · `OPENROUTER_MODEL` (default
-`deepseek/deepseek-chat-v3-0324:free`, policy-enforced) · `GA4_PROPERTY_ID` +
+`OPENROUTER_API_KEY` (optional; enables `/api/copilot/polish`) · `OPENROUTER_MODEL` (default
+lives in `ai/models.py` next to the measurement that chose it; `deepseek/...:free` is DEAD on
+OpenRouter — do not restore it) · `GA4_PROPERTY_ID` +
 `GOOGLE_APPLICATION_CREDENTIALS` (optional GA4) · `ZARIN_ADMIN_TOKEN` (set → `/api/admin/*` needs `X-Admin-Token`) · `ZARIN_PORT` (8630) · `ZARIN_HOST` ·
 `ZARIN_DATA_PATH` · `ZARIN_MARTS_DIR` · `ZARIN_TELEMETRY_DIR`.
 

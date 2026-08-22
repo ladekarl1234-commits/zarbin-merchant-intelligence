@@ -78,6 +78,37 @@ export default function OpsAI() {
         ) : <Empty title="ارزیابی در دسترس نیست" body="" />}
       </Section>
 
+      {ev.data?.routing && (
+        <Section title="کیفیت مسیریابی پرسش‌ها"
+                 sub="آیا دستیار به همان پرسشی که کاربر پرسیده پاسخ می‌دهد؟ سنجش روی مجموعه‌ای مستقل که بدون دیدن کد نوشته شده است.">
+          <div className="ops-panel">
+            <Bar label="پاسخ به پرسش درست" value={ev.data.routing.after.exact_accuracy}
+                 tip="سهم پرسش‌هایی که به تحلیل درست هدایت شدند (مجموعهٔ ارزیابی مستقل)." />
+            <Bar label="پاسخ به پرسشِ دیگر (خطای پرهزینه)" value={ev.data.routing.after.answerable.misrouted}
+                 tip="سهم پرسش‌های پاسخ‌پذیری که به تحلیل اشتباه رفتند — کاربر پاسخی مطمئن به پرسش دیگری می‌گیرد." />
+            <Bar label="پاسخ‌دادن به پرسش خارج از دامنه" value={ev.data.routing.after.out_of_scope.unsafe}
+                 tip="سهم پرسش‌هایی که باید رد می‌شدند ولی با عدد پاسخ داده شدند. هدف: صفر." />
+            <table className="tbl num" style={{ marginTop: 12 }}>
+              <thead><tr><th>سنجه</th><th>پیش از بازطراحی</th><th>اکنون</th></tr></thead>
+              <tbody>
+                <tr><td>پاسخ به پرسش درست</td>
+                    <td>{pct(ev.data.routing.before.exact_accuracy)}</td>
+                    <td><b>{pct(ev.data.routing.after.exact_accuracy)}</b></td></tr>
+                <tr><td>پاسخ به پرسشِ دیگر</td>
+                    <td>{pct(ev.data.routing.before.answerable.misrouted)}</td>
+                    <td><b>{pct(ev.data.routing.after.answerable.misrouted)}</b></td></tr>
+                <tr><td>پاسخ‌دادن به خارج از دامنه</td>
+                    <td>{pct(ev.data.routing.before.out_of_scope.unsafe)}</td>
+                    <td><b>{pct(ev.data.routing.after.out_of_scope.unsafe)}</b></td></tr>
+              </tbody>
+            </table>
+            <p className="num" style={{ marginTop: 8, fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+              {faNum(ev.data.routing.n)} پرسش · {ev.data.routing.note_fa}
+            </p>
+          </div>
+        </Section>
+      )}
+
       {d.has_data && d.models && d.models.length > 0 && (
         <Section title="مدل‌ها و موضوع پرسش‌ها" sub="کدام مدل و چه نوع پرسش‌هایی بیشتر بوده‌اند.">
           <div className="ops-panel">

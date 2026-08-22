@@ -1,0 +1,31 @@
+# Vercel falls back to .gitignore when this file is absent, which would drop
+# data/marts — the parquet the function queries. This file replaces that fallback:
+# marts IN, everything a serverless function cannot use OUT.
+.git
+.github
+.venv
+.vscode
+.claude
+.impeccable
+.playwright-cli
+.pytest_cache
+.ruff_cache
+node_modules
+frontend
+tests
+docs
+specs
+scripts
+pipeline
+my prompt
+data orgin
+uv.lock
+Dockerfile
+docker-compose.yml
+*.png
+*.md
+!README.md
+
+# dataset: the 59 MB source CSV is rebuilt into marts offline; only the marts ship
+data/other_challenge_data.csv.gz
+data/telemetry

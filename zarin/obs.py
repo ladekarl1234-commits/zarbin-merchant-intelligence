@@ -35,8 +35,14 @@ async def middleware(request, call_next):
         if _trackable(path):
             record(request.method, path, 500, (time.perf_counter() - t0) * 1000)
         raise
+    dt_ms = (time.perf_counter() - t0) * 1000
     if _trackable(path):
-        record(request.method, path, resp.status_code, (time.perf_counter() - t0) * 1000)
+        record(request.method, path, resp.status_code, dt_ms)
+    # Server-Timing carries the server's OWN cost to the client, so a latency number can be
+    # attributed instead of guessed: measuring a deployment from a laptop otherwise mixes
+    # ~400 ms of client RTT into every figure and makes the app look ten times slower than
+    # it is. Standard header, read natively by Chrome DevTools.
+    resp.headers["Server-Timing"] = f"app;dur={dt_ms:.1f}"
     return resp
 
 
