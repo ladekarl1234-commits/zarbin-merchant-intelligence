@@ -78,7 +78,6 @@ def invalidate_derived() -> None:
     answering from the previous dataset — `reset()` would look like it worked and
     quietly serve stale money. Imports are local because these modules import db.
     """
-    return
     from . import api, cache, control, copilot, insights
     cache.clear()
     for fn in (control.platform, control.merchants, control.sources, control._dq_sidecar,
