@@ -22,8 +22,26 @@ export default function QualityPage() {
     <>
       <Section title="کیفیت داده و صداقت تحلیلی"
                sub="آنچه این محصول می‌تواند و نمی‌تواند از داده نتیجه بگیرد — بدون ترمیم پنهان، بدون عدد ساختگی.">
+        {/* Every figure on this page is DATASET-WIDE, not this merchant's. Without saying so,
+            a merchant reads «۱٬۰۲۵٬۶۵۵ جلسهٔ موفق» as their own — and the numbers do not change
+            when they switch merchant or period, which makes the misreading worse rather than
+            self-correcting. The page's subject is the honesty of the data underneath the whole
+            product, so its scope belongs on the page. Per-merchant outcome counts are on the
+            Funnel page, and this now says so. */}
+        <div className="card" style={{ padding: "12px 16px", marginBottom: 14,
+                                       borderInlineStart: "3px solid var(--brand)" }}>
+          <p style={{ margin: 0, fontSize: "var(--fs-s)", color: "var(--ink-2)" }}>
+            <b>محدودهٔ این صفحه: کل دیتاست</b> — همهٔ پذیرنده‌ها و کل بازه؛ نه کسب‌وکار شما و نه بازهٔ
+            انتخاب‌شده. این‌جا نشان می‌دهیم دادهٔ زیربنایی محصول چه کیفیتی دارد. همین تفکیک برای
+            کسب‌وکار خودتان در صفحهٔ «قیف پرداخت» است.
+          </p>
+        </div>
         <div className="card tbl-wrap" style={{ marginBottom: 18 }}>
           <table className="tbl num">
+            <caption style={{ captionSide: "top", textAlign: "start", padding: "10px 14px 0",
+                              fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+              توزیع وضعیت نهایی جلسه‌ها — کل دیتاست
+            </caption>
             <thead><tr><th>وضعیت نهایی جلسه</th><th>تعداد</th><th>سهم</th><th>مبلغ</th></tr></thead>
             <tbody>
               {d.outcomes.map((o) => (

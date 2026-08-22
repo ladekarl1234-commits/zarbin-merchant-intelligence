@@ -16,6 +16,7 @@ export default function Login({ onLogin }: { onLogin: (ws: WS) => void }) {
   const [target, setTarget] = useState<WS>("merchant");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", ""]);
+  const [submitting, setSubmitting] = useState(false);
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
   const isOps = target === "ops";
   const phoneShown = phone.trim() || "0912 345 6789";
@@ -81,14 +82,22 @@ export default function Login({ onLogin }: { onLogin: (ws: WS) => void }) {
                 <p className="login-note">با حساب زرین‌پال خود وارد شوید؛ نیازی به ثبت‌نام جداگانه نیست.</p>
               </form>
             ) : (
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
+                if (submitting) return;
+                setSubmitting(true);
                 // Auth contract with the backend: exchange the completed (demo) login for a
-                // session token. The endpoint may not exist yet in the challenge build — the demo
-                // must keep working either way, so failures are ignored silently.
-                get<{ token?: string }>("auth/session", { scope: target }, "POST")
-                  .then((r) => { if (r?.token) { try { sessionStorage.setItem("zb_token", r.token); } catch { /* storage blocked */ } } })
-                  .catch(() => {});
+                // session token. This MUST be awaited before entering the workspace. The ops
+                // landing page fetches /api/admin/platform on mount, and on a deployment where
+                // that route requires a session the very first render answered 403 — an error
+                // screen on every fresh ops login, which then "fixed itself" on the next
+                // navigation and so looked like a flake rather than a race. The endpoint may
+                // still be absent in an older build, so a failure is swallowed.
+                try {
+                  const r = await get<{ token?: string }>("auth/session", { scope: target }, "POST");
+                  if (r?.token) { try { sessionStorage.setItem("zb_token", r.token); } catch { /* storage blocked */ } }
+                } catch { /* older build without the endpoint */ }
+                setSubmitting(false);
                 onLogin(target);
               }}>
                 <p style={{ margin: "0 0 14px", fontSize: "0.85rem", color: "var(--ink-2)", textAlign: "center" }}>
@@ -102,7 +111,8 @@ export default function Login({ onLogin }: { onLogin: (ws: WS) => void }) {
                            onKeyDown={(e) => { if (e.key === "Backspace" && !v && i > 0) boxes.current[i - 1]?.focus(); }} />
                   ))}
                 </div>
-                <button className={`btn btn-block ${isOps ? "btn-ink" : "btn-brand"}`} type="submit" style={{ marginTop: 18 }}>ورود</button>
+                <button className={`btn btn-block ${isOps ? "btn-ink" : "btn-brand"}`} type="submit"
+                        style={{ marginTop: 18 }} disabled={submitting}>{submitting ? "در حال ورود…" : "ورود"}</button>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, fontSize: "0.78rem" }}>
                   <button type="button" className="linklike" style={{ color: "var(--ink-3)" }} onClick={() => setStep("phone")}>تغییر شماره</button>
                   <button type="button" className="linklike">ارسال دوباره کد</button>

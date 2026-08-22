@@ -45,6 +45,17 @@ export function localizeDates(s: string | null | undefined): string {
   if (!s) return "";
   return s.replace(/\d{4}-\d{2}-\d{2}/g, (m) => faDate(m));
 }
+/** A full timestamp in Persian. The evidence drawer printed the raw ISO-8601 string — Latin
+ *  digits and an English format, in the one place the product is asking to be trusted. */
+const dateTimeFmt = new Intl.DateTimeFormat("fa-IR", {
+  year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+});
+export function faDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : dateTimeFmt.format(d);
+}
+
 export function faDateShort(iso: string): string {
   return dateShort.format(new Date(iso.slice(0, 10) + "T12:00:00"));
 }

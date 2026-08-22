@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SessionSample } from "../api";
 import { get } from "../api";
 import { useApp } from "../ctx";
-import { faDate, faNum, localizeDates, rial } from "../fmt";
+import { faDate, faDateTime, faNum, localizeDates, rial } from "../fmt";
 import { IconClose } from "./ui";
 
 const OUTCOME_FA: Record<string, string> = {
@@ -87,7 +87,7 @@ export default function EvidenceDrawer() {
                 {ev.period && <><dt>دوره</dt><dd className="num">{localizeDates(ev.period)}</dd></>}
                 <dt>سطح داده</dt><dd>{ev.grain === "session" ? "جلسه پرداخت" : ev.grain === "customer" ? "مشتری (کارت)" : ev.grain}</dd>
                 {ev.n != null && <><dt>حجم نمونه</dt><dd className="num">{faNum(ev.n)}</dd></>}
-                <dt>زمان محاسبه</dt><dd className="num" style={{ direction: "ltr", textAlign: "start" }}>{ev.computed_at}</dd>
+                <dt>زمان محاسبه</dt><dd className="num">{faDateTime(ev.computed_at)}</dd>
               </dl>
               {Object.keys(ev.params).length > 0 && (
                 <>

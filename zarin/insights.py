@@ -701,11 +701,19 @@ def format_impact(card: dict) -> str:
     if not hi:
         return card.get("impact_label_fa", "")
     if card.get("impact_is_count"):
-        return f"{fa_num(lo)} تا {fa_num(hi)} تراکنش" if lo and lo != hi else f"{fa_num(hi)} تراکنش"
-    mid = card.get("impact_mid")
+        s_lo, s_hi = fa_num(lo), fa_num(hi)
+        return f"{s_lo} تا {s_hi} تراکنش" if lo and s_lo != s_hi else f"{s_hi} تراکنش"
+    # The comparison is on the RENDERED strings, not the raw floats. fa_money rounds to one
+    # decimal of a scale word, so an interval of 2.61e9..2.64e9 prints as
+    # «۲٫۶ میلیارد ریال (بین ۲٫۶ میلیارد ریال تا ۲٫۶ میلیارد ریال)» — a "range" whose two ends
+    # are the same words. Whether a range is worth showing is a question about what the
+    # merchant sees, so it has to be asked about the text.
+    s_lo, s_hi, mid = fa_money(lo), fa_money(hi), card.get("impact_mid")
+    if s_lo == s_hi:
+        return s_hi
     if mid:
-        return f"{fa_money(mid)} (بین {fa_money(lo)} تا {fa_money(hi)})"
-    return f"{fa_money(lo)} تا {fa_money(hi)}" if lo and lo != hi else fa_money(hi)
+        return f"{fa_money(mid)} (بین {s_lo} تا {s_hi})"
+    return f"{s_lo} تا {s_hi}" if lo else s_hi
 
 
 def _peer_repeat(keys: list[str]) -> list[dict]:
