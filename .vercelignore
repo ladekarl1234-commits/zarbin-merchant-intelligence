@@ -3,6 +3,12 @@
 # marts IN, everything a serverless function cannot use OUT.
 .git
 .github
+# `vercel link` writes .env.local with a VERCEL_OIDC_TOKEN. Because this file replaces the
+# .gitignore fallback, that credential would otherwise be uploaded into the function bundle —
+# not web-reachable (nothing serves it), but a secret has no business in a deploy artifact.
+.env
+.env.*
+.vercel
 .venv
 .vscode
 .claude
